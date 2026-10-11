@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { calculateMealRate } from "@/lib/calculations";
+import { SaveMealsSchema } from "@/lib/validations";
+import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
+import { safeErrorResponse } from "@/lib/security";
 
 // 1. GET request to fetch members and meal list for a specific date
 export async function GET(req: Request) {
@@ -84,18 +88,23 @@ export async function GET(req: Request) {
     });
     const todayBazaar = todayExpenses.reduce((acc, e) => acc + e.amount, 0);
 
-    // Live meal rate
-    const allExpenses = await prisma.expense.aggregate({
+    // Month-specific live meal rate calculation
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const dateFilter = { gte: startOfMonth, lt: endOfMonth };
+
+    const monthExpenses = await prisma.expense.aggregate({
       _sum: { amount: true },
-      where: { status: "Approved" },
+      where: { status: "Approved", date: dateFilter },
     });
-    const allMeals = await prisma.mealLog.findMany();
-    const totalMessMeals = allMeals.reduce(
+    const monthMeals = await prisma.mealLog.findMany({
+      where: { date: dateFilter },
+    });
+    const totalMonthMeals = monthMeals.reduce(
       (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
       0
     );
-    const liveMealRate =
-      totalMessMeals > 0 ? (allExpenses._sum.amount || 0) / totalMessMeals : 0;
+    const liveMealRate = calculateMealRate(monthExpenses._sum.amount || 0, totalMonthMeals);
 
     return NextResponse.json(
       {
@@ -103,7 +112,7 @@ export async function GET(req: Request) {
         members: membersWithMeals,
         stats: {
           totalMealsToday: Math.round(totalMealsToday * 10) / 10,
-          currentMealRate: Math.round(liveMealRate * 100) / 100,
+          currentMealRate: liveMealRate,
           todayBazaar: Math.round(todayBazaar),
         },
       },
@@ -123,24 +132,51 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { date, meals } = body;
+    // 1. Rate Limiting: 30 meal mutation requests per minute
+    const clientId = getClientIdentifier(req, "meals-mutation");
+    const rateCheck = checkRateLimit(clientId, 30, 60 * 1000);
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(rateCheck.resetAt);
+    }
 
-    if (!date) {
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!currentUser) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    }
+
+    const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
+
+    const body = await req.json();
+    const parsed = SaveMealsSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { message: "Date is required!" },
+        { success: false, error: parsed.error.issues[0]?.message || "Invalid meal entry data" },
         { status: 400 }
       );
     }
 
+    const { date, meals, userId, breakfast, lunch, dinner, guest } = parsed.data;
+
     const mealDate = new Date(date);
     mealDate.setUTCHours(0, 0, 0, 0);
 
-    // If full batch is sent
-    if (Array.isArray(meals)) {
+    // If batch entry is submitted
+    if (Array.isArray(meals) && meals.length > 0) {
+      if (!isPrivileged) {
+        const forbidden = meals.some((m) => m.userId !== currentUser.id);
+        if (forbidden) {
+          return NextResponse.json(
+            { success: false, error: "Members can only submit their own meal counts!" },
+            { status: 403 }
+          );
+        }
+      }
+
       const operations = meals.map((m) => {
         return prisma.mealLog.upsert({
           where: {
@@ -166,24 +202,29 @@ export async function POST(req: Request) {
         });
       });
 
-      await Promise.all(operations);
+      // Wrap in ACID transaction
+      await prisma.$transaction(operations);
 
       return NextResponse.json(
-        { message: "All meal data saved successfully!" },
+        { success: true, message: "All meal data saved successfully!" },
         { status: 200 }
       );
     }
 
-    // If single entry exists
-    const { userId, breakfast, lunch, dinner, guest } = body;
-    if (!userId) {
-      return NextResponse.json({ message: "User ID is required!" }, { status: 400 });
+    // Single entry processing
+    const targetUserId = userId || currentUser.id;
+
+    if (!isPrivileged && targetUserId !== currentUser.id) {
+      return NextResponse.json(
+        { success: false, error: "Members can only submit their own meal counts!" },
+        { status: 403 }
+      );
     }
 
     const savedMeal = await prisma.mealLog.upsert({
       where: {
         userId_date: {
-          userId,
+          userId: targetUserId,
           date: mealDate,
         },
       },
@@ -194,7 +235,7 @@ export async function POST(req: Request) {
         guest: Number(guest) || 0,
       },
       create: {
-        userId,
+        userId: targetUserId,
         date: mealDate,
         breakfast: Number(breakfast) || 0,
         lunch: Number(lunch) || 0,
@@ -204,14 +245,10 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { message: "Meal data saved!", meal: savedMeal },
+      { success: true, message: "Meal data saved successfully!", meal: savedMeal },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Meals POST Error:", error);
-    return NextResponse.json(
-      { message: "Server error occurred!" },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, "Failed to save meal data");
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { safeErrorResponse } from "@/lib/security";
 
 export async function POST(req: Request) {
   try {
@@ -41,10 +42,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Clear Notices Error:", error);
-    return NextResponse.json(
-      { error: "Failed to clear notices" },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, "Failed to clear notices");
   }
 }

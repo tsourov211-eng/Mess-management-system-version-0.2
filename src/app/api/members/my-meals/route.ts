@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
+import { safeErrorResponse, sanitizeInput } from "@/lib/security";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -29,7 +31,7 @@ export async function GET(req: Request) {
 
     const todaysMeal = await prisma.mealLog.findFirst({
       where: {
-        userId: user.id,
+        userId: user.id, // Strictly scoped to session (Anti-IDOR)
         date: { gte: today, lt: tomorrow },
       },
     });
@@ -60,12 +62,11 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(
-      { todayStatus, guestRequests, monthlyMeals },
+      { success: true, todayStatus, guestRequests, monthlyMeals },
       { status: 200 }
     );
   } catch (error) {
-    console.error("My Meals GET Error:", error);
-    return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to fetch meal history");
   }
 }
 
@@ -73,30 +74,83 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate Limiting: 30 requests per minute
+    const clientId = getClientIdentifier(req, "guest-meal");
+    const rateCheck = checkRateLimit(clientId, 30, 60 * 1000);
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(rateCheck.resetAt);
     }
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
 
-    const { date, mealType, guests } = await req.json();
+    const body = await req.json();
+    const { date, mealType, guests, note } = body;
+
+    if (!date) {
+      return NextResponse.json({ success: false, error: "Date is required" }, { status: 400 });
+    }
+
+    const reqDate = new Date(date);
+    if (isNaN(reqDate.getTime())) {
+      return NextResponse.json({ success: false, error: "Invalid date format" }, { status: 400 });
+    }
+    reqDate.setUTCHours(0, 0, 0, 0);
+
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    // 1. Prevent requesting for past dates or closed months
+    if (reqDate < todayStart) {
+      return NextResponse.json(
+        { success: false, error: "Cannot request guest meals for past dates or locked periods" },
+        { status: 400 }
+      );
+    }
+
+    const validGuests = Math.max(1, Math.min(50, Math.round(Number(guests) || 1)));
+    const cleanMealType = sanitizeInput(mealType) || "LUNCH";
+    const cleanNote = note ? sanitizeInput(note).slice(0, 500) : null;
+
+    // 2. Daily cutoff enforcement
+    if (reqDate.getTime() === todayStart.getTime()) {
+      const currentHour = now.getHours();
+      const normMeal = cleanMealType.toUpperCase();
+      if (normMeal.includes("BREAKFAST") && currentHour >= 8) {
+        return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
+      }
+      if (normMeal.includes("LUNCH") && currentHour >= 12) {
+        return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
+      }
+      if (normMeal.includes("DINNER") && currentHour >= 21) {
+        return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
+      }
+      if ((normMeal.includes("ALL") || normMeal.includes("BOTH")) && currentHour >= 12) {
+        return NextResponse.json({ success: false, error: "Cutoff time has passed for all-day guest meals today" }, { status: 400 });
+      }
+    }
 
     const newRequest = await prisma.guestMealRequest.create({
       data: {
-        userId: user.id,
-        date: new Date(date),
-        mealType,
-        guests: Number(guests),
+        userId: user.id, // Strictly scoped to session (Anti-IDOR)
+        date: reqDate,
+        mealType: cleanMealType,
+        guests: validGuests,
+        note: cleanNote,
+        status: "Pending",
       },
     });
 
-    return NextResponse.json(newRequest, { status: 201 });
+    return NextResponse.json({ success: true, request: newRequest }, { status: 201 });
   } catch (error) {
-    console.error("My Meals POST Error:", error);
-    return NextResponse.json({ error: "Failed to create request" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to create guest meal request");
   }
 }

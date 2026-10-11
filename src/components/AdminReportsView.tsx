@@ -33,6 +33,8 @@ export default function AdminReportsView() {
         totalDeposit: 0,
         totalMealsConsumed: 0,
         currentBalance: 0,
+        liveMealRate: 0,
+        fixedCostPerMember: 0,
     });
     const [members, setMembers] = useState<any[]>([]);
 
@@ -67,9 +69,12 @@ export default function AdminReportsView() {
             bazaarAmount: acc.bazaarAmount + curr.bazaarAmount,
             depositAmount: acc.depositAmount + curr.depositAmount,
             mealsConsumed: acc.mealsConsumed + curr.mealsConsumed,
+            mealCost: acc.mealCost + (curr.mealCost || 0),
+            fixedCost: acc.fixedCost + (curr.fixedCost || 0),
+            totalCost: acc.totalCost + (curr.totalCost || 0),
             currentBalance: acc.currentBalance + curr.currentBalance,
         }),
-        { bazaarAmount: 0, depositAmount: 0, mealsConsumed: 0, currentBalance: 0 }
+        { bazaarAmount: 0, depositAmount: 0, mealsConsumed: 0, mealCost: 0, fixedCost: 0, totalCost: 0, currentBalance: 0 }
     );
 
     const negativeMembers = filteredMembers.filter(m => m.currentBalance < 0);
@@ -95,24 +100,28 @@ export default function AdminReportsView() {
     };
 
     const handleExportExcel = () => {
-        // Format data for excel
+        // Format data for excel with complete Bangladeshi Mess calculations
         const excelData = filteredMembers.map((m, index) => ({
             "#": index + 1,
             "Member Name": m.name,
-            "Bazaar Amount (Tk)": m.bazaarAmount,
             "Deposit Amount (Tk)": m.depositAmount,
             "Meals Consumed": m.mealsConsumed,
-            "Current Balance (Tk)": m.currentBalance
+            "Meal Cost (Tk)": m.mealCost ?? Math.round(m.mealsConsumed * (stats.liveMealRate || 0) * 100) / 100,
+            "Fixed Overhead (Tk)": m.fixedCost ?? stats.fixedCostPerMember ?? 0,
+            "Total Cost (Tk)": m.totalCost ?? ((m.mealCost ?? 0) + (m.fixedCost ?? 0)),
+            "Net Balance (Tk)": m.currentBalance
         }));
         
         // Add Total row
         excelData.push({
             "#": "Total",
             "Member Name": "-",
-            "Bazaar Amount (Tk)": filteredTotals.bazaarAmount,
             "Deposit Amount (Tk)": filteredTotals.depositAmount,
             "Meals Consumed": filteredTotals.mealsConsumed,
-            "Current Balance (Tk)": filteredTotals.currentBalance
+            "Meal Cost (Tk)": filteredTotals.mealCost,
+            "Fixed Overhead (Tk)": filteredTotals.fixedCost,
+            "Total Cost (Tk)": filteredTotals.totalCost,
+            "Net Balance (Tk)": filteredTotals.currentBalance
         } as any);
 
         const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -129,18 +138,21 @@ export default function AdminReportsView() {
         
         doc.setFontSize(16);
         doc.text(`Financial Report - ${monthName} ${selectedYear}`, 14, 20);
+        doc.setFontSize(10);
+        doc.text(`Live Meal Rate: Tk ${(stats.liveMealRate || 0).toFixed(2)} | Fixed Overhead: Tk ${(stats.fixedCostPerMember || 0).toFixed(2)}`, 14, 26);
 
-        const tableColumn = ["#", "Member Name", "Bazaar Amount (Tk)", "Deposit Amount (Tk)", "Meals Consumed", "Current Balance (Tk)"];
+        const tableColumn = ["#", "Member Name", "Deposit", "Meals", "Meal Cost", "Fixed Cost", "Net Balance"];
         const tableRows = [];
 
         filteredMembers.forEach((m, index) => {
             tableRows.push([
                 index + 1,
                 m.name,
-                m.bazaarAmount.toFixed(2),
                 m.depositAmount.toFixed(2),
                 m.mealsConsumed,
-                m.currentBalance.toFixed(2)
+                (m.mealCost || 0).toFixed(2),
+                (m.fixedCost || 0).toFixed(2),
+                (m.currentBalance < 0 ? "-" : "+") + " " + Math.abs(m.currentBalance).toFixed(2)
             ]);
         });
 
@@ -148,16 +160,17 @@ export default function AdminReportsView() {
         tableRows.push([
             "Total",
             "-",
-            filteredTotals.bazaarAmount.toFixed(2),
             filteredTotals.depositAmount.toFixed(2),
             filteredTotals.mealsConsumed,
-            filteredTotals.currentBalance.toFixed(2)
+            filteredTotals.mealCost.toFixed(2),
+            filteredTotals.fixedCost.toFixed(2),
+            (filteredTotals.currentBalance < 0 ? "-" : "+") + " " + Math.abs(filteredTotals.currentBalance).toFixed(2)
         ]);
 
         autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 30,
+            startY: 32,
             theme: 'grid',
             headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: 'bold' },
             footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: 'bold' },
@@ -177,7 +190,10 @@ export default function AdminReportsView() {
                     </div>
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B132B]">Financial Reports</h1>
-                        <p className="text-sm text-gray-500 font-medium mt-1">Complete member-wise bazaar and expense report for {new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'long' })} {selectedYear}.</p>
+                        <p className="text-sm text-gray-500 font-medium mt-1">
+                            Complete member-wise bazaar and expense report for {new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'long' })} {selectedYear}
+                            {!isLoading && stats.liveMealRate !== undefined && ` • Live Meal Rate: ৳${stats.liveMealRate.toFixed(2)}`}
+                        </p>
                     </div>
                 </div>
                 
@@ -343,7 +359,14 @@ export default function AdminReportsView() {
                                             <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs shrink-0">
                                                 {member.name.charAt(0).toUpperCase()}
                                             </div>
-                                            <span className="font-extrabold text-gray-900 text-sm">{member.name}</span>
+                                            <div>
+                                                <span className="font-extrabold text-gray-900 text-sm block">{member.name}</span>
+                                                {member.mealCost !== undefined && (
+                                                    <span className="text-[11px] text-gray-400 font-medium block">
+                                                        Food: ৳{member.mealCost} {member.fixedCost ? `• Fixed: ৳${member.fixedCost}` : ''}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="py-3 px-6 text-sm font-semibold text-gray-600 text-right">
@@ -355,8 +378,8 @@ export default function AdminReportsView() {
                                     <td className="py-3 px-6 text-sm font-semibold text-gray-600 text-center">
                                         {member.mealsConsumed}
                                     </td>
-                                    <td className={`py-3 px-6 text-sm font-extrabold text-right ${member.currentBalance < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                        {member.currentBalance.toFixed(2)}
+                                    <td className={`py-3 px-6 text-sm font-extrabold text-right ${member.currentBalance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                        {member.currentBalance < 0 ? "-" : "+"} Tk {Math.abs(member.currentBalance).toFixed(2)}
                                     </td>
                                     <td className="py-3 px-6 text-center">
                                         <button className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors">

@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { safeErrorResponse } from "@/lib/security";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { role: true },
+    });
+    if (!user || (user.role !== "admin" && user.role !== "manager")) {
+      return NextResponse.json({ success: false, error: "Forbidden: Manager access required" }, { status: 403 });
     }
 
     // 1. Pending payment requests (Deposit)
@@ -28,6 +37,13 @@ export async function GET() {
     const pendingBazaarSchedules = await prisma.bazaarSchedule.findMany({
       where: { status: "pending" },
       include: { user: { select: { name: true, image: true } } },
+      orderBy: { date: "asc" },
+    });
+
+    // 2.7 Pending guest meal requests
+    const pendingGuestMeals = await prisma.guestMealRequest.findMany({
+      where: { status: "Pending" },
+      include: { user: { select: { id: true, name: true, image: true, email: true } } },
       orderBy: { date: "asc" },
     });
 
@@ -60,6 +76,7 @@ export async function GET() {
         pendingDeposits,
         pendingExpenses,
         pendingBazaarSchedules,
+        pendingGuestMeals,
         stats: {
           totalMealsToday: Math.round(totalMealsToday * 10) / 10,
           totalBazaarToday: Math.round(totalBazaarToday),
@@ -68,7 +85,6 @@ export async function GET() {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Manager Dashboard Error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to load manager dashboard");
   }
 }

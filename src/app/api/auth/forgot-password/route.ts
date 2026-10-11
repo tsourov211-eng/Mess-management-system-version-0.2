@@ -2,35 +2,46 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/lib/mailer';
 import crypto from 'crypto';
+import { ForgotPasswordSchema } from '@/lib/validations';
+import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from '@/lib/rate-limit';
+import { safeErrorResponse } from '@/lib/security';
 
 export async function POST(req: Request) {
     try {
-        const { email } = await req.json();
+        // 1. Rate Limiting: 5 requests per minute
+        const clientId = getClientIdentifier(req, "forgot-password");
+        const rateCheck = checkRateLimit(clientId, 5, 60 * 1000);
+        if (!rateCheck.success) {
+            return rateLimitExceededResponse(rateCheck.resetAt);
+        }
 
-        if (!email) {
+        const body = await req.json();
+        const parsed = ForgotPasswordSchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
-                { message: 'Email is required' },
+                { success: false, error: parsed.error.issues[0]?.message || 'Valid email is required' },
                 { status: 400 }
             );
         }
+
+        const { email } = parsed.data;
 
         const user = await prisma.user.findUnique({
             where: { email },
         });
 
-        // We don't want to leak whether a user exists or not, so we always return success
+        // Anti-enumeration: return identical success message even if user doesn't exist
         if (!user) {
             return NextResponse.json(
-                { message: 'If that email address is in our database, we will send you an email to reset your password.' },
+                { success: true, message: 'If that email address is in our database, we will send you an email to reset your password.' },
                 { status: 200 }
             );
         }
 
-        // Generate a secure token
+        // Generate cryptographically secure token
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenExpiry = new Date(Date.now() + 3600000); // Token expires in 1 hour
+        const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
 
-        // Save token to database
         await prisma.user.update({
             where: { email },
             data: {
@@ -39,19 +50,14 @@ export async function POST(req: Request) {
             },
         });
 
-        // Send email
         await sendPasswordResetEmail(user.email!, resetToken);
 
         return NextResponse.json(
-            { message: 'If that email address is in our database, we will send you an email to reset your password.' },
+            { success: true, message: 'If that email address is in our database, we will send you an email to reset your password.' },
             { status: 200 }
         );
 
     } catch (error) {
-        console.error('Error in forgot-password:', error);
-        return NextResponse.json(
-            { message: 'An error occurred. Please try again.' },
-            { status: 500 }
-        );
+        return safeErrorResponse(error, 'An error occurred. Please try again.');
     }
 }

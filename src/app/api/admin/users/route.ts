@@ -3,76 +3,137 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { 
+  calculateMealRate, 
+  calculateFixedCostPerMember, 
+  calculateMemberSummary, 
+  formatMonthKey 
+} from "@/lib/calculations";
+import { hashPassword, sanitizeInput, safeErrorResponse } from "@/lib/security";
+import { AdminUpdateUserSchema, AdminCreateUserSchema } from "@/lib/validations";
 
 // To fetch list of all users and dashboard stats
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Fetch all users along with their approved deposits and meal logs
-    const users = await prisma.user.findMany({
-      orderBy: { role: "asc" },
-      include: {
-        deposits: { where: { status: "Approved" } },
-        meals: true,
-      },
-    });
+    const { searchParams } = new URL(req.url);
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    let startDate: Date;
+    let endDate: Date;
 
-    // 2. Total mess expenses (Approved expenses)
+    if (monthParam && yearParam) {
+      const year = parseInt(yearParam);
+      const month = parseInt(monthParam); // 1 to 12
+      startDate = new Date(year, month - 1, 1);
+      endDate = new Date(year, month, 1);
+    } else {
+      // Default to current month
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+
+    const dateFilter = {
+      gte: startDate,
+      lt: endDate,
+    };
+
+    // 1. Fetch total mess food expenses (Approved expenses) for the active month
     const expenseAggThisMonth = await prisma.expense.aggregate({
       _sum: { amount: true },
       where: { 
         status: "Approved",
-        date: { gte: startOfMonth, lte: endOfMonth }
+        date: dateFilter,
       },
     });
     const totalFoodCostThisMonth = expenseAggThisMonth._sum.amount || 0;
 
+    // All-time approved food expenses
     const expenseAggAllTime = await prisma.expense.aggregate({
       _sum: { amount: true },
       where: { status: "Approved" },
     });
     const totalFoodCostAllTime = expenseAggAllTime._sum.amount || 0;
 
-    // 3. Total mess meals
-    const allMeals = await prisma.mealLog.findMany();
-    const totalMessMeals = allMeals.reduce(
+    // 2. Total mess meals for the active month
+    const monthMeals = await prisma.mealLog.findMany({
+      where: { date: dateFilter },
+    });
+    const totalMessMealsThisMonth = monthMeals.reduce(
       (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
       0
     );
 
-    // 4. Live meal rate
-    const liveMealRate = totalMessMeals > 0 ? totalFoodCostAllTime / totalMessMeals : 0;
+    // 3. Exact live meal rate for the active month with 0.00 fallback
+    const liveMealRate = calculateMealRate(totalFoodCostThisMonth, totalMessMealsThisMonth);
 
-    // 5. Total deposited money
-    const depositAgg = await prisma.deposit.aggregate({
+    // 4. Monthly fixed overhead config for the active month
+    const monthKey = formatMonthKey(startDate);
+    const monthlyExpenseConfig = await prisma.monthlyExpense.findUnique({
+      where: { month: monthKey },
+    });
+    const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
+
+    // 5. Total deposited money (all-time & this month)
+    const depositAggThisMonth = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: { status: "Approved", date: dateFilter },
+    });
+    const totalDepositsThisMonth = depositAggThisMonth._sum.amount || 0;
+
+    const depositAggAllTime = await prisma.deposit.aggregate({
       _sum: { amount: true },
       where: { status: "Approved" },
     });
-    const totalDeposits = depositAgg._sum.amount || 0;
+    const totalDepositsAllTime = depositAggAllTime._sum.amount || 0;
 
-    // 6. Mess fund (Total deposit - Total expense)
-    const messFund = totalDeposits - totalFoodCostAllTime;
+    // 6. Mess fund (All-time deposits - All-time expenses)
+    const messFund = totalDepositsAllTime - totalFoodCostAllTime;
+
+    // 7. Fetch all users along with their active month approved deposits and meal logs
+    const users = await prisma.user.findMany({
+      orderBy: { role: "asc" },
+      include: {
+        deposits: { 
+          where: { 
+            status: "Approved",
+            date: dateFilter,
+          } 
+        },
+        meals: {
+          where: {
+            date: dateFilter,
+          }
+        },
+      },
+    });
     
     // Calculate approved users count
     const approvedUsersCount = users.filter(u => ["member", "manager", "admin"].includes(u.role)).length;
 
-    // 7. Calculate each user's deposit, meal and balance
+    // 8. Calculate each user's financial summary using calculation engine
     const formattedUsers = users.map((u) => {
       const userDeposit = u.deposits.reduce((acc, d) => acc + d.amount, 0);
       const userMeals = u.meals.reduce(
         (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
         0
       );
-      const userCost = userMeals * liveMealRate;
-      const userBalance = userDeposit - userCost;
+
+      const summary = calculateMemberSummary({
+        userId: u.id,
+        name: u.name || "Unnamed",
+        role: u.role,
+        totalDeposit: userDeposit,
+        totalMeals: userMeals,
+        mealRate: liveMealRate,
+        fixedCost: fixedCostPerMember,
+      });
 
       return {
         id: u.id,
@@ -81,9 +142,14 @@ export async function GET() {
         phone: u.phone || "N/A",
         image: u.image,
         role: u.role,
-        deposit: Math.round(userDeposit * 100) / 100,
-        totalMeals: Math.round(userMeals * 10) / 10,
-        balance: Math.round(userBalance * 100) / 100,
+        deposit: summary.totalDeposit,
+        totalMeals: summary.totalMeals,
+        mealCost: summary.mealCost,
+        fixedCost: summary.fixedCost,
+        totalCost: summary.totalCost,
+        balance: summary.balance,
+        isPositive: summary.isPositive,
+        balanceFormatted: summary.balanceFormatted,
         status: u.role === "pending" ? "Pending" : u.role === "suspended" ? "Suspended" : "Active",
       };
     });
@@ -95,36 +161,49 @@ export async function GET() {
           totalMembers: approvedUsersCount,
           totalFoodCost: Math.round(totalFoodCostThisMonth * 100) / 100,
           messFund: Math.round(messFund * 100) / 100,
-          totalMessMeals: Math.round(totalMessMeals * 10) / 10,
-          liveMealRate: Math.round(liveMealRate * 100) / 100,
+          totalMessMeals: Math.round(totalMessMealsThisMonth * 10) / 10,
+          liveMealRate: liveMealRate,
+          fixedCostPerMember,
+          totalDepositsThisMonth: Math.round(totalDepositsThisMonth * 100) / 100,
         },
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Admin Users GET Error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to retrieve user data");
   }
 }
 
-// To update user's role or info
+// To update user's role or info (Admin only)
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId, newRole, name, phone } = await req.json();
-
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    const adminUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!adminUser || adminUser.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden: Admin access required" }, { status: 403 });
     }
+
+    const body = await req.json();
+    const parsed = AdminUpdateUserSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.issues[0]?.message || "Invalid update payload" },
+        { status: 400 }
+      );
+    }
+
+    const { userId, newRole, name, phone } = parsed.data;
 
     const dataToUpdate: any = {};
     if (newRole) dataToUpdate.role = newRole;
-    if (name) dataToUpdate.name = name;
-    if (phone !== undefined) dataToUpdate.phone = phone;
+    if (name) dataToUpdate.name = sanitizeInput(name);
+    if (phone !== undefined) dataToUpdate.phone = phone ? sanitizeInput(phone) : null;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -132,53 +211,59 @@ export async function PATCH(req: Request) {
     });
 
     return NextResponse.json(
-      { message: "User updated successfully", user: updatedUser },
+      { success: true, message: "User updated successfully", user: updatedUser },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Admin Users PATCH Error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to update member");
   }
 }
 
-// For admin to add a new member
+// For admin to add a new member (Admin only)
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!adminUser || adminUser.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     const body = await req.json();
-    const { name, email, phone, role, password } = body;
-
-    if (!name || !email) {
+    const parsed = AdminCreateUserSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { success: false, error: parsed.error.issues[0]?.message || "Invalid member data" },
         { status: 400 }
       );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const { name, email, phone, role, password } = parsed.data;
+
     const existing = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+      where: { email },
     });
 
     if (existing) {
       return NextResponse.json(
-        { error: "A user with this email already exists!" },
+        { success: false, error: "A user with this email already exists!" },
         { status: 400 }
       );
     }
 
-    const plainPassword = password || "123456";
-    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    // Hash password with cost factor 12
+    const hashedPassword = await hashPassword(password);
 
     const newUser = await prisma.user.create({
       data: {
-        name: name.trim(),
-        email: normalizedEmail,
-        phone: phone?.trim() || "",
+        name: sanitizeInput(name),
+        email,
+        phone: phone ? sanitizeInput(phone) : "",
         password: hashedPassword,
         role: role || "member",
         defaultBreakfast: 0.5,
@@ -188,40 +273,50 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { message: "Member created successfully!", user: newUser },
+      { success: true, message: "Member created successfully!", user: newUser },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Admin Users POST Error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to create new member");
   }
 }
 
-// To delete a user
+// To delete a user (Admin only)
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!adminUser || adminUser.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
     if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 });
     }
 
-    await prisma.user.delete({
-      where: { id: userId },
-    });
+    // ACID transaction to delete user and cascaded relations
+    await prisma.$transaction([
+      prisma.mealLog.deleteMany({ where: { userId } }),
+      prisma.deposit.deleteMany({ where: { userId } }),
+      prisma.expense.deleteMany({ where: { userId } }),
+      prisma.bazaarSchedule.deleteMany({ where: { userId } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
 
     return NextResponse.json(
-      { message: "User deleted successfully" },
+      { success: true, message: "User deleted successfully" },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Admin Users DELETE Error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return safeErrorResponse(error, "Failed to delete user");
   }
 }

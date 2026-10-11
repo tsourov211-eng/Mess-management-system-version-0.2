@@ -10,7 +10,9 @@ import {
     IconCalendarUser, 
     IconCheck, 
     IconChevronRight,
-    IconX
+    IconX,
+    IconToolsKitchen2,
+    IconUsers
 } from "@tabler/icons-react";
 
 export default function BazaarManagementPage() {
@@ -26,6 +28,7 @@ export default function BazaarManagementPage() {
     const [schedules, setSchedules] = useState<any[]>([]);
     const [expenses, setExpenses] = useState<any[]>([]);
     const [todayTotal, setTodayTotal] = useState(0);
+    const [cookingHeadcount, setCookingHeadcount] = useState<any>(null);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [fullMonthSchedules, setFullMonthSchedules] = useState<any[]>([]);
@@ -63,6 +66,7 @@ export default function BazaarManagementPage() {
                 setSchedules(data.schedules || []);
                 setExpenses(data.todayExpenses || []);
                 setTodayTotal(data.todayTotal || 0);
+                setCookingHeadcount(data.cookingHeadcount || null);
             }
         } catch (error) {
             console.error("Error fetching bazaar data:", error);
@@ -199,6 +203,103 @@ export default function BazaarManagementPage() {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#450705] tracking-tight">Bazaar & Expenses</h1>
                     <p className="text-gray-500 text-sm mt-1.5 font-medium">Manage bazaar schedule and track daily market expenses.</p>
                 </div>
+            </div>
+
+            {/* ─── Shopper & Cooking Headcount Module ("Accurate Market Count") ─── */}
+            <div className="bg-white rounded-3xl border border-orange-200/80 shadow-sm overflow-hidden">
+                <div className="p-5 sm:p-6 bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-white border-b border-orange-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
+                            <IconToolsKitchen2 size={22} stroke={2.5} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className="text-lg font-extrabold text-gray-900">Cooking & Market Headcount</h2>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                                    Accurate Market Count
+                                </span>
+                            </div>
+                            <p className="text-xs font-bold text-gray-500 mt-0.5">
+                                Live headcount for cooking and grocery purchases ({formattedToday})
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {/* Prominent Callout Banner */}
+                    <div className="bg-orange-500 text-white px-4 py-2.5 rounded-2xl shadow-sm flex items-center gap-2 self-start sm:self-auto">
+                        <span className="text-xs font-bold uppercase tracking-wider text-orange-100">Today's Lunch:</span>
+                        <span className="text-sm font-extrabold">
+                            {cookingHeadcount?.lunch?.members ?? 0} Members + {cookingHeadcount?.lunch?.guests ?? 0} Guest Meals = {cookingHeadcount?.lunch?.total ?? 0} Total Heads
+                        </span>
+                    </div>
+                </div>
+
+                {/* Breakdown Grid */}
+                <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Breakfast */}
+                    <div className="bg-gray-50/70 rounded-2xl p-4 border border-gray-100 hover:border-orange-200 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Breakfast</span>
+                            <span className="text-xs font-bold text-gray-400">Slot 1</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-gray-900">{cookingHeadcount?.breakfast?.total ?? 0}</span>
+                            <span className="text-xs font-bold text-gray-500">Heads</span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-500 mt-2">
+                            {cookingHeadcount?.breakfast?.members ?? 0} Members + <span className="text-orange-600">{cookingHeadcount?.breakfast?.guests ?? 0} Guests</span>
+                        </p>
+                    </div>
+
+                    {/* Lunch */}
+                    <div className="bg-orange-50/40 rounded-2xl p-4 border border-orange-200/60 hover:border-orange-300 transition-all shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-extrabold text-orange-700 uppercase tracking-wider">Lunch (Main)</span>
+                            <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-md">Peak</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-gray-900">{cookingHeadcount?.lunch?.total ?? 0}</span>
+                            <span className="text-xs font-bold text-gray-500">Heads</span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-600 mt-2">
+                            {cookingHeadcount?.lunch?.members ?? 0} Members + <span className="text-orange-600 font-extrabold">{cookingHeadcount?.lunch?.guests ?? 0} Guests</span>
+                        </p>
+                    </div>
+
+                    {/* Dinner */}
+                    <div className="bg-gray-50/70 rounded-2xl p-4 border border-gray-100 hover:border-orange-200 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Dinner</span>
+                            <span className="text-xs font-bold text-gray-400">Slot 2</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-gray-900">{cookingHeadcount?.dinner?.total ?? 0}</span>
+                            <span className="text-xs font-bold text-gray-500">Heads</span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-500 mt-2">
+                            {cookingHeadcount?.dinner?.members ?? 0} Members + <span className="text-orange-600">{cookingHeadcount?.dinner?.guests ?? 0} Guests</span>
+                        </p>
+                    </div>
+                </div>
+
+                {/* Approved Guest Details Sub-row */}
+                {cookingHeadcount?.approvedGuestRequests && cookingHeadcount.approvedGuestRequests.length > 0 && (
+                    <div className="px-5 sm:px-6 pb-5 pt-0 border-t border-gray-100">
+                        <p className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mt-4 mb-2 flex items-center gap-1.5">
+                            <IconUsers size={14} className="text-orange-600" />
+                            Approved Guest Meals for Today:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {cookingHeadcount.approvedGuestRequests.map((g: any) => (
+                                <span key={g.id} className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200/80 text-orange-900 text-xs font-bold px-3 py-1.5 rounded-xl">
+                                    <span>{g.memberName}</span>
+                                    <span className="bg-orange-200/80 text-orange-800 px-1.5 py-0.5 rounded-md text-[10px]">+{g.guests} {g.mealType}</span>
+                                    {g.note && <span className="text-gray-500 text-[10px] font-normal italic">("{g.note}")</span>}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ─── Main Content Container (Responsive Ordering) ─── */}

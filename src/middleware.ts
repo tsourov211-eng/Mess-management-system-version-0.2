@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
+    if (token?.isDeleted) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+
     const pathname = req.nextUrl.pathname;
     const role = (token?.role as string) || "member";
 
@@ -24,7 +28,7 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token }) => !!token && !token.isDeleted,
     },
     pages: {
       signIn: "/login",

@@ -31,3 +31,15 @@ input::-ms-clear,
 input::-webkit-credentials-auto-fill-button {
   display: none !important;
 }
+
+/* Custom utility to hide scrollbar while keeping functionality */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
+

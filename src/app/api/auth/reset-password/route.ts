@@ -1,17 +1,28 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { hashPassword, safeErrorResponse } from '@/lib/security';
+import { ResetPasswordSchema } from '@/lib/validations';
+import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from '@/lib/rate-limit';
 
 export async function POST(req: Request) {
     try {
-        const { token, password } = await req.json();
+        // 1. Rate Limiting: 5 requests per minute
+        const clientId = getClientIdentifier(req, "reset-password");
+        const rateCheck = checkRateLimit(clientId, 5, 60 * 1000);
+        if (!rateCheck.success) {
+            return rateLimitExceededResponse(rateCheck.resetAt);
+        }
 
-        if (!token || !password) {
+        const body = await req.json();
+        const parsed = ResetPasswordSchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
-                { message: 'Token and new password are required' },
+                { success: false, error: parsed.error.issues[0]?.message || 'Invalid reset parameters' },
                 { status: 400 }
             );
         }
+
+        const { token, password } = parsed.data;
 
         // Find user with valid token
         const user = await prisma.user.findFirst({
@@ -25,15 +36,15 @@ export async function POST(req: Request) {
 
         if (!user) {
             return NextResponse.json(
-                { message: 'Invalid or expired password reset token' },
+                { success: false, error: 'Invalid or expired password reset token' },
                 { status: 400 }
             );
         }
 
-        // Hash the new password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash the new password with bcrypt cost 12
+        const hashedPassword = await hashPassword(password);
 
-        // Update user password and clear reset token
+        // Update user password and invalidate reset token
         await prisma.user.update({
             where: { id: user.id },
             data: {
@@ -44,15 +55,11 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json(
-            { message: 'Password has been reset successfully' },
+            { success: true, message: 'Password has been reset successfully' },
             { status: 200 }
         );
 
     } catch (error) {
-        console.error('Error in reset-password:', error);
-        return NextResponse.json(
-            { message: 'An error occurred. Please try again.' },
-            { status: 500 }
-        );
+        return safeErrorResponse(error, 'An error occurred while resetting password. Please try again.');
     }
 }

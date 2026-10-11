@@ -19,6 +19,7 @@ export default function ManagerDashboard() {
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
     const [pendingExpenses, setPendingExpenses] = useState<any[]>([]);
     const [pendingBazaarSchedules, setPendingBazaarSchedules] = useState<any[]>([]);
+    const [pendingGuestMeals, setPendingGuestMeals] = useState<any[]>([]);
     const [selectedSchedules, setSelectedSchedules] = useState<string[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +40,7 @@ export default function ManagerDashboard() {
                 setPendingDeposits(data.pendingDeposits);
                 setPendingExpenses(data.pendingExpenses);
                 setPendingBazaarSchedules(data.pendingBazaarSchedules || []);
+                setPendingGuestMeals(data.pendingGuestMeals || []);
                 setSelectedSchedules([]);
 
             }
@@ -50,8 +52,9 @@ export default function ManagerDashboard() {
     };
 
     // 💡 Function to Approve or Reject
-    const handleAction = async (id: string, type: 'deposit' | 'expense', action: 'Approve' | 'Reject') => {
-        if (!confirm(`Are you sure you want to ${action} this ${type}?`)) return;
+    const handleAction = async (id: string, type: 'deposit' | 'expense' | 'guestMeal', action: 'Approve' | 'Reject') => {
+        const label = type === 'guestMeal' ? 'guest meal request' : type;
+        if (!confirm(`Are you sure you want to ${action} this ${label}?`)) return;
 
         try {
             const res = await fetch("/api/manager/action", {
@@ -222,93 +225,198 @@ export default function ManagerDashboard() {
                     </div>
                 </div>
                 
-                <div className="bg-white overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                <th className="p-4 w-12 text-center">
+                <div className="bg-white">
+                    {/* Desktop View: Preserved Tabular Layout (md and above) */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 w-12 text-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer" 
+                                            checked={pendingBazaarSchedules.length > 0 && selectedSchedules.length === pendingBazaarSchedules.length}
+                                            onChange={handleSelectAllSchedules}
+                                        />
+                                    </th>
+                                    <th className="p-4 w-12">#</th>
+                                    <th className="p-4">Member</th>
+                                    <th className="p-4">Requested Date</th>
+                                    <th className="p-4">Request Time</th>
+                                    <th className="p-4">Note</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={8} className="p-8 text-center text-gray-400 font-bold">Loading...</td>
+                                    </tr>
+                                ) : pendingBazaarSchedules.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8} className="p-8 text-center text-gray-400 font-bold">No pending bazaar requests.</td>
+                                    </tr>
+                                ) : pendingBazaarSchedules.map((item, idx) => (
+                                    <tr key={item.id} className={`hover:bg-orange-50/30 transition-colors group ${selectedSchedules.includes(item.id) ? 'bg-orange-50/50' : ''}`}>
+                                        <td className="p-4 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer" 
+                                                checked={selectedSchedules.includes(item.id)}
+                                                onChange={() => handleSelectSchedule(item.id)}
+                                            />
+                                        </td>
+                                        <td className="p-4 text-sm font-bold text-gray-500">{idx + 1}</td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-[#0B132B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                                                    {item.user.name?.charAt(0) || 'M'}
+                                                </div>
+                                                <span className="font-extrabold text-gray-900 text-sm">{item.user.name || 'Member'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-1.5 text-sm font-bold text-gray-700">
+                                                <IconCalendarUser size={16} className="text-gray-400" />
+                                                {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-1.5 text-sm font-bold text-gray-500">
+                                                <IconClock size={16} className="text-gray-400" />
+                                                {/* using date for fallback since createdAt is missing */}
+                                                {new Date(item.date).toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' })}
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-sm font-medium text-gray-600">
+                                            I will go to the bazar.
+                                        </td>
+                                        <td className="p-4">
+                                            <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-md text-xs font-bold border border-orange-200">
+                                                Pending
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => handleScheduleAction(item.id, 'Approve')} className="bg-[#00B050] hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors">
+                                                    <IconCheck size={14} stroke={3} /> Approve
+                                                </button>
+                                                <button onClick={() => handleScheduleAction(item.id, 'Reject')} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors">
+                                                    <IconX size={14} stroke={3} /> Reject
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile View: Compact Stacked Cards (< md) */}
+                    <div className="block md:hidden">
+                        {/* Mobile Select All Bar */}
+                        {pendingBazaarSchedules.length > 0 && (
+                            <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between text-xs font-bold text-gray-500">
+                                <label className="flex items-center gap-2.5 cursor-pointer">
                                     <input 
                                         type="checkbox" 
                                         className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer" 
                                         checked={pendingBazaarSchedules.length > 0 && selectedSchedules.length === pendingBazaarSchedules.length}
                                         onChange={handleSelectAllSchedules}
                                     />
-                                </th>
-                                <th className="p-4 w-12">#</th>
-                                <th className="p-4">Member</th>
-                                <th className="p-4">Requested Date</th>
-                                <th className="p-4">Request Time</th>
-                                <th className="p-4">Note</th>
-                                <th className="p-4">Status</th>
-                                <th className="p-4 text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
+                                    <span>Select All</span>
+                                </label>
+                                <span>
+                                    {selectedSchedules.length > 0 ? (
+                                        <span className="text-orange-600 font-extrabold">{selectedSchedules.length} selected</span>
+                                    ) : (
+                                        <span>{pendingBazaarSchedules.length} requests</span>
+                                    )}
+                                </span>
+                            </div>
+                        )}
+
+                        <div className="divide-y divide-gray-100">
                             {isLoading ? (
-                                <tr>
-                                    <td colSpan={8} className="p-8 text-center text-gray-400 font-bold">Loading...</td>
-                                </tr>
+                                <div className="p-8 text-center text-gray-400 font-bold text-sm">Loading...</div>
                             ) : pendingBazaarSchedules.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="p-8 text-center text-gray-400 font-bold">No pending bazaar requests.</td>
-                                </tr>
-                            ) : pendingBazaarSchedules.map((item, idx) => (
-                                <tr key={item.id} className={`hover:bg-orange-50/30 transition-colors group ${selectedSchedules.includes(item.id) ? 'bg-orange-50/50' : ''}`}>
-                                    <td className="p-4 text-center">
-                                        <input 
-                                            type="checkbox" 
-                                            className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer" 
-                                            checked={selectedSchedules.includes(item.id)}
-                                            onChange={() => handleSelectSchedule(item.id)}
-                                        />
-                                    </td>
-                                    <td className="p-4 text-sm font-bold text-gray-500">{idx + 1}</td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-[#0B132B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                                                {item.user.name?.charAt(0) || 'M'}
+                                <div className="p-8 text-center text-gray-400 font-bold text-sm">No pending bazaar requests.</div>
+                            ) : (
+                                pendingBazaarSchedules.map((item, idx) => {
+                                    const isSelected = selectedSchedules.includes(item.id);
+                                    return (
+                                        <div 
+                                            key={item.id} 
+                                            className={`p-4 transition-colors space-y-3 ${isSelected ? 'bg-orange-50/50' : 'bg-white hover:bg-orange-50/20'}`}
+                                        >
+                                            {/* Card Header: Checkbox, #, Member info, and Status badge */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer shrink-0" 
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectSchedule(item.id)}
+                                                    />
+                                                    <span className="text-xs font-bold text-gray-400 shrink-0">#{idx + 1}</span>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className="w-8 h-8 rounded-full bg-[#0B132B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                                                            {item.user.name?.charAt(0) || 'M'}
+                                                        </div>
+                                                        <span className="font-extrabold text-gray-900 text-sm truncate">
+                                                            {item.user.name || 'Member'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <span className="bg-orange-100 text-orange-600 px-2.5 py-1 rounded-md text-xs font-bold border border-orange-200 shrink-0">
+                                                    Pending
+                                                </span>
                                             </div>
-                                            <span className="font-extrabold text-gray-900 text-sm">{item.user.name || 'Member'}</span>
+
+                                            {/* Date & Time info pill cards */}
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div className="flex items-center gap-1.5 font-bold text-gray-700 bg-gray-50/80 px-2.5 py-2 rounded-xl border border-gray-100">
+                                                    <IconCalendarUser size={15} className="text-gray-400 shrink-0" />
+                                                    <span className="truncate">{new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 font-bold text-gray-500 bg-gray-50/80 px-2.5 py-2 rounded-xl border border-gray-100">
+                                                    <IconClock size={15} className="text-gray-400 shrink-0" />
+                                                    <span className="truncate">{new Date(item.date).toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' })}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Note */}
+                                            <div className="text-xs font-medium text-gray-600 bg-gray-50/60 px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-1.5">
+                                                <span className="font-bold text-gray-400 shrink-0">Note:</span>
+                                                <span className="truncate">I will go to the bazar.</span>
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div className="flex items-center gap-2 pt-0.5">
+                                                <button 
+                                                    onClick={() => handleScheduleAction(item.id, 'Approve')} 
+                                                    className="flex-1 bg-[#00B050] hover:bg-emerald-600 text-white py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                                                >
+                                                    <IconCheck size={14} stroke={3} /> Approve
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleScheduleAction(item.id, 'Reject')} 
+                                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                                                >
+                                                    <IconX size={14} stroke={3} /> Reject
+                                                </button>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-1.5 text-sm font-bold text-gray-700">
-                                            <IconCalendarUser size={16} className="text-gray-400" />
-                                            {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-1.5 text-sm font-bold text-gray-500">
-                                            <IconClock size={16} className="text-gray-400" />
-                                            {/* using date for fallback since createdAt is missing */}
-                                            {new Date(item.date).toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' })}
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-sm font-medium text-gray-600">
-                                        I will go to the bazar.
-                                    </td>
-                                    <td className="p-4">
-                                        <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-md text-xs font-bold border border-orange-200">
-                                            Pending
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button onClick={() => handleScheduleAction(item.id, 'Approve')} className="bg-[#00B050] hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors">
-                                                <IconCheck size={14} stroke={3} /> Approve
-                                            </button>
-                                            <button onClick={() => handleScheduleAction(item.id, 'Reject')} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors">
-                                                <IconX size={14} stroke={3} /> Reject
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 pt-4">
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8 pt-4">
                 
                 {/* 1. Pending Payments */}
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[450px]">
@@ -397,6 +505,66 @@ export default function ManagerDashboard() {
                                             <IconX size={16} /> Reject
                                         </button>
                                         <button onClick={() => handleAction(item.id, 'expense', 'Approve')} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-orange-500/20">
+                                            <IconCheck size={16} /> Approve
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* 3. Pending Guest Meal Requests */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[450px]">
+                    <div className="p-6 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center sticky top-0 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                                <IconToolsKitchen2 size={20} stroke={2.5} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-extrabold text-gray-900">Guest Meals</h2>
+                                <p className="text-xs font-bold text-gray-500 mt-0.5">Approve member guest meals</p>
+                            </div>
+                        </div>
+                        {pendingGuestMeals.length > 0 && (
+                            <span className="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full animate-pulse">{pendingGuestMeals.length} New</span>
+                        )}
+                    </div>
+                    
+                    <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+                        {isLoading ? (
+                            <p className="text-center text-gray-400 font-bold py-10">Loading...</p>
+                        ) : pendingGuestMeals.length === 0 ? (
+                            <p className="text-center text-gray-400 font-bold py-10">No pending guest meals.</p>
+                        ) : (
+                            pendingGuestMeals.map((item) => (
+                                <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-200 hover:border-orange-200 transition-all gap-4">
+                                    <div className="flex items-start gap-3 min-w-0">
+                                        <div className="w-10 h-10 rounded-full bg-[#0B132B] text-white flex items-center justify-center font-bold text-lg shrink-0">
+                                            {item.user.name?.charAt(0) || 'M'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h4 className="font-extrabold text-gray-900 text-sm truncate">{item.user.name}</h4>
+                                                <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                                    {item.guests} {item.guests > 1 ? 'Guests' : 'Guest'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs font-bold text-gray-500 mt-0.5">
+                                                {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {item.mealType}
+                                            </p>
+                                            {item.note && (
+                                                <p className="text-xs text-gray-600 font-medium mt-1 italic truncate max-w-[200px]" title={item.note}>
+                                                    "{item.note}"
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                                        <button onClick={() => handleAction(item.id, 'guestMeal', 'Reject')} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-white hover:bg-rose-50 text-gray-600 hover:text-rose-600 border border-gray-200 hover:border-rose-200 text-xs font-bold px-3 py-2 rounded-xl transition-all cursor-pointer">
+                                            <IconX size={16} /> Reject
+                                        </button>
+                                        <button onClick={() => handleAction(item.id, 'guestMeal', 'Approve')} className="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-[#00B050] hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-md shadow-emerald-500/20 cursor-pointer">
                                             <IconCheck size={16} /> Approve
                                         </button>
                                     </div>

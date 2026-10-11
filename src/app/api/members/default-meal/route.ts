@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { safeErrorResponse } from "@/lib/security";
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -16,21 +17,17 @@ export async function POST(req: Request) {
     await prisma.user.update({
       where: { email: session.user.email },
       data: {
-        defaultBreakfast: Number(breakfast),
-        defaultLunch: Number(lunch),
-        defaultDinner: Number(dinner),
+        defaultBreakfast: Math.max(0, Math.min(10, Number(breakfast) || 0)),
+        defaultLunch: Math.max(0, Math.min(10, Number(lunch) || 0)),
+        defaultDinner: Math.max(0, Math.min(10, Number(dinner) || 0)),
       },
     });
 
     return NextResponse.json(
-      { message: "Default meals updated successfully!" },
+      { success: true, message: "Default meals updated successfully!" },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error updating default meals:", error);
-    return NextResponse.json(
-      { error: "Failed to update default meals" },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, "Failed to update default meals");
   }
 }

@@ -21,15 +21,28 @@ import {
     IconUser,
     IconCalendarEvent,
     IconPlus,
-    IconBellOff
+    IconBellOff,
+    IconClock,
+    IconCheck
 } from "@tabler/icons-react";
+import { getUserDisplayRole } from "@/lib/user";
+
+interface NoticeItem {
+    id: string;
+    title: string;
+    description: string;
+    type?: string;
+    createdAt?: string | Date;
+    isRead?: boolean;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-    const [notices, setNotices] = useState<any[]>([]);
+    const [notices, setNotices] = useState<NoticeItem[]>([]);
+    const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
 
     const pathname = usePathname();
     const { data: session, status } = useSession(); 
@@ -40,7 +53,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const res = await fetch("/api/members/dashboard-data");
                 if (res.ok) {
                     const data = await res.json();
-                    setNotices(data.notices || []);
+                    let storedRead: string[] = [];
+                    try {
+                        storedRead = JSON.parse(localStorage.getItem('mess_read_notices') || '[]');
+                    } catch (e) {}
+
+                    const formattedNotices: NoticeItem[] = (data.notices || []).map((n: any) => ({
+                        ...n,
+                        isRead: storedRead.includes(n.id)
+                    }));
+                    setNotices(formattedNotices);
                 }
             } catch (error) {
                 console.error("Error fetching notices in layout:", error);
@@ -49,6 +71,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         if (status === "authenticated") {
             fetchNotices();
+        } else if (status === "unauthenticated") {
+            signOut({ callbackUrl: "/login" });
         }
     }, [status]);
 
@@ -67,14 +91,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // 💡 Close modal on Escape key press
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setSelectedNotice(null);
+            }
+        };
+        if (selectedNotice) {
+            window.addEventListener("keydown", handleKeyDown);
+        }
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [selectedNotice]);
+
     const handleClearNotifications = async () => {
         setNotices([]);
+        setSelectedNotice(null);
         try {
             await fetch("/api/members/clear-notices", { method: "POST" });
         } catch (error) {
             console.error("Failed to clear notices:", error);
         }
     };
+
+    const handleNoticeClick = (notice: NoticeItem) => {
+        // 1. Mark as read in local state
+        setNotices((prev) =>
+            prev.map((n) => (n.id === notice.id ? { ...n, isRead: true } : n))
+        );
+
+        // 2. Persist read ID in localStorage
+        try {
+            const storedRead: string[] = JSON.parse(localStorage.getItem('mess_read_notices') || '[]');
+            if (!storedRead.includes(notice.id)) {
+                localStorage.setItem('mess_read_notices', JSON.stringify([...storedRead, notice.id]));
+            }
+        } catch (e) {
+            console.error("Failed to save read notice in localStorage:", e);
+        }
+
+        // 3. Open detail modal
+        setSelectedNotice({ ...notice, isRead: true });
+
+        // 4. Close the dropdown menu
+        setIsNotifOpen(false);
+    };
+
+    const unreadCount = notices.filter((n) => !n.isRead).length;
 
     // 💡 Proper role detection for user (from session, fallback pathname)
     const sessionRole = (session?.user as { role?: string })?.role;
@@ -84,6 +147,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         else if (pathname.startsWith("/manager")) basePath = "manager";
         else basePath = "member";
     }
+
+    const isAdmin = basePath === "admin";
 
     const getSidebarLinks = () => {
         if (basePath === "admin") {
@@ -125,12 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const sidebarLinks = getSidebarLinks();
 
-    let roleTitle = "Administrator";
-    if (basePath === "manager") { 
-        roleTitle = "Mess Manager"; 
-    } else if (basePath === "member") { 
-        roleTitle = "Mess Member"; 
-    }
+    const roleTitle = getUserDisplayRole(sessionRole || basePath);
 
     const displayName = session?.user?.name || "Member";
     const userInitial = displayName.charAt(0);
@@ -161,8 +221,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pb-32 relative z-10 flex flex-col">
-                    <nav className="px-3 py-2 space-y-2">
+                <div className="flex-1 overflow-y-auto scrollbar-hide px-3 py-2 flex flex-col relative z-10">
+                    <nav className="space-y-2">
                         {sidebarLinks.map((link) => {
                             const isActive = link.name === "Dashboard" 
                                 ? pathname === link.href 
@@ -182,37 +242,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         })}
                     </nav>
 
-                    <div className="p-5 mt-auto">
-                    <div className="text-center mb-8">
+                    <div className="text-center mt-auto py-6">
                         <div className="flex justify-center mb-2 text-[#D98A6C]">
                            <IconToolsKitchen2 size={36} stroke={1.5} />
                         </div>
                         <p className="text-[#c36d4b] text-sm font-extrabold tracking-wide">Good Food</p>
                         <p className="text-[#d89376] text-xs font-bold mt-0.5">Better Together</p>
                     </div>
-                    
-                    <div className="flex items-center gap-3 px-1 mb-5">
+                </div>
+
+                {/* ─── Bottom Sidebar: User Profile (Left) & Logout (Right) ─── */}
+                <div className="p-4 border-t border-gray-100/70 relative z-10 bg-white/40 backdrop-blur-sm flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         {session?.user?.image ? (
-                            <Image src={session.user.image} alt="Profile" width={40} height={40} className="rounded-full shadow-md shrink-0 border-2 border-white" />
+                            <Image src={session.user.image} alt="Profile" width={38} height={38} className="rounded-full shadow-sm shrink-0 border-2 border-white object-cover" />
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-[#1e293b] flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-[#1e293b] flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
                                 {userInitial}
                             </div>
                         )}
-                        <div className="overflow-hidden">
-                            <p className="text-sm font-extrabold text-[#450705] leading-tight truncate">{displayName}</p>
-                            <p className="text-[11px] text-gray-500 font-bold mt-0.5">{roleTitle}</p>
+                        <div className="overflow-hidden min-w-0">
+                            <p className="text-sm font-extrabold text-[#450705] leading-tight truncate" title={displayName}>{displayName}</p>
+                            <p className="text-[11px] text-gray-500 font-bold mt-0.5 truncate">{roleTitle}</p>
                         </div>
                     </div>
                     
                     <button 
                         onClick={() => signOut({ callbackUrl: "/" })}
-                        className="flex items-center gap-3 px-2 py-1 text-gray-600 hover:text-red-600 transition-all font-bold text-sm w-full cursor-pointer"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all font-bold text-xs cursor-pointer shrink-0"
+                        title="Log Out"
+                        aria-label="Log Out"
                     >
-                        <IconLogout size={22} stroke={2.5} />
-                        Log Out
+                        <IconLogout size={18} stroke={2.2} />
+                        <span>Log Out</span>
                     </button>
-                </div>
                 </div>
             </aside>
 
@@ -245,11 +308,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             <button 
                                 onClick={() => { setIsNotifOpen(!isNotifOpen); setIsProfileOpen(false); }}
                                 className="relative p-2.5 text-gray-600 bg-white/80 backdrop-blur-md hover:bg-white rounded-full transition-all border border-white/80 shadow-md shadow-gray-200/50 hover:shadow-lg cursor-pointer"
+                                aria-label="Notifications"
                             >
                                 <IconBell size={24} stroke={2} />
-                                {notices.length > 0 && (
-                                    <span className="absolute top-1 right-1 w-4 h-4 bg-orange-600 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold shadow-sm">
-                                        {notices.length}
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-orange-600 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold shadow-sm">
+                                        {unreadCount}
                                     </span>
                                 )}
                             </button>
@@ -262,7 +326,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             {notices.length > 0 && (
                                                 <button onClick={handleClearNotifications} className="text-[10px] text-gray-500 hover:text-red-500 transition-colors cursor-pointer font-bold">Clear All</button>
                                             )}
-                                            <span className="text-[10px] text-orange-600 font-bold bg-orange-100 px-2 py-0.5 rounded-full">{notices.length} New</span>
+                                            {unreadCount > 0 ? (
+                                                <span className="text-[10px] text-orange-600 font-bold bg-orange-100 px-2 py-0.5 rounded-full">{unreadCount} New</span>
+                                            ) : (
+                                                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">All Read</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="max-h-72 overflow-y-auto p-2 space-y-1">
@@ -272,12 +340,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 <p className="text-center text-xs text-gray-400 font-medium">No new notifications</p>
                                             </div>
                                         ) : (
-                                            notices.map((n, idx) => (
-                                                <div key={idx} className="p-3 hover:bg-orange-50 rounded-xl cursor-pointer transition-colors border-b border-gray-50 last:border-0">
-                                                    <p className="text-xs font-bold text-gray-800">{n.title}</p>
-                                                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{n.description}</p>
-                                                </div>
-                                            ))
+                                            notices.map((n) => {
+                                                const isUnread = !n.isRead;
+                                                return (
+                                                    <div 
+                                                        key={n.id} 
+                                                        onClick={() => handleNoticeClick(n)}
+                                                        className={`p-3 rounded-xl cursor-pointer transition-colors border-b border-gray-50 last:border-0 relative ${
+                                                            isUnread ? 'bg-orange-50/40 hover:bg-orange-50' : 'hover:bg-gray-50 opacity-80 hover:opacity-100'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <p className={`text-xs ${isUnread ? 'font-extrabold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                                                                {n.title}
+                                                            </p>
+                                                            {isUnread && (
+                                                                <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0 mt-1" />
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{n.description}</p>
+                                                        {n.createdAt && (
+                                                            <p className="text-[9px] text-gray-400 mt-1">
+                                                                {new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         )}
                                     </div>
                                     <div className="p-2 border-t border-gray-50 text-center">
@@ -368,11 +457,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             <button 
                                 onClick={() => { setIsNotifOpen(!isNotifOpen); setIsProfileOpen(false); }}
                                 className="relative w-11 h-11 bg-white/60 backdrop-blur-sm rounded-full flex items-center justify-center text-gray-700 shadow-sm border border-white/50 cursor-pointer"
+                                aria-label="Notifications"
                             >
                                 <IconBell stroke={2} size={22} />
-                                {notices.length > 0 && (
+                                {unreadCount > 0 && (
                                     <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold shadow-sm">
-                                        {notices.length}
+                                        {unreadCount}
                                     </span>
                                 )}
                             </button>
@@ -385,7 +475,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             {notices.length > 0 && (
                                                 <button onClick={handleClearNotifications} className="text-[10px] text-gray-500 hover:text-red-500 transition-colors cursor-pointer font-bold">Clear All</button>
                                             )}
-                                            <span className="text-[10px] text-orange-600 font-bold bg-orange-100 px-1.5 py-0.5 rounded-full">{notices.length} New</span>
+                                            {unreadCount > 0 ? (
+                                                <span className="text-[10px] text-orange-600 font-bold bg-orange-100 px-1.5 py-0.5 rounded-full">{unreadCount} New</span>
+                                            ) : (
+                                                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-full">All Read</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="max-h-60 overflow-y-auto p-1.5 space-y-1">
@@ -395,12 +489,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 <p className="text-center text-xs text-gray-400 font-medium">No new notifications</p>
                                             </div>
                                         ) : (
-                                            notices.map((n, idx) => (
-                                                <div key={idx} className="p-2 hover:bg-orange-50 rounded-lg cursor-pointer transition-colors border-b border-gray-50 last:border-0">
-                                                    <p className="text-[11px] font-bold text-gray-800">{n.title}</p>
-                                                    <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{n.description}</p>
-                                                </div>
-                                            ))
+                                            notices.map((n) => {
+                                                const isUnread = !n.isRead;
+                                                return (
+                                                    <div 
+                                                        key={n.id} 
+                                                        onClick={() => handleNoticeClick(n)}
+                                                        className={`p-2.5 rounded-lg cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${
+                                                            isUnread ? 'bg-orange-50/40 hover:bg-orange-50' : 'hover:bg-gray-50 opacity-80 hover:opacity-100'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-1.5">
+                                                            <p className={`text-[11px] ${isUnread ? 'font-extrabold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                                                                {n.title}
+                                                            </p>
+                                                            {isUnread && (
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0 mt-1" />
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{n.description}</p>
+                                                        {n.createdAt && (
+                                                            <p className="text-[8px] text-gray-400 mt-1">
+                                                                {new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         )}
                                     </div>
                                     <div className="p-1 border-t border-gray-50 text-center">
@@ -465,14 +580,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* ─── Fixed Bottom Navigation (Mobile Only) ─── */}
             <div className="md:hidden fixed bottom-0 w-full bg-white rounded-t-[32px] shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe z-40">
-                <div className="grid grid-cols-5 items-center justify-items-center py-2 px-2 relative">
+                <div className={`grid ${isAdmin ? "grid-cols-5" : "grid-cols-4"} items-center justify-items-center py-2 px-2 relative`}>
                     
-                    {/* FAB Button */}
-                    <div className="absolute left-1/2 -translate-x-1/2 -top-6">
-                        <button className="w-14 h-14 bg-[#FF6B00] text-white rounded-full shadow-[0_8px_16px_rgba(255,107,0,0.3)] flex items-center justify-center border-4 border-[#FFF5F0] hover:scale-105 transition-transform active:scale-95">
-                            <IconPlus stroke={3} size={28} />
-                        </button>
-                    </div>
+                    {/* FAB Button (Admin Only) */}
+                    {isAdmin && (
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-6">
+                            <Link 
+                                href="/admin/add-member" 
+                                className="w-14 h-14 bg-[#FF6B00] text-white rounded-full shadow-[0_8px_16px_rgba(255,107,0,0.3)] flex items-center justify-center border-4 border-[#FFF5F0] hover:scale-105 transition-transform active:scale-95"
+                                aria-label="Add Member"
+                            >
+                                <IconPlus stroke={3} size={28} />
+                            </Link>
+                        </div>
+                    )}
 
                     <Link href={`/${basePath}`} className="flex flex-col items-center gap-1 py-2 w-full">
                         <IconHome stroke={pathname === `/${basePath}` ? 2.5 : 2} className={pathname === `/${basePath}` ? "text-[#FF6B00]" : "text-gray-400"} size={24} />
@@ -485,8 +606,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <span className={`text-[10px] font-bold ${pathname.includes("/bazaar") ? "text-[#FF6B00]" : "text-gray-400"}`}>Expenses</span>
                     </Link>
 
-                    {/* Empty Space for FAB */}
-                    <div className="w-full"></div>
+                    {/* Empty Space for FAB (Admin Only) */}
+                    {isAdmin && <div className="w-full"></div>}
 
                     <Link href="/members-list" className="flex flex-col items-center gap-1 py-2 w-full">
                         <IconUsers stroke={pathname.includes("/members-list") ? 2.5 : 2} className={pathname.includes("/members-list") ? "text-[#FF6B00]" : "text-gray-400"} size={24} />
@@ -500,6 +621,82 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 </div>
             </div>
+
+            {/* ─── Notification Detail Modal ─── */}
+            {selectedNotice && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setSelectedNotice(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="notification-modal-title"
+                >
+                    <div 
+                        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-100 max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="p-5 sm:p-6 border-b border-gray-100 bg-[#F8FAFC] flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shadow-sm shrink-0">
+                                    <IconBell size={20} stroke={2.5} />
+                                </div>
+                                <div className="min-w-0">
+                                    <span className="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/60 inline-block mb-1">
+                                        {selectedNotice.type ? selectedNotice.type.toUpperCase() : "NOTIFICATION"}
+                                    </span>
+                                    <h3 id="notification-modal-title" className="text-base sm:text-lg font-extrabold text-gray-900 leading-snug break-words">
+                                        {selectedNotice.title}
+                                    </h3>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedNotice(null)}
+                                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-xl transition-colors cursor-pointer shrink-0"
+                                aria-label="Close modal"
+                            >
+                                <IconX size={20} stroke={2.5} />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-5 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                            <p className="text-sm sm:text-base text-gray-700 leading-relaxed whitespace-pre-wrap font-medium">
+                                {selectedNotice.description}
+                            </p>
+
+                            {/* Metadata & Read Status */}
+                            <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400 font-semibold gap-2 flex-wrap">
+                                <span className="flex items-center gap-1.5">
+                                    <IconClock size={15} className="text-gray-400 shrink-0" />
+                                    {selectedNotice.createdAt 
+                                        ? new Date(selectedNotice.createdAt).toLocaleString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric', 
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })
+                                        : "Recently posted"}
+                                </span>
+                                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                                    <IconCheck size={12} stroke={3} /> Read
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 sm:p-5 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                            <button 
+                                onClick={() => setSelectedNotice(null)}
+                                className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

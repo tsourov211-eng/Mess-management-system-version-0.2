@@ -14,7 +14,12 @@ export default function ReportsView() {
         totalDeposit: 0,
         totalMeals: 0,
         liveMealRate: 0,
-        currentBalance: 0
+        currentBalance: 0,
+        mealCost: 0,
+        fixedCost: 0,
+        totalCost: 0,
+        isPositive: true,
+        balanceFormatted: "",
     });
     const [isLoading, setIsLoading] = useState(true);
 
@@ -40,7 +45,8 @@ export default function ReportsView() {
         fetchReportData();
     }, []);
 
-    const totalCost = stats.totalMeals * stats.liveMealRate;
+    const computedMealCost = stats.mealCost || (stats.totalMeals * stats.liveMealRate);
+    const computedTotalCost = stats.totalCost || (computedMealCost + (stats.fixedCost || 0));
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -71,7 +77,7 @@ export default function ReportsView() {
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Total Deposit</p>
                     </div>
                     <h3 className="text-2xl font-extrabold text-gray-900 ml-11">
-                        Tk {isLoading ? "..." : stats.totalDeposit}
+                        Tk {isLoading ? "..." : stats.totalDeposit.toLocaleString()}
                     </h3>
                 </div>
 
@@ -110,7 +116,7 @@ export default function ReportsView() {
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Current Balance</p>
                     </div>
                     <h3 className={`text-2xl font-extrabold ml-11 ${stats.currentBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(stats.currentBalance)}`}
+                        {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(stats.currentBalance).toLocaleString()}`}
                     </h3>
                 </div>
             </div>
@@ -143,9 +149,21 @@ export default function ReportsView() {
                                 <span className="font-extrabold text-gray-900 text-lg">× Tk {stats.liveMealRate.toFixed(2)}</span>
                             </div>
 
+                            <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                                <span className="font-bold text-gray-600">Total Meal Cost</span>
+                                <span className="font-extrabold text-red-500 text-lg">- Tk {computedMealCost.toFixed(2)}</span>
+                            </div>
+
+                            {stats.fixedCost > 0 && (
+                                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                                    <span className="font-bold text-gray-600">Fixed Overhead (Room / Utilities / Maid)</span>
+                                    <span className="font-extrabold text-red-500 text-lg">- Tk {stats.fixedCost.toFixed(2)}</span>
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-center py-3 border-b-2 border-gray-800">
-                                <span className="font-bold text-gray-800">Total Meal Cost</span>
-                                <span className="font-extrabold text-red-500 text-xl">- Tk {totalCost.toFixed(2)}</span>
+                                <span className="font-bold text-gray-800">Total Month Cost</span>
+                                <span className="font-extrabold text-red-500 text-xl">- Tk {computedTotalCost.toFixed(2)}</span>
                             </div>
 
                             <div className="flex justify-between items-center pt-4">

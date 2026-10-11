@@ -30,10 +30,6 @@ export default function ProfileView() {
         defaultBreakfast: 0.5, defaultLunch: 1, defaultDinner: 1
     });
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
     const fetchProfile = async () => {
         try {
             const res = await fetch("/api/members/profile");
@@ -56,6 +52,10 @@ export default function ProfileView() {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchProfile();
+    }, []);
 
     const handleSave = async () => {
         setIsSaving(true);

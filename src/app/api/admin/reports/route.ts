@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { 
+  calculateMealRate, 
+  calculateFixedCostPerMember, 
+  calculateMemberSummary, 
+  formatMonthKey 
+} from "@/lib/calculations";
+import { safeErrorResponse } from "@/lib/security";
 
 export async function GET(req: Request) {
   try {
@@ -62,15 +69,17 @@ export async function GET(req: Request) {
       0
     );
 
-    // 3. Calculate Live Meal Rate for the month
-    let liveMealRate = 0;
-    if (totalMealsConsumed > 0) {
-      liveMealRate = totalBazaarCost / totalMealsConsumed;
-    } else if (totalBazaarCost > 0) {
-      liveMealRate = totalBazaarCost;
-    }
+    // 3. Calculate Live Meal Rate for the month (0.00 fallback if 0 meals)
+    const liveMealRate = calculateMealRate(totalBazaarCost, totalMealsConsumed);
 
-    // 4. Fetch all active members (exclude pending and suspended if needed, or just pending)
+    // 4. Fetch Monthly Expense (Fixed Overheads) for the month
+    const monthKey = formatMonthKey(startDate);
+    const monthlyExpenseConfig = await prisma.monthlyExpense.findUnique({
+      where: { month: monthKey },
+    });
+    const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
+
+    // 5. Fetch all active members
     const members = await prisma.user.findMany({
       where: { 
         role: { not: "pending" }
@@ -121,11 +130,19 @@ export async function GET(req: Request) {
         0
       );
 
-      // Current balance: Deposit - (Meals * Rate)
-      const currentBalance = depositAmount - (mealsConsumed * liveMealRate);
+      // Financial Summary using calculation engine
+      const summary = calculateMemberSummary({
+        userId: member.id,
+        name: member.name || "Unnamed",
+        role: member.role,
+        totalDeposit: depositAmount,
+        totalMeals: mealsConsumed,
+        mealRate: liveMealRate,
+        fixedCost: fixedCostPerMember,
+      });
 
       globalTotalDeposit += depositAmount;
-      globalCurrentBalance += currentBalance;
+      globalCurrentBalance += summary.balance;
 
       return {
         id: member.id,
@@ -134,11 +151,16 @@ export async function GET(req: Request) {
         bazaarAmount: Math.round(bazaarAmount * 100) / 100,
         depositAmount: Math.round(depositAmount * 100) / 100,
         mealsConsumed: Math.round(mealsConsumed * 10) / 10,
-        currentBalance: Math.round(currentBalance * 100) / 100,
+        mealCost: summary.mealCost,
+        fixedCost: summary.fixedCost,
+        totalCost: summary.totalCost,
+        currentBalance: summary.balance,
+        isPositive: summary.isPositive,
+        balanceFormatted: summary.balanceFormatted,
       };
     }));
 
-    // Sort member reports (e.g., admins first or by name)
+    // Sort member reports by name
     memberReports.sort((a, b) => a.name.localeCompare(b.name));
 
     return NextResponse.json({
@@ -147,8 +169,9 @@ export async function GET(req: Request) {
         totalBazaarCost: Math.round(totalBazaarCost * 100) / 100,
         totalDeposit: Math.round(globalTotalDeposit * 100) / 100,
         totalMealsConsumed: Math.round(totalMealsConsumed * 10) / 10,
+        fixedCostPerMember,
         currentBalance: Math.round(globalCurrentBalance * 100) / 100,
-        liveMealRate: Math.round(liveMealRate * 100) / 100,
+        liveMealRate,
       },
       memberReports,
       period: {
@@ -158,10 +181,6 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
-    console.error("Admin Reports Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch reports data" },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, "Failed to fetch reports data");
   }
 }

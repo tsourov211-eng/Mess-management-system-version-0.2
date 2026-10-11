@@ -103,9 +103,9 @@ export default function FoodManagementPage() {
         ? `Today, ${targetDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
         : targetDateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
-    // Page total meal calculation
+    // Page total meal calculation (Regular + Approved Guests)
     const totalMealsAdded = members.reduce((acc, m) => {
-        return acc + (Number(m.breakfast) || 0) + (Number(m.lunch) || 0) + (Number(m.dinner) || 0);
+        return acc + (Number(m.breakfast) || 0) + (Number(m.lunch) || 0) + (Number(m.dinner) || 0) + (Number(m.guest) || 0);
     }, 0);
 
     return (
@@ -217,7 +217,8 @@ export default function FoodManagementPage() {
                                     </td>
                                 </tr>
                             ) : members.map((member, idx) => {
-                                const rowTotal = (Number(member.breakfast) || 0) + (Number(member.lunch) || 0) + (Number(member.dinner) || 0);
+                                const guestPortion = Number(member.guest) || 0;
+                                const rowTotal = (Number(member.breakfast) || 0) + (Number(member.lunch) || 0) + (Number(member.dinner) || 0) + guestPortion;
                                 const initial = member.name ? member.name.charAt(0).toUpperCase() : "M";
 
                                 return (
@@ -261,7 +262,17 @@ export default function FoodManagementPage() {
                                             />
                                         </td>
                                         <td className="py-2 px-2 sm:py-4 sm:px-6 text-center bg-orange-50/50 border-l border-orange-100/50">
-                                            <span className="font-extrabold text-gray-900 text-xs sm:text-base">{rowTotal.toFixed(1)}</span>
+                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                <span className="font-extrabold text-gray-900 text-xs sm:text-base">{rowTotal.toFixed(1)}</span>
+                                                {guestPortion > 0 && (
+                                                    <span 
+                                                        className="text-[10px] font-extrabold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full border border-orange-200"
+                                                        title={`${guestPortion} approved guest meal(s)`}
+                                                    >
+                                                        +{guestPortion}G
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 );
