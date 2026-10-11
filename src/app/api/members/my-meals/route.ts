@@ -28,6 +28,8 @@ export async function GET(req: Request) {
     today.setUTCHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
 
     const todaysMeal = await prisma.mealLog.findFirst({
       where: {
@@ -37,8 +39,24 @@ export async function GET(req: Request) {
     });
 
     const todayStatus = {
+      breakfast: todaysMeal && todaysMeal.breakfast > 0 ? "ON" : "OFF",
       lunch: todaysMeal && todaysMeal.lunch > 0 ? "ON" : "OFF",
       dinner: todaysMeal && todaysMeal.dinner > 0 ? "ON" : "OFF",
+    };
+
+    // Determine tomorrow's meal plan (saved or default)
+    const tomorrowsMeal = await prisma.mealLog.findFirst({
+      where: {
+        userId: user.id,
+        date: { gte: tomorrow, lt: dayAfterTomorrow },
+      },
+    });
+
+    const tomorrowPlan = {
+      breakfast: tomorrowsMeal ? tomorrowsMeal.breakfast : (user.defaultBreakfast ?? 0.5),
+      lunch: tomorrowsMeal ? tomorrowsMeal.lunch : (user.defaultLunch ?? 1.0),
+      dinner: tomorrowsMeal ? tomorrowsMeal.dinner : (user.defaultDinner ?? 1.0),
+      guest: tomorrowsMeal ? tomorrowsMeal.guest : 0,
     };
 
     // Fetch monthly meal history
@@ -62,11 +80,95 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(
-      { success: true, todayStatus, guestRequests, monthlyMeals },
+      { success: true, todayStatus, tomorrowPlan, guestRequests, monthlyMeals },
       { status: 200 }
     );
   } catch (error) {
     return safeErrorResponse(error, "Failed to fetch meal history");
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const clientId = getClientIdentifier(req, "toggle-today-meal");
+    const rateCheck = checkRateLimit(clientId, 30, 60 * 1000);
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(rateCheck.resetAt);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!user) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    }
+
+    const body = await req.json();
+    const { meal, enabled } = body; // meal: "breakfast" | "lunch" | "dinner", enabled: boolean
+
+    if (!meal || typeof enabled !== "boolean") {
+      return NextResponse.json({ success: false, error: "Meal type and status are required" }, { status: 400 });
+    }
+
+    const validMeals = ["breakfast", "lunch", "dinner"];
+    if (!validMeals.includes(meal)) {
+      return NextResponse.json({ success: false, error: "Invalid meal type" }, { status: 400 });
+    }
+
+    // Cutoff time validation
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    if (meal === "breakfast" && currentHour >= 8) {
+      return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
+    }
+    if (meal === "lunch" && currentHour >= 12) {
+      return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
+    }
+    if (meal === "dinner" && currentHour >= 21) {
+      return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
+    }
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const defaultVal = meal === "breakfast" ? (user.defaultBreakfast ?? 0.5) : (meal === "lunch" ? (user.defaultLunch ?? 1.0) : (user.defaultDinner ?? 1.0));
+    const newVal = enabled ? (defaultVal > 0 ? defaultVal : 1.0) : 0;
+
+    const updatedLog = await prisma.mealLog.upsert({
+      where: {
+        userId_date: {
+          userId: user.id,
+          date: today,
+        },
+      },
+      update: {
+        [meal]: newVal,
+      },
+      create: {
+        userId: user.id,
+        date: today,
+        breakfast: meal === "breakfast" ? newVal : (user.defaultBreakfast ?? 0.5),
+        lunch: meal === "lunch" ? newVal : (user.defaultLunch ?? 1.0),
+        dinner: meal === "dinner" ? newVal : (user.defaultDinner ?? 1.0),
+        guest: 0,
+      },
+    });
+
+    const todayStatus = {
+      breakfast: updatedLog.breakfast > 0 ? "ON" : "OFF",
+      lunch: updatedLog.lunch > 0 ? "ON" : "OFF",
+      dinner: updatedLog.dinner > 0 ? "ON" : "OFF",
+    };
+
+    return NextResponse.json({ success: true, todayStatus, mealLog: updatedLog }, { status: 200 });
+  } catch (error) {
+    return safeErrorResponse(error, "Failed to toggle today meal");
   }
 }
 

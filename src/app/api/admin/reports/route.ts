@@ -17,12 +17,12 @@ export async function GET(req: Request) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const adminUser = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
     
-    if (!adminUser || (adminUser.role !== "admin" && adminUser.role !== "manager")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -92,7 +92,6 @@ export async function GET(req: Request) {
     });
 
     let globalTotalDeposit = 0;
-    let globalCurrentBalance = 0;
 
     // Calculate individual stats for the month
     const memberReports = await Promise.all(members.map(async (member) => {
@@ -130,7 +129,7 @@ export async function GET(req: Request) {
         0
       );
 
-      // Financial Summary using calculation engine
+      // Financial Summary using calculation engine (live balance based on actual incurred expenses)
       const summary = calculateMemberSummary({
         userId: member.id,
         name: member.name || "Unnamed",
@@ -139,10 +138,10 @@ export async function GET(req: Request) {
         totalMeals: mealsConsumed,
         mealRate: liveMealRate,
         fixedCost: fixedCostPerMember,
+        actualSharedCost: 0,
       });
 
       globalTotalDeposit += depositAmount;
-      globalCurrentBalance += summary.balance;
 
       return {
         id: member.id,
@@ -160,6 +159,20 @@ export async function GET(req: Request) {
       };
     }));
 
+    // Check all-inclusive approved deposits in active month
+    const monthDepositAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: "Approved",
+        date: dateFilter,
+      },
+    });
+    const totalMonthDeposits = monthDepositAgg._sum.amount || 0;
+    const finalTotalDeposit = Math.max(globalTotalDeposit, totalMonthDeposits);
+
+    // Current Balance (Cash in Hand) = Total Cash Deposits Collected - Total Actual Expenses Paid
+    const currentCashBalance = Math.round((finalTotalDeposit - totalBazaarCost) * 100) / 100;
+
     // Sort member reports by name
     memberReports.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -167,10 +180,10 @@ export async function GET(req: Request) {
       stats: {
         totalMembers: members.length,
         totalBazaarCost: Math.round(totalBazaarCost * 100) / 100,
-        totalDeposit: Math.round(globalTotalDeposit * 100) / 100,
+        totalDeposit: Math.round(finalTotalDeposit * 100) / 100,
         totalMealsConsumed: Math.round(totalMealsConsumed * 10) / 10,
         fixedCostPerMember,
-        currentBalance: Math.round(globalCurrentBalance * 100) / 100,
+        currentBalance: currentCashBalance,
         liveMealRate,
       },
       memberReports,

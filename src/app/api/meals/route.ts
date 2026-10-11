@@ -24,8 +24,9 @@ export async function GET(req: Request) {
     const nextDate = new Date(targetDate);
     nextDate.setDate(nextDate.getDate() + 1);
 
-    // Fetch all members
+    // Fetch all active members
     const users = await prisma.user.findMany({
+      where: { role: { not: "pending" } },
       orderBy: { name: "asc" },
       select: {
         id: true,

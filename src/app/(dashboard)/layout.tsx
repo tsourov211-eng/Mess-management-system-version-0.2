@@ -196,7 +196,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const userInitial = displayName.charAt(0);
 
     return (
-        <div className="min-h-screen md:bg-[#F8FAFC] bg-gradient-to-br from-[#FFF5F0] to-[#FFF0EB] md:bg-[url('/admin_dashboard_mobile_bg.png')] lg:bg-[url('/admin_dashboard_desktop_bg.png')] bg-cover bg-center bg-no-repeat bg-fixed flex font-sans pb-[72px] md:pb-0">
+        <div className="min-h-screen bg-[url('/MobileDashboardBg.png')] md:bg-[#F8FAFC] lg:bg-[url('/admin_dashboard_desktop_bg.png')] bg-cover bg-center bg-no-repeat md:bg-fixed flex font-sans">
             
             {/* ─── Mobile Sidebar Overlay ─── */}
             {isSidebarOpen && (
@@ -435,36 +435,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </header>
 
                 {/* ─── Mobile App Header ─── */}
-                <header className="md:hidden flex items-center justify-between px-5 pt-6 pb-2 sticky top-0 z-30 backdrop-blur-sm bg-white/30">
+                <header className="md:hidden flex items-center justify-between px-4 pt-4 pb-2 sticky top-0 z-30">
                     <button 
-                        className="w-11 h-11 bg-white/60 backdrop-blur-sm rounded-[20px] flex items-center justify-center text-gray-700 shadow-sm border border-white/50"
+                        className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-2xl flex items-center justify-center text-gray-800 shadow-sm border border-gray-100/60 cursor-pointer"
                         onClick={() => setIsSidebarOpen(true)}
+                        aria-label="Open sidebar"
                     >
-                        <IconMenu2 stroke={2} size={22} />
+                        <IconMenu2 stroke={2.5} size={20} />
                     </button>
                     
-                    <div className="flex flex-col items-center justify-center">
-                        <div className="flex items-center justify-center mb-0.5">
-                            <IconToolsKitchen2 className="w-5 h-5 text-[#450705] mr-1" stroke={2} />
-                            <h2 className="text-lg font-extrabold text-[#450705] tracking-tight leading-none">Good Food</h2>
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#FF6B00] to-amber-500 flex items-center justify-center text-white shadow-sm shadow-orange-500/20 shrink-0">
+                            <IconToolsKitchen2 size={17} stroke={2.5} />
                         </div>
-                        <p className="text-orange-600 font-bold text-xs leading-none">Brighter Days</p>
+                        <div className="flex flex-col text-left">
+                            <span className="text-base font-black text-gray-900 leading-tight">Good Food</span>
+                            <span className="text-[11px] font-black text-[#FF6B00] leading-tight tracking-tight">Brighter Days</span>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {/* Mobile Notification Dropdown */}
                         <div className="relative notif-wrapper">
                             <button 
                                 onClick={() => { setIsNotifOpen(!isNotifOpen); setIsProfileOpen(false); }}
-                                className="relative w-11 h-11 bg-white/60 backdrop-blur-sm rounded-full flex items-center justify-center text-gray-700 shadow-sm border border-white/50 cursor-pointer"
+                                className="relative w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-700 shadow-sm border border-gray-100/60 cursor-pointer"
                                 aria-label="Notifications"
                             >
-                                <IconBell stroke={2} size={22} />
-                                {unreadCount > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold shadow-sm">
-                                        {unreadCount}
-                                    </span>
-                                )}
+                                <IconBell stroke={2} size={20} />
+                                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white shadow-2xs" />
                             </button>
 
                             {isNotifOpen && (
@@ -529,11 +528,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="relative profile-wrapper">
                             <div 
                                 onClick={() => { setIsProfileOpen(!isProfileOpen); setIsNotifOpen(false); }}
-                                className="w-11 h-11 rounded-full bg-[#1e293b] flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 cursor-pointer border-2 border-white/80 overflow-hidden"
+                                className={`w-9 h-9 rounded-full ${basePath === 'manager' ? 'bg-gradient-to-tr from-orange-500 to-amber-500' : 'bg-[#7C3AED]'} flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0 cursor-pointer border-2 border-white/90 overflow-hidden relative`}
                             >
                                 {session?.user?.image ? (
                                     <img src={session.user.image} alt="Profile" className="w-full h-full object-cover" />
                                 ) : userInitial}
+                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
                             </div>
 
                             {isProfileOpen && (
@@ -573,54 +573,100 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </header>
                 
                 {/* ─── Page Content ─── */}
-                <main className="flex-1 p-4 sm:p-6 lg:px-10 lg:pb-10 overflow-y-auto">
+                <main className="flex-1 p-4 sm:p-6 pb-28 md:pb-10 lg:px-10 lg:pb-10 overflow-y-auto">
                     {children}
                 </main>
             </div>
 
             {/* ─── Fixed Bottom Navigation (Mobile Only) ─── */}
-            <div className="md:hidden fixed bottom-0 w-full bg-white rounded-t-[32px] shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe z-40">
-                <div className={`grid ${isAdmin ? "grid-cols-5" : "grid-cols-4"} items-center justify-items-center py-2 px-2 relative`}>
+            <nav 
+                className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100/90 shadow-[0_-8px_25px_rgba(0,0,0,0.08)] rounded-t-[28px] z-50"
+                style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+            >
+                <div className={`grid ${isAdmin ? "grid-cols-5" : "grid-cols-4"} items-center justify-items-center h-16 px-2 relative`}>
                     
-                    {/* FAB Button (Admin Only) */}
+                    {/* Elevated FAB Button (Admin Only) */}
                     {isAdmin && (
-                        <div className="absolute left-1/2 -translate-x-1/2 -top-6">
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-20">
                             <Link 
                                 href="/admin/add-member" 
-                                className="w-14 h-14 bg-[#FF6B00] text-white rounded-full shadow-[0_8px_16px_rgba(255,107,0,0.3)] flex items-center justify-center border-4 border-[#FFF5F0] hover:scale-105 transition-transform active:scale-95"
+                                className="w-13 h-13 sm:w-14 sm:h-14 bg-gradient-to-tr from-[#FF6B00] to-amber-500 text-white rounded-full shadow-lg shadow-orange-500/40 flex items-center justify-center border-4 border-white hover:scale-105 active:scale-95 transition-all"
                                 aria-label="Add Member"
                             >
-                                <IconPlus stroke={3} size={28} />
+                                <IconPlus stroke={3} size={26} />
                             </Link>
                         </div>
                     )}
 
-                    <Link href={`/${basePath}`} className="flex flex-col items-center gap-1 py-2 w-full">
-                        <IconHome stroke={pathname === `/${basePath}` ? 2.5 : 2} className={pathname === `/${basePath}` ? "text-[#FF6B00]" : "text-gray-400"} size={24} />
-                        <span className={`text-[10px] font-bold ${pathname === `/${basePath}` ? "text-[#FF6B00]" : "text-gray-400"}`}>Dashboard</span>
-                        {pathname === `/${basePath}` && <div className="w-6 h-1 bg-[#FF6B00] rounded-full mt-0.5 absolute bottom-1" />}
+                    {/* 1. Dashboard */}
+                    <Link 
+                        href={`/${basePath}`} 
+                        className="flex flex-col items-center justify-center gap-0.5 w-full h-full"
+                    >
+                        <IconHome 
+                            stroke={pathname === `/${basePath}` ? 2.5 : 2} 
+                            className={pathname === `/${basePath}` ? "text-[#FF6B00]" : "text-gray-400"} 
+                            size={22} 
+                        />
+                        <span className={`text-[10px] font-bold ${pathname === `/${basePath}` ? "text-[#FF6B00]" : "text-gray-400"}`}>
+                            Dashboard
+                        </span>
+                        {pathname === `/${basePath}` && <span className="w-5 h-1 bg-[#FF6B00] rounded-full mt-0.5" />}
                     </Link>
 
-                    <Link href="/bazaar" className="flex flex-col items-center gap-1 py-2 w-full">
-                        <IconReceipt stroke={pathname.includes("/bazaar") ? 2.5 : 2} className={pathname.includes("/bazaar") ? "text-[#FF6B00]" : "text-gray-400"} size={24} />
-                        <span className={`text-[10px] font-bold ${pathname.includes("/bazaar") ? "text-[#FF6B00]" : "text-gray-400"}`}>Expenses</span>
+                    {/* 2. Expenses */}
+                    <Link 
+                        href="/bazaar" 
+                        className="flex flex-col items-center justify-center gap-0.5 w-full h-full"
+                    >
+                        <IconReceipt 
+                            stroke={pathname.includes("/bazaar") || pathname.includes("/monthly-expense") ? 2.5 : 2} 
+                            className={pathname.includes("/bazaar") || pathname.includes("/monthly-expense") ? "text-[#FF6B00]" : "text-gray-400"} 
+                            size={22} 
+                        />
+                        <span className={`text-[10px] font-bold ${pathname.includes("/bazaar") || pathname.includes("/monthly-expense") ? "text-[#FF6B00]" : "text-gray-400"}`}>
+                            Expenses
+                        </span>
+                        {(pathname.includes("/bazaar") || pathname.includes("/monthly-expense")) && <span className="w-5 h-1 bg-[#FF6B00] rounded-full mt-0.5" />}
                     </Link>
 
-                    {/* Empty Space for FAB (Admin Only) */}
-                    {isAdmin && <div className="w-full"></div>}
+                    {/* 3. Empty Center Space for FAB (Admin Only) */}
+                    {isAdmin && <div className="w-full h-full pointer-events-none" />}
 
-                    <Link href="/members-list" className="flex flex-col items-center gap-1 py-2 w-full">
-                        <IconUsers stroke={pathname.includes("/members-list") ? 2.5 : 2} className={pathname.includes("/members-list") ? "text-[#FF6B00]" : "text-gray-400"} size={24} />
-                        <span className={`text-[10px] font-bold ${pathname.includes("/members-list") ? "text-[#FF6B00]" : "text-gray-400"}`}>Members</span>
+                    {/* 4. Members */}
+                    <Link 
+                        href="/members-list" 
+                        className="flex flex-col items-center justify-center gap-0.5 w-full h-full"
+                    >
+                        <IconUsers 
+                            stroke={pathname.includes("/members-list") ? 2.5 : 2} 
+                            className={pathname.includes("/members-list") ? "text-[#FF6B00]" : "text-gray-400"} 
+                            size={22} 
+                        />
+                        <span className={`text-[10px] font-bold ${pathname.includes("/members-list") ? "text-[#FF6B00]" : "text-gray-400"}`}>
+                            Members
+                        </span>
+                        {pathname.includes("/members-list") && <span className="w-5 h-1 bg-[#FF6B00] rounded-full mt-0.5" />}
                     </Link>
 
-                    <Link href="/reports" className="flex flex-col items-center gap-1 py-2 w-full">
-                        <IconChartBar stroke={pathname.includes("/reports") ? 2.5 : 2} className={pathname.includes("/reports") ? "text-[#FF6B00]" : "text-gray-400"} size={24} />
-                        <span className={`text-[10px] font-bold ${pathname.includes("/reports") ? "text-[#FF6B00]" : "text-gray-400"}`}>Reports</span>
+                    {/* 5. Reports */}
+                    <Link 
+                        href="/reports" 
+                        className="flex flex-col items-center justify-center gap-0.5 w-full h-full"
+                    >
+                        <IconChartBar 
+                            stroke={pathname.includes("/reports") ? 2.5 : 2} 
+                            className={pathname.includes("/reports") ? "text-[#FF6B00]" : "text-gray-400"} 
+                            size={22} 
+                        />
+                        <span className={`text-[10px] font-bold ${pathname.includes("/reports") ? "text-[#FF6B00]" : "text-gray-400"}`}>
+                            Reports
+                        </span>
+                        {pathname.includes("/reports") && <span className="w-5 h-1 bg-[#FF6B00] rounded-full mt-0.5" />}
                     </Link>
 
                 </div>
-            </div>
+            </nav>
 
             {/* ─── Notification Detail Modal ─── */}
             {selectedNotice && (

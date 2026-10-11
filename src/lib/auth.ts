@@ -13,6 +13,16 @@ export const authOptions: AuthOptions = {
           GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            authorization: {
+              params: {
+                prompt: "consent",
+                access_type: "offline",
+                response_type: "code",
+                scope: "openid email profile",
+              },
+            },
+            checks: ["state"],
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : []),
@@ -32,8 +42,12 @@ export const authOptions: AuthOptions = {
           where: { email: normalizedEmail },
         });
 
-        if (!user || !user.password) {
+        if (!user) {
           throw new Error("Invalid email or password!");
+        }
+
+        if (!user.password) {
+          throw new Error("This account was created with Google. Please click 'Continue with Google' or use Forgot Password.");
         }
 
         const isPasswordValid = await comparePassword(
@@ -54,7 +68,7 @@ export const authOptions: AuthOptions = {
           name: user.name || "User",
           email: user.email,
           role: user.role || "member",
-          image: user.image,
+          image: user.image && !user.image.startsWith("data:") ? user.image : null,
         };
       },
     }),
@@ -80,6 +94,10 @@ export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user, trigger, session: updateSession }) {
+      // Strip any base64 data URIs so cookie never exceeds HTTP limits
+      if (token.picture && typeof token.picture === "string" && token.picture.startsWith("data:")) {
+        delete token.picture;
+      }
       if (trigger === "update" && (updateSession as any)?.name) {
         token.name = (updateSession as any).name;
       }

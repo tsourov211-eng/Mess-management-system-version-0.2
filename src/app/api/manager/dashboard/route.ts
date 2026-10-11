@@ -71,6 +71,34 @@ export async function GET() {
       0
     );
 
+    // 5. Month-specific live meal rate calculation
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const dateFilter = { gte: startOfMonth, lt: endOfMonth };
+
+    const monthExpenses = await prisma.expense.aggregate({
+      _sum: { amount: true },
+      where: { status: "Approved", date: dateFilter },
+    });
+    const monthMeals = await prisma.mealLog.findMany({
+      where: { date: dateFilter },
+    });
+    const totalMonthMeals = monthMeals.reduce(
+      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+      0
+    );
+    const rawRate = (totalMonthMeals > 0 && (monthExpenses._sum.amount || 0) > 0)
+      ? (monthExpenses._sum.amount || 0) / totalMonthMeals
+      : 46.15;
+    const currentMealRate = Math.round(rawRate * 100) / 100;
+
+    // 6. Market Duty for today
+    const todayDuty = await prisma.bazaarSchedule.findFirst({
+      where: { date: { gte: today, lt: tomorrow } },
+      include: { user: { select: { name: true } } },
+    });
+    const marketDuty = todayDuty?.user?.name || "Super Admin";
+
     return NextResponse.json(
       {
         pendingDeposits,
@@ -80,6 +108,9 @@ export async function GET() {
         stats: {
           totalMealsToday: Math.round(totalMealsToday * 10) / 10,
           totalBazaarToday: Math.round(totalBazaarToday),
+          currentMealRate,
+          liveMealRate: currentMealRate,
+          marketDuty,
         },
       },
       { status: 200 }

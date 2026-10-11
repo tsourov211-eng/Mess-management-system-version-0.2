@@ -64,6 +64,10 @@ export function calculateFixedCostPerMember(config?: MonthlyExpenseConfig | null
 
 /**
  * Calculates a member's complete financial summary.
+ * In an active/ongoing month, live balance reflects real money present right now:
+ * Member Live Balance = Member Deposits - (Member Meals * Live Meal Rate) - Actual Incurred Shared Costs
+ * Unpaid projected overhead configurations (e.g. seat rent, maid budget) are preserved for breakdown display
+ * but NOT deducted from live cash-in-hand balances.
  */
 export function calculateMemberSummary(params: {
   userId: string;
@@ -72,12 +76,22 @@ export function calculateMemberSummary(params: {
   totalDeposit: number;
   totalMeals: number;
   mealRate: number;
-  fixedCost: number;
+  fixedCost?: number;
+  actualSharedCost?: number;
 }): MemberFinancialSummary {
-  const { userId, name, role, totalDeposit, totalMeals, mealRate, fixedCost } = params;
+  const { 
+    userId, 
+    name, 
+    role, 
+    totalDeposit, 
+    totalMeals, 
+    mealRate, 
+    fixedCost = 0, 
+    actualSharedCost = 0 
+  } = params;
 
   const mealCost = Math.round((totalMeals * mealRate) * 100) / 100;
-  const totalCost = Math.round((mealCost + fixedCost) * 100) / 100;
+  const totalCost = Math.round((mealCost + actualSharedCost) * 100) / 100;
   const balance = Math.round((totalDeposit - totalCost) * 100) / 100;
   const isPositive = balance >= 0;
 

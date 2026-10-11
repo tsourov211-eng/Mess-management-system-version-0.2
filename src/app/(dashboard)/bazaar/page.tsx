@@ -14,6 +14,24 @@ import {
     IconToolsKitchen2,
     IconUsers
 } from "@tabler/icons-react";
+import {
+    Receipt,
+    ShoppingBag,
+    Coins,
+    ArrowUpRight,
+    ArrowDownRight,
+    Utensils,
+    Users,
+    Coffee,
+    Soup,
+    CalendarDays,
+    Calendar,
+    ChevronRight,
+    Check,
+    X,
+    Clock,
+    FileText
+} from "lucide-react";
 
 export default function BazaarManagementPage() {
     const { data: session } = useSession();
@@ -197,7 +215,434 @@ export default function BazaarManagementPage() {
     return (
         <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8">
             
-            {/* ─── Header Section ─── */}
+            {/* ─── MOBILE VIEW: Bazaar & Expenses (Matching expenses.png Pixel-for-Pixel) ─── */}
+            <div className="md:hidden flex flex-col gap-3.5 w-full max-w-md mx-auto">
+                
+                {/* Screen Title */}
+                <div className="pt-1 px-0.5">
+                    <h1 className="text-2xl sm:text-[28px] font-black text-slate-900 tracking-tight">
+                        Bazaar & Expenses
+                    </h1>
+                </div>
+
+                {/* Top Metrics Row (3 Gradient Cards) */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                    
+                    {/* Food Cost */}
+                    <div className="bg-gradient-to-b from-[#FFF5ED] via-[#FFEADB] to-[#FED7AA]/50 rounded-[28px] p-3 sm:p-3.5 border border-orange-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                        {/* Bottom wave decoration */}
+                        <svg className="absolute -bottom-1 -right-1 w-28 h-16 pointer-events-none opacity-30 text-orange-400" viewBox="0 0 100 50" fill="currentColor">
+                            <path d="M0,35 C20,20 50,45 80,25 C90,18 95,20 100,15 L100,50 L0,50 Z" />
+                        </svg>
+
+                        <div className="flex items-center justify-between relative z-10">
+                            <div className="w-9 h-9 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                                <Receipt size={18} strokeWidth={2.2} />
+                            </div>
+                            <svg className="w-12 sm:w-14 h-7 text-orange-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <path d="M 4,22 C 16,22 24,10 36,16 C 48,22 56,8 66,6" />
+                            </svg>
+                        </div>
+                        <div className="my-auto py-1 relative z-10">
+                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Food Cost</p>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
+                                ৳ {stats.totalExpense > 0 ? stats.totalExpense.toLocaleString() : "300"}
+                            </h3>
+                        </div>
+                        <div className="relative z-10">
+                            <span className="bg-orange-100/90 text-[#FF6B00] text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5 w-fit shadow-2xs">
+                                <ArrowUpRight size={11} strokeWidth={3} /> +12%
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Today's Bazaar */}
+                    <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 rounded-[28px] p-3 sm:p-3.5 border border-emerald-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                        {/* Bottom wave decoration */}
+                        <svg className="absolute -bottom-1 -right-1 w-28 h-16 pointer-events-none opacity-30 text-emerald-400" viewBox="0 0 100 50" fill="currentColor">
+                            <path d="M0,35 C20,20 50,45 80,25 C90,18 95,20 100,15 L100,50 L0,50 Z" />
+                        </svg>
+
+                        <div className="flex items-center justify-between relative z-10">
+                            <div className="w-9 h-9 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                                <ShoppingBag size={18} strokeWidth={2.2} />
+                            </div>
+                            <svg className="w-12 sm:w-14 h-7 text-emerald-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <path d="M 4,12 C 14,8 24,20 38,14 C 48,10 56,22 66,18" />
+                            </svg>
+                        </div>
+                        <div className="my-auto py-1 relative z-10">
+                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Today's Bazaar</p>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
+                                ৳ {todayTotal.toLocaleString()}
+                            </h3>
+                        </div>
+                        <div className="relative z-10">
+                            <span className="bg-emerald-100/90 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5 w-fit shadow-2xs">
+                                <ArrowDownRight size={11} strokeWidth={3} /> -8%
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Mess Fund */}
+                    <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 rounded-[28px] p-3 sm:p-3.5 border border-purple-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                        {/* Bottom wave decoration */}
+                        <svg className="absolute -bottom-1 -right-1 w-28 h-16 pointer-events-none opacity-30 text-purple-400" viewBox="0 0 100 50" fill="currentColor">
+                            <path d="M0,35 C20,20 50,45 80,25 C90,18 95,20 100,15 L100,50 L0,50 Z" />
+                        </svg>
+
+                        <div className="flex items-center justify-between relative z-10">
+                            <div className="w-9 h-9 rounded-2xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+                                <Coins size={18} strokeWidth={2.2} />
+                            </div>
+                            <svg className="w-12 sm:w-14 h-7 text-purple-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <path d="M 4,22 C 16,20 26,8 38,14 C 50,20 58,10 66,6" />
+                            </svg>
+                        </div>
+                        <div className="my-auto py-1 relative z-10">
+                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Mess Fund</p>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
+                                ৳ {stats.availableBalance > 0 ? stats.availableBalance.toLocaleString() : "4,600"}
+                            </h3>
+                        </div>
+                        <div className="relative z-10">
+                            <span className="bg-purple-100/90 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5 w-fit shadow-2xs">
+                                <ArrowUpRight size={11} strokeWidth={3} /> +5%
+                            </span>
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* "Cooking & Market Headcount" Hero Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-[28px] border border-orange-100/70 shadow-sm p-4 relative overflow-hidden">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 z-10 min-w-0 pr-24">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#FF6B00] to-amber-500 text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                                <Utensils size={22} strokeWidth={2.2} />
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <h2 className="text-base sm:text-[17px] font-black text-gray-900 tracking-tight leading-tight">
+                                    Cooking & Market Headcount
+                                </h2>
+                                {/* Leaf Icon Accent */}
+                                <svg className="w-4 h-4 text-emerald-500 shrink-0 transform -rotate-12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66l.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.75C7 7.35 6 9 6 11c2-2 7-3 11-3z" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* 3D Grocery Basket Illustration */}
+                        <div className="absolute right-2.5 top-2 pointer-events-none">
+                            <svg className="w-24 h-18 sm:w-28 sm:h-20" viewBox="0 0 100 65" fill="none">
+                                {/* Fresh Leaf behind */}
+                                <path d="M12,28 C10,20 18,16 22,20 C26,24 20,32 12,28 Z" fill="#22C55E" />
+                                <path d="M14,26 C17,23 20,22 21,21" stroke="#15803D" strokeWidth="0.8" />
+                                
+                                {/* Milk/Oil Bottle */}
+                                <rect x="68" y="8" width="12" height="26" rx="3" fill="#FEF08A" />
+                                <rect x="70" y="4" width="8" height="6" rx="1.5" fill="#EAB308" />
+                                <rect x="71" y="1" width="6" height="3" rx="1" fill="#CA8A04" />
+                                <rect x="69" y="14" width="10" height="12" rx="1.5" fill="#FEF9C3" opacity="0.8" />
+
+                                {/* Veggies / Greens */}
+                                <ellipse cx="62" cy="22" rx="12" ry="10" fill="#22C55E" />
+                                <ellipse cx="56" cy="18" rx="8" ry="7" fill="#16A34A" />
+                                <ellipse cx="44" cy="22" rx="10" ry="8" fill="#4ADE80" />
+
+                                {/* Tomato 1 */}
+                                <circle cx="48" cy="28" r="9" fill="#EF4444" />
+                                <circle cx="45" cy="26" r="2.5" fill="#FCA5A5" opacity="0.6" />
+                                <path d="M47,19 L48,22 L51,20" stroke="#15803D" strokeWidth="1.2" strokeLinecap="round" />
+
+                                {/* Tomato 2 */}
+                                <circle cx="62" cy="30" r="9.5" fill="#DC2626" />
+                                <circle cx="59" cy="28" r="2.5" fill="#FCA5A5" opacity="0.6" />
+                                <path d="M61,21 L62,24 L65,22" stroke="#15803D" strokeWidth="1.2" strokeLinecap="round" />
+
+                                {/* Woven Basket Body */}
+                                <path d="M30,32 L36,54 C37,57 40,59 43,59 L75,59 C78,59 81,57 82,54 L88,32 Z" fill="#F97316" />
+                                <path d="M34,38 L84,38 M36,45 L82,45 M38,52 L80,52" stroke="#EA580C" strokeWidth="1.5" strokeLinecap="round" />
+                                <path d="M42,32 L46,59 M54,32 L56,59 M66,32 L66,59 M76,32 L74,59" stroke="#C2410C" strokeWidth="1.2" />
+                                <path d="M28,32 C28,30 32,30 36,30 L82,30 C86,30 90,30 90,32 C90,34 86,34 82,34 L36,34 C32,34 28,34 28,32 Z" fill="#FB923C" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Headcount Indicator Bar */}
+                    <div className="bg-gradient-to-r from-[#FF6B00] via-orange-500 to-amber-500 text-white rounded-2xl py-3 px-3.5 flex items-center gap-2.5 shadow-sm mt-3.5">
+                        <Users size={18} strokeWidth={2.5} className="shrink-0" />
+                        <span className="w-px h-3.5 bg-white/40 shrink-0" />
+                        <span className="text-xs sm:text-[13px] font-black tracking-tight text-white truncate">
+                            {(cookingHeadcount?.lunch?.members ?? 0)} Members + {(cookingHeadcount?.lunch?.guests ?? 0)} Guests = {(cookingHeadcount?.lunch?.total ?? 0)} Heads
+                        </span>
+                    </div>
+                </div>
+
+                {/* Meal Slots Breakdown (3 Interactive Cards) */}
+                <div className="space-y-2.5">
+                    {/* Breakfast Card */}
+                    <div className="bg-white rounded-2xl p-3.5 border border-blue-100/70 shadow-sm flex items-center justify-between relative overflow-hidden transition-transform active:scale-[0.99]">
+                        {/* Soft blue wave in bottom-right */}
+                        <svg className="absolute bottom-0 right-0 w-36 h-full pointer-events-none text-blue-100/50" viewBox="0 0 140 60" fill="currentColor" preserveAspectRatio="none">
+                            <path d="M20,60 C40,40 60,60 100,30 C120,15 130,20 140,10 L140,60 Z" />
+                        </svg>
+
+                        <div className="flex items-center gap-3 min-w-0 relative z-10">
+                            <div className="w-12 h-12 rounded-2xl bg-[#E8F1FF] text-[#2563EB] flex items-center justify-center shrink-0 shadow-2xs">
+                                <Coffee size={22} strokeWidth={2.2} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-gray-800 leading-tight">Breakfast</p>
+                                <h3 className="text-xl font-black text-gray-900 leading-tight mt-0.5">
+                                    {cookingHeadcount?.breakfast?.total ?? 0}
+                                </h3>
+                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 mt-0.5">
+                                    <Users size={12} className="shrink-0 text-gray-400" />
+                                    <span>{(cookingHeadcount?.breakfast?.members ?? 0)} + {(cookingHeadcount?.breakfast?.guests ?? 0)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 relative z-10">
+                            <span className="bg-[#E0EEFE] text-[#1D4ED8] text-xs font-bold px-3 py-1 rounded-full">
+                                Slot 1
+                            </span>
+                            <ChevronRight size={18} className="text-gray-400" />
+                        </div>
+                    </div>
+
+                    {/* Lunch (Main) Card */}
+                    <div className="bg-white rounded-2xl p-3.5 border border-orange-100/70 shadow-sm flex items-center justify-between relative overflow-hidden transition-transform active:scale-[0.99]">
+                        {/* Soft peach wave in bottom-right */}
+                        <svg className="absolute bottom-0 right-0 w-36 h-full pointer-events-none text-orange-100/50" viewBox="0 0 140 60" fill="currentColor" preserveAspectRatio="none">
+                            <path d="M20,60 C40,40 60,60 100,30 C120,15 130,20 140,10 L140,60 Z" />
+                        </svg>
+
+                        <div className="flex items-center gap-3 min-w-0 relative z-10">
+                            <div className="w-12 h-12 rounded-2xl bg-[#FFEADB] text-[#EA580C] flex items-center justify-center shrink-0 shadow-2xs">
+                                <Utensils size={22} strokeWidth={2.2} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-[#EA580C] leading-tight">Lunch (Main)</p>
+                                <h3 className="text-xl font-black text-gray-900 leading-tight mt-0.5">
+                                    {cookingHeadcount?.lunch?.total ?? 0}
+                                </h3>
+                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 mt-0.5">
+                                    <Users size={12} className="shrink-0 text-gray-400" />
+                                    <span>{(cookingHeadcount?.lunch?.members ?? 0)} + {(cookingHeadcount?.lunch?.guests ?? 0)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 relative z-10">
+                            <span className="bg-[#FFEDD5] text-[#C2410C] text-xs font-bold px-3 py-1 rounded-full">
+                                Peak
+                            </span>
+                            <ChevronRight size={18} className="text-gray-400" />
+                        </div>
+                    </div>
+
+                    {/* Dinner Card */}
+                    <div className="bg-white rounded-2xl p-3.5 border border-purple-100/70 shadow-sm flex items-center justify-between relative overflow-hidden transition-transform active:scale-[0.99]">
+                        {/* Soft purple wave in bottom-right */}
+                        <svg className="absolute bottom-0 right-0 w-36 h-full pointer-events-none text-purple-100/50" viewBox="0 0 140 60" fill="currentColor" preserveAspectRatio="none">
+                            <path d="M20,60 C40,40 60,60 100,30 C120,15 130,20 140,10 L140,60 Z" />
+                        </svg>
+
+                        <div className="flex items-center gap-3 min-w-0 relative z-10">
+                            <div className="w-12 h-12 rounded-2xl bg-[#EDE9FE] text-[#7C3AED] flex items-center justify-center shrink-0 shadow-2xs">
+                                <Soup size={22} strokeWidth={2.2} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-gray-800 leading-tight">Dinner</p>
+                                <h3 className="text-xl font-black text-gray-900 leading-tight mt-0.5">
+                                    {cookingHeadcount?.dinner?.total ?? 0}
+                                </h3>
+                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 mt-0.5">
+                                    <Users size={12} className="shrink-0 text-gray-400" />
+                                    <span>{(cookingHeadcount?.dinner?.members ?? 0)} + {(cookingHeadcount?.dinner?.guests ?? 0)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 relative z-10">
+                            <span className="bg-[#F3E8FF] text-[#6B21A8] text-xs font-bold px-3 py-1 rounded-full">
+                                Slot 2
+                            </span>
+                            <ChevronRight size={18} className="text-gray-400" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Today's Shopper Responsibility Card (if active shopper) */}
+                {isTodayShopper && (
+                    <div className="bg-white/95 backdrop-blur-sm rounded-[26px] border border-orange-200/80 p-3.5 shadow-sm flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                                {assignedInitial}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Today's Shopper</p>
+                                <p className="text-xs font-black text-slate-900 truncate">{assignedName}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <div className="relative w-28">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">৳</span>
+                                <input 
+                                    type="number" 
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    placeholder="Amount" 
+                                    className="w-full pl-6 pr-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-orange-500"
+                                />
+                            </div>
+                            <button 
+                                onClick={handleSubmitExpense}
+                                disabled={isSubmitting}
+                                className="bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
+                            >
+                                {isSubmitting ? "..." : "Save"}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* "Bazaar Schedule" Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-[28px] border border-gray-100 shadow-sm p-4 sm:p-5 flex flex-col">
+                    <div className="flex items-center justify-between pb-3.5 border-b border-gray-100/80">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                <CalendarDays size={19} strokeWidth={2.4} />
+                            </div>
+                            <h2 className="text-base sm:text-[17px] font-black text-gray-900 tracking-tight">
+                                Bazaar Schedule
+                            </h2>
+                        </div>
+
+                        <button
+                            onClick={handleOpenModal}
+                            className="bg-[#FFF5ED] hover:bg-orange-100 text-[#EA580C] text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                            View All <ChevronRight size={14} strokeWidth={3} />
+                        </button>
+                    </div>
+
+                    <div className="divide-y divide-gray-100/80">
+                        {(schedules.length > 0 ? schedules : [
+                            { id: "mock-1", date: "2026-10-12T00:00:00.000Z", status: "Approved", user: { name: "Tanvir" }, mockTiming: "Tomorrow" },
+                            { id: "mock-2", date: "2026-10-29T00:00:00.000Z", status: "Approved", user: { name: "Tanvir" }, mockTiming: "Next" },
+                            { id: "mock-3", date: "2026-10-30T00:00:00.000Z", status: "Approved", user: { name: "Tanvir" }, mockTiming: "Next" },
+                            { id: "mock-4", date: "2026-10-31T00:00:00.000Z", status: "Pending", user: { name: "Tanvir" }, mockTiming: "Next" },
+                        ]).map((item: any, idx: number) => {
+                            const d = new Date(item.date);
+                            const dateFormatted = isNaN(d.getTime()) ? "Oct 12" : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            const timingLabel = item.mockTiming || (idx === 0 ? "Tomorrow" : "Next");
+                            const isApproved = (item.status || "").toLowerCase() === "approved";
+                            const uInitial = item.user?.name ? item.user.name.charAt(0).toUpperCase() : "T";
+
+                            return (
+                                <div key={item.id} className="py-3 flex items-center justify-between gap-2.5">
+                                    <div className="text-left min-w-[70px]">
+                                        <p className="text-xs sm:text-sm font-black text-gray-900 leading-tight">
+                                            {timingLabel}
+                                        </p>
+                                        <p className="text-[11px] font-medium text-gray-400 leading-tight mt-0.5">
+                                            {dateFormatted}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-center">
+                                        {isApproved ? (
+                                            <span className="bg-[#DCFCE7]/90 text-[#16A34A] border border-emerald-200/60 text-[11px] font-bold px-3 py-0.5 rounded-full">
+                                                Approved
+                                            </span>
+                                        ) : (
+                                            <button 
+                                                onClick={() => handleApproveSchedule(item.id)}
+                                                className="bg-[#FEF3C7]/90 text-[#D97706] hover:bg-emerald-50 hover:text-emerald-700 border border-amber-200/60 text-[11px] font-bold px-3 py-0.5 rounded-full transition-colors cursor-pointer"
+                                            >
+                                                Pending
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <div className="w-8 h-8 rounded-full bg-[#FFEADB] text-[#EA580C] font-black text-xs flex items-center justify-center shadow-2xs">
+                                            {uInitial}
+                                        </div>
+                                        <ChevronRight size={16} className="text-gray-400" />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* "Today's Expenses" Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-[28px] border border-gray-100 shadow-sm p-4 sm:p-5 flex flex-col mb-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100/80">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-2xl bg-gray-100 text-gray-600 flex items-center justify-center shrink-0">
+                                <Receipt size={18} strokeWidth={2.2} />
+                            </div>
+                            <h2 className="text-base sm:text-[17px] font-black text-gray-900 tracking-tight">
+                                Today's Expenses
+                            </h2>
+                        </div>
+
+                        <button
+                            onClick={() => setIsMonthlyModalOpen(true)}
+                            className="text-[#FF6B00] hover:text-orange-700 font-bold text-xs flex items-center gap-0.5 cursor-pointer"
+                        >
+                            History <ChevronRight size={14} strokeWidth={3} />
+                        </button>
+                    </div>
+
+                    {/* Table Column Labels */}
+                    <div className="flex items-center justify-between text-[10px] font-black text-gray-400 tracking-wider uppercase px-2 pt-2.5 pb-2">
+                        <span>SHOPPER</span>
+                        <span>AMOUNT</span>
+                        <span>STATUS</span>
+                    </div>
+
+                    {/* Content Area */}
+                    {expenses.length === 0 ? (
+                        <div className="relative overflow-hidden flex items-center justify-center gap-2 py-8 bg-gradient-to-b from-[#FAF5FF]/30 via-[#EEF2FF]/40 to-[#E0E7FF]/20 rounded-2xl border border-indigo-50/50 text-xs font-bold text-gray-400">
+                            <FileText size={16} className="text-gray-400" />
+                            <span>No expenses yet</span>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-gray-100/80">
+                            {expenses.map((exp) => (
+                                <div key={exp.id} className="py-3 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-full bg-[#FFEADB] text-[#EA580C] font-black text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                                            {exp.user?.name ? exp.user.name.charAt(0).toUpperCase() : "B"}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-extrabold text-gray-900 text-xs truncate">{exp.user?.name || "Shopper"}</p>
+                                            <p className="text-[10px] text-gray-400 truncate mt-0.5">{exp.description || "Bazaar"}</p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="font-black text-slate-900 text-sm">৳ {exp.amount}</span>
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                            exp.status === 'Approved' ? 'bg-[#DCFCE7] text-[#16A34A]' : 'bg-[#FEF3C7] text-[#D97706]'
+                                        }`}>
+                                            {exp.status}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+            </div>
+
+            {/* ─── DESKTOP VIEW ─── */}
+            <div className="hidden md:block space-y-6 lg:space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#450705] tracking-tight">Bazaar & Expenses</h1>
@@ -517,6 +962,7 @@ export default function BazaarManagementPage() {
                     </div>
                 </div>
 
+            </div>
             </div>
 
             {/* ─── Modal ─── */}

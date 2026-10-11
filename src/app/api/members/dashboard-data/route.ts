@@ -86,21 +86,47 @@ export async function GET(req: Request) {
       fixedCost: fixedCostPerMember,
     });
 
-    // 8. Recent Meals (Last 3 days)
+    // 8. Recent Meals (Last 7 days)
     const recentMeals = await prisma.mealLog.findMany({
       where: { userId: user.id },
       orderBy: { date: "desc" },
-      take: 3,
+      take: 7,
     });
 
-    // 9. Notice Board (Exclude cleared notices)
-    const notices = await prisma.notice.findMany({
+    // 9. Notice Board (Exclude cleared notices & include user's guest meal requests)
+    const dbNotices = await prisma.notice.findMany({
       where: { 
         isActive: true,
         id: { notIn: user.clearedNotices || [] }
       },
       orderBy: { createdAt: "desc" },
+      take: 10,
     });
+
+    const userGuestRequests = await prisma.guestMealRequest.findMany({
+      where: { userId: user.id },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    });
+
+    const guestNotices = userGuestRequests.map((g) => {
+      const gDate = new Date(g.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+      const statusTitle = g.status === "Approved" 
+        ? "Your guest meal request approved." 
+        : (g.status === "Rejected" ? "Your guest meal request rejected." : "Your guest meal request pending.");
+      return {
+        id: `guest_${g.id}`,
+        title: statusTitle,
+        description: `${g.guests} guest meal${g.guests > 1 ? "s" : ""} on ${gDate} (${g.mealType}).`,
+        type: "guest_meal",
+        status: g.status,
+        createdAt: g.updatedAt || g.createdAt,
+      };
+    });
+
+    const notices = [...dbNotices, ...guestNotices].sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
 
     return NextResponse.json({
       stats: {

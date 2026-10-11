@@ -20,11 +20,5 @@ export default async function ReportsPage() {
         redirect("/login");
     }
 
-    // Admin and Manager see the comprehensive member-wise reports
-    if (user.role === "admin" || user.role === "manager") {
-        return <AdminReportsView />;
-    }
-
-    // Regular members see their own personal reports
-    return <ReportsView />;
+    return <AdminReportsView />;
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signIn, getSession } from "next-auth/react";
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { IconBrandGoogle, IconMail, IconLock, IconEye, IconEyeOff, IconLogin } from "@tabler/icons-react";
@@ -13,6 +13,23 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
+
+    // Detect OAuth errors passed via URL query params (e.g. ?error=OAuthCallback)
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const oauthError = params.get("error");
+            if (oauthError) {
+                if (oauthError === "OAuthCallback" || oauthError === "OAuthSignin") {
+                    setError("Google Sign-In session expired or failed. Please click 'Continue with Google' again.");
+                } else if (oauthError === "OAuthAccountNotLinked") {
+                    setError("An account with this email already exists under another sign-in method.");
+                } else {
+                    setError(`Sign-in error: ${oauthError}`);
+                }
+            }
+        }
+    }, []);
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -26,7 +43,7 @@ export default function LoginPage() {
             });
 
             if (res?.error) {
-                setError("Email or password incorrect!");
+                setError(res.error === "CredentialsSignin" ? "Invalid email or password!" : res.error);
             } else {
                 const session = await getSession();
                 const userRole = (session?.user as { role?: string })?.role;
