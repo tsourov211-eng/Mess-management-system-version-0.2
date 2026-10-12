@@ -314,7 +314,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* ─── Sidebar ─── */}
-            <aside className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen shrink-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+            <aside className={`fixed inset-y-0 left-0 z-50 w-[270px] bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen shrink-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
                 
                 {/* ─── Decorative Background ─── */}
                 <div className="absolute inset-0 bg-[url('/sidebar_bg.png')] bg-no-repeat bg-cover bg-center z-0 pointer-events-none"></div>
@@ -336,11 +336,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <div className="my-3.5 mx-1 border-t border-gray-200/80" />
                                 )}
                                 
-                                <div className="flex items-center justify-between px-3 pt-1 pb-2">
-                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                                <div className="flex items-center justify-between px-2 pt-1 pb-2 gap-1.5">
+                                    <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">
                                         {section.title}
                                     </span>
-                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${section.badgeClass}`}>
+                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap ${section.badgeClass}`}>
                                         {section.badge}
                                     </span>
                                 </div>
