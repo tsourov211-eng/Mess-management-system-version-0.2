@@ -10,7 +10,7 @@ function getDhakaHour(): number {
     const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Dhaka",
       hour: "numeric",
-      hour12: false,
+      hourCycle: "h23",
     }).formatToParts(new Date());
     const hourPart = parts.find((p) => p.type === "hour");
     return hourPart ? parseInt(hourPart.value, 10) : new Date().getHours();
@@ -76,15 +76,15 @@ export async function GET(req: Request) {
 
     const cutoffs = {
       breakfast: {
-        passed: !isManagerOrAdmin && currentHour >= 8,
+        passed: currentHour >= 8,
         time: "8:00 AM",
       },
       lunch: {
-        passed: !isManagerOrAdmin && currentHour >= 12,
+        passed: currentHour >= 12,
         time: "12:00 PM",
       },
       dinner: {
-        passed: !isManagerOrAdmin && currentHour >= 21,
+        passed: currentHour >= 21,
         time: "9:00 PM",
       },
       isManagerOrAdmin,
@@ -177,20 +177,18 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: false, error: "Invalid meal type" }, { status: 400 });
     }
 
-    // Cutoff time validation (managers and admins can override)
+    // Cutoff time validation for today's meal personal toggles
     const isManagerOrAdmin = user.role === "manager" || user.role === "admin";
     const currentHour = getDhakaHour();
 
-    if (!isManagerOrAdmin) {
-      if (meal === "breakfast" && currentHour >= 8) {
-        return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
-      }
-      if (meal === "lunch" && currentHour >= 12) {
-        return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
-      }
-      if (meal === "dinner" && currentHour >= 21) {
-        return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
-      }
+    if (meal === "breakfast" && currentHour >= 8) {
+      return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
+    }
+    if (meal === "lunch" && currentHour >= 12) {
+      return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
+    }
+    if (meal === "dinner" && currentHour >= 21) {
+      return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
     }
 
     const today = new Date();
@@ -236,15 +234,15 @@ export async function PATCH(req: Request) {
 
     const cutoffs = {
       breakfast: {
-        passed: !isManagerOrAdmin && currentHour >= 8,
+        passed: currentHour >= 8,
         time: "8:00 AM",
       },
       lunch: {
-        passed: !isManagerOrAdmin && currentHour >= 12,
+        passed: currentHour >= 12,
         time: "12:00 PM",
       },
       dinner: {
-        passed: !isManagerOrAdmin && currentHour >= 21,
+        passed: currentHour >= 21,
         time: "9:00 PM",
       },
       isManagerOrAdmin,

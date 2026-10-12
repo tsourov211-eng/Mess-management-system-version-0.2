@@ -35,6 +35,29 @@ const MEAL_TYPE_OPTIONS = [
     { label: "All Meals", portion: "2.5 meals", bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500", badgeClass: "bg-emerald-100/70 text-emerald-700" },
 ];
 
+function getDhakaHour(): number {
+    try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Dhaka",
+            hour: "numeric",
+            hourCycle: "h23",
+        }).formatToParts(new Date());
+        const hourPart = parts.find((p) => p.type === "hour");
+        return hourPart ? parseInt(hourPart.value, 10) : new Date().getHours();
+    } catch {
+        return new Date().getHours();
+    }
+}
+
+function getInitialCutoffs() {
+    const currentHour = getDhakaHour();
+    return {
+        breakfast: { passed: currentHour >= 8, time: "8:00 AM" },
+        lunch: { passed: currentHour >= 12, time: "12:00 PM" },
+        dinner: { passed: currentHour >= 21, time: "9:00 PM" },
+    };
+}
+
 export default function MyMealsView() {
     // ─── Current Dates ───
     const today = new Date();
@@ -64,7 +87,7 @@ export default function MyMealsView() {
         lunch?: { passed: boolean; time: string };
         dinner?: { passed: boolean; time: string };
         isManagerOrAdmin?: boolean;
-    }>({});
+    }>(getInitialCutoffs);
     const [isTogglingMeal, setIsTogglingMeal] = useState<string | null>(null);
 
     // ─── State: Tomorrow's Meal Plan ───
@@ -122,6 +145,21 @@ export default function MyMealsView() {
         }
     };
 
+    // ─── Live Cutoff Polling ───
+    useEffect(() => {
+        const checkCutoffs = () => {
+            const live = getInitialCutoffs();
+            setCutoffs((prev) => ({
+                ...prev,
+                breakfast: { ...prev.breakfast, passed: live.breakfast.passed, time: "8:00 AM" },
+                lunch: { ...prev.lunch, passed: live.lunch.passed, time: "12:00 PM" },
+                dinner: { ...prev.dinner, passed: live.dinner.passed, time: "9:00 PM" },
+            }));
+        };
+        const timer = setInterval(checkCutoffs, 30000);
+        return () => clearInterval(timer);
+    }, []);
+
     // ─── Fetch Data ───
     useEffect(() => {
         fetchMealsData();
@@ -156,9 +194,15 @@ export default function MyMealsView() {
 
     // ─── Live Toggle for Today's Meal ───
     const handleToggleTodayMeal = async (meal: "breakfast" | "lunch" | "dinner") => {
-        // Cutoff guard
-        if (cutoffs[meal]?.passed) {
-            showToast(`${meal.charAt(0).toUpperCase() + meal.slice(1)} cutoff time (${cutoffs[meal]?.time}) has passed for today.`, "error");
+        // Immediate cutoff guard (check both state and current Dhaka time)
+        const liveCutoffs = getInitialCutoffs();
+        if (cutoffs[meal]?.passed || liveCutoffs[meal]?.passed) {
+            setCutoffs((prev) => ({
+                ...prev,
+                [meal]: { ...prev[meal], passed: true, time: liveCutoffs[meal].time },
+            }));
+            const cutoffTime = cutoffs[meal]?.time || liveCutoffs[meal].time;
+            showToast(`${meal.charAt(0).toUpperCase() + meal.slice(1)} cutoff time (${cutoffTime}) has passed for today.`, "error");
             return;
         }
 
@@ -412,7 +456,7 @@ export default function MyMealsView() {
                         
                         {/* 1. Breakfast */}
                         <div className={`border rounded-2xl p-2.5 sm:p-3.5 flex flex-col items-center justify-between text-center gap-2 shadow-2xs transition-all ${
-                            cutoffs.breakfast?.passed ? "border-amber-200/80 bg-amber-50/30" : "border-gray-100 bg-gray-50/70 hover:bg-gray-50/90"
+                            cutoffs.breakfast?.passed ? "border-amber-200/90 bg-amber-50/40" : "border-gray-100 bg-gray-50/70 hover:bg-gray-50/90"
                         }`}>
                             {/* Icon */}
                             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100/70 text-amber-500 flex items-center justify-center shrink-0">
@@ -429,7 +473,7 @@ export default function MyMealsView() {
                                         {todayStatus.breakfast === "ON" ? `ON • ${todayCounts.breakfast || 0.5}` : "OFF"}
                                     </p>
                                     {cutoffs.breakfast?.passed && (
-                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-2xs">
                                             <IconLock size={9} stroke={2.5} /> Passed
                                         </span>
                                     )}
@@ -440,14 +484,16 @@ export default function MyMealsView() {
                             <button 
                                 type="button"
                                 onClick={() => handleToggleTodayMeal("breakfast")}
-                                disabled={cutoffs.breakfast?.passed || isTogglingMeal === "breakfast"}
+                                disabled={Boolean(cutoffs.breakfast?.passed || isTogglingMeal === "breakfast")}
                                 aria-label="Toggle Breakfast"
                                 title={
                                     cutoffs.breakfast?.passed 
                                         ? `Breakfast cutoff time (${cutoffs.breakfast.time}) has passed for today` 
                                         : `Click to turn ${todayStatus.breakfast === "ON" ? "OFF" : "ON"}`
                                 }
-                                className={`w-10 sm:w-11 h-6 relative inline-flex items-center rounded-full transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                className={`w-10 sm:w-11 h-6 relative inline-flex items-center rounded-full transition-colors shrink-0 ${
+                                    cutoffs.breakfast?.passed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                } disabled:opacity-50 disabled:cursor-not-allowed ${
                                     todayStatus.breakfast === "ON" ? "bg-[#FF6B00]" : "bg-slate-300"
                                 }`}
                             >
@@ -459,7 +505,7 @@ export default function MyMealsView() {
 
                         {/* 2. Lunch */}
                         <div className={`border rounded-2xl p-2.5 sm:p-3.5 flex flex-col items-center justify-between text-center gap-2 shadow-2xs transition-all ${
-                            cutoffs.lunch?.passed ? "border-amber-200/80 bg-amber-50/30" : "border-gray-100 bg-gray-50/70 hover:bg-gray-50/90"
+                            cutoffs.lunch?.passed ? "border-amber-200/90 bg-amber-50/40" : "border-gray-100 bg-gray-50/70 hover:bg-gray-50/90"
                         }`}>
                             {/* Icon */}
                             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100/70 text-amber-500 flex items-center justify-center shrink-0">
@@ -476,7 +522,7 @@ export default function MyMealsView() {
                                         {todayStatus.lunch === "ON" ? `ON • ${todayCounts.lunch || 1.0}` : "OFF"}
                                     </p>
                                     {cutoffs.lunch?.passed && (
-                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-2xs">
                                             <IconLock size={9} stroke={2.5} /> Passed
                                         </span>
                                     )}
@@ -487,14 +533,16 @@ export default function MyMealsView() {
                             <button 
                                 type="button"
                                 onClick={() => handleToggleTodayMeal("lunch")}
-                                disabled={cutoffs.lunch?.passed || isTogglingMeal === "lunch"}
+                                disabled={Boolean(cutoffs.lunch?.passed || isTogglingMeal === "lunch")}
                                 aria-label="Toggle Lunch"
                                 title={
                                     cutoffs.lunch?.passed 
                                         ? `Lunch cutoff time (${cutoffs.lunch.time}) has passed for today` 
                                         : `Click to turn ${todayStatus.lunch === "ON" ? "OFF" : "ON"}`
                                 }
-                                className={`w-10 sm:w-11 h-6 relative inline-flex items-center rounded-full transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                className={`w-10 sm:w-11 h-6 relative inline-flex items-center rounded-full transition-colors shrink-0 ${
+                                    cutoffs.lunch?.passed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                } disabled:opacity-50 disabled:cursor-not-allowed ${
                                     todayStatus.lunch === "ON" ? "bg-[#FF6B00]" : "bg-slate-300"
                                 }`}
                             >
@@ -506,7 +554,7 @@ export default function MyMealsView() {
 
                         {/* 3. Dinner */}
                         <div className={`border rounded-2xl p-2.5 sm:p-3.5 flex flex-col items-center justify-between text-center gap-2 shadow-2xs transition-all ${
-                            cutoffs.dinner?.passed ? "border-amber-200/80 bg-amber-50/30" : "border-gray-100 bg-gray-50/70 hover:bg-gray-50/90"
+                            cutoffs.dinner?.passed ? "border-amber-200/90 bg-amber-50/40" : "border-gray-100 bg-gray-50/70 hover:bg-gray-50/90"
                         }`}>
                             {/* Icon */}
                             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-purple-100/70 text-purple-600 flex items-center justify-center shrink-0">
@@ -523,7 +571,7 @@ export default function MyMealsView() {
                                         {todayStatus.dinner === "ON" ? `ON • ${todayCounts.dinner || 1.0}` : "OFF"}
                                     </p>
                                     {cutoffs.dinner?.passed && (
-                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-2xs">
                                             <IconLock size={9} stroke={2.5} /> Passed
                                         </span>
                                     )}
@@ -534,14 +582,16 @@ export default function MyMealsView() {
                             <button 
                                 type="button"
                                 onClick={() => handleToggleTodayMeal("dinner")}
-                                disabled={cutoffs.dinner?.passed || isTogglingMeal === "dinner"}
+                                disabled={Boolean(cutoffs.dinner?.passed || isTogglingMeal === "dinner")}
                                 aria-label="Toggle Dinner"
                                 title={
                                     cutoffs.dinner?.passed 
                                         ? `Dinner cutoff time (${cutoffs.dinner.time}) has passed for today` 
                                         : `Click to turn ${todayStatus.dinner === "ON" ? "OFF" : "ON"}`
                                 }
-                                className={`w-10 sm:w-11 h-6 relative inline-flex items-center rounded-full transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                className={`w-10 sm:w-11 h-6 relative inline-flex items-center rounded-full transition-colors shrink-0 ${
+                                    cutoffs.dinner?.passed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                } disabled:opacity-50 disabled:cursor-not-allowed ${
                                     todayStatus.dinner === "ON" ? "bg-[#FF6B00]" : "bg-slate-300"
                                 }`}
                             >
