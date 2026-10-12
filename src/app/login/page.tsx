@@ -8,34 +8,32 @@ import Image from "next/image";
 import { IconBrandGoogle, IconMail, IconLock, IconEye, IconEyeOff, IconLogin } from "@tabler/icons-react";
 
 export default function LoginPage() {
+    const router = useRouter();
+    const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState("");
-    const router = useRouter();
-
-    // Detect OAuth errors passed via URL query params (e.g. ?error=OAuthCallback)
-    useEffect(() => {
+    const [error, setError] = useState(() => {
         if (typeof window !== "undefined") {
             const params = new URLSearchParams(window.location.search);
             const oauthError = params.get("error");
             if (oauthError) {
                 if (oauthError === "OAuthCallback" || oauthError === "OAuthSignin") {
-                    setError("Google Sign-In session expired or failed. Please click 'Continue with Google' again.");
+                    return "Google Sign-In session expired or failed. Please click 'Continue with Google' again.";
                 } else if (oauthError === "OAuthAccountNotLinked") {
-                    setError("An account with this email already exists under another sign-in method.");
+                    return "An account with this email already exists under another sign-in method.";
                 } else if (oauthError === "PendingApproval") {
-                    setError("Your account is pending admin approval! Please wait for the admin to approve.");
+                    return "Your account is pending admin approval! Please wait for the admin to approve.";
                 } else if (oauthError === "Suspended") {
-                    setError("Your account has been suspended! Please contact the admin.");
+                    return "Your account has been suspended! Please contact the admin.";
                 } else if (oauthError === "AccessDenied") {
-                    setError("Access denied. You are not authorized to sign in.");
+                    return "Access denied. You are not authorized to sign in.";
                 } else {
-                    setError(`Sign-in error: ${oauthError}`);
+                    return `Sign-in error: ${oauthError}`;
                 }
             }
         }
-    }, []);
+        return "";
+    });
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();

@@ -10,7 +10,7 @@ const rateLimitStore = new Map<string, RateLimitRecord>();
 
 // Periodic cleanup of stale rate-limit buckets every 5 minutes
 if (typeof setInterval !== "undefined") {
-  setInterval(() => {
+  const timer = setInterval(() => {
     const now = Date.now();
     for (const [key, record] of rateLimitStore.entries()) {
       if (now > record.resetAt) {
@@ -18,6 +18,9 @@ if (typeof setInterval !== "undefined") {
       }
     }
   }, 5 * 60 * 1000);
+  if (typeof timer === "object" && typeof (timer as any).unref === "function") {
+    (timer as any).unref();
+  }
 }
 
 /**
