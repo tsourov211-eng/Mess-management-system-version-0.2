@@ -71,13 +71,18 @@ export async function GET(req: Request) {
     });
 
     // Today's quick status calculation
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+
+    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
+    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
     const todayMeals = await prisma.mealLog.findMany({
-      where: { date: { gte: today, lt: tomorrow } },
+      where: { date: todayDateFilter },
     });
     const totalMealsToday = todayMeals.reduce(
       (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
@@ -85,13 +90,13 @@ export async function GET(req: Request) {
     );
 
     const todayExpenses = await prisma.expense.findMany({
-      where: { date: { gte: today, lt: tomorrow }, status: "Approved" },
+      where: { date: todayDateFilter, status: "Approved" },
     });
     const todayBazaar = todayExpenses.reduce((acc, e) => acc + e.amount, 0);
 
     // Month-specific live meal rate calculation
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const dateFilter = { gte: startOfMonth, lt: endOfMonth };
 
     const monthExpenses = await prisma.expense.aggregate({

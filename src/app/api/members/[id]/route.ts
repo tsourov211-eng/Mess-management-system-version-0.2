@@ -79,6 +79,14 @@ export async function DELETE(
     const resolvedParams = await params;
     const id = resolvedParams.id;
 
+    const userToDelete = await prisma.user.findUnique({ where: { id } });
+    if (!userToDelete) {
+      return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
+    }
+    if (userToDelete.email === "ourmess001@gmail.com" || userToDelete.role === "admin") {
+      return NextResponse.json({ success: false, error: "Cannot delete the admin account" }, { status: 400 });
+    }
+
     // ACID transaction to clean up member and related records
     await prisma.$transaction([
       prisma.mealLog.deleteMany({ where: { userId: id } }),

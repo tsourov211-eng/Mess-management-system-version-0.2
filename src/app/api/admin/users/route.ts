@@ -75,8 +75,14 @@ export async function GET(req: Request) {
 
     // 4. Monthly fixed overhead config for the active month
     const monthKey = formatMonthKey(startDate);
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findUnique({
-      where: { month: monthKey },
+    const isoMonthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
+      where: {
+        OR: [
+          { month: monthKey },
+          { month: isoMonthKey }
+        ]
+      },
     });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 
@@ -96,7 +102,30 @@ export async function GET(req: Request) {
     // 6. Mess fund (All-time deposits - All-time expenses)
     const messFund = totalDepositsAllTime - totalFoodCostAllTime;
 
-    // 7. Fetch all users along with their active month approved deposits and meal logs
+    // 7. Today's stats calculation
+    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+
+    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
+    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    const todayDateFilter = { gte: todayStart, lt: todayEnd };
+
+    const todayMeals = await prisma.mealLog.findMany({
+      where: { date: todayDateFilter },
+    });
+    const totalMealsToday = todayMeals.reduce(
+      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+      0
+    );
+
+    const todayExpenses = await prisma.expense.findMany({
+      where: { date: todayDateFilter, status: "Approved" },
+    });
+    const totalBazaarToday = todayExpenses.reduce((acc, e) => acc + e.amount, 0);
+
+    // 8. Fetch all users along with their active month approved deposits and meal logs
     const users = await prisma.user.findMany({
       orderBy: { role: "asc" },
       include: {
@@ -117,7 +146,7 @@ export async function GET(req: Request) {
     // Calculate approved users count
     const approvedUsersCount = users.filter(u => ["member", "manager", "admin"].includes(u.role)).length;
 
-    // 8. Calculate each user's financial summary using calculation engine
+    // 9. Calculate each user's financial summary using calculation engine
     const formattedUsers = users.map((u) => {
       const userDeposit = u.deposits.reduce((acc, d) => acc + d.amount, 0);
       const userMeals = u.meals.reduce(
@@ -154,6 +183,11 @@ export async function GET(req: Request) {
       };
     });
 
+    const totalDue = formattedUsers
+      .filter((u) => u.balance < 0)
+      .reduce((acc, u) => acc + Math.abs(u.balance), 0);
+    const dueMembersCount = formattedUsers.filter((u) => u.balance < 0).length;
+
     return NextResponse.json(
       {
         users: formattedUsers,
@@ -165,6 +199,10 @@ export async function GET(req: Request) {
           liveMealRate: liveMealRate,
           fixedCostPerMember,
           totalDepositsThisMonth: Math.round(totalDepositsThisMonth * 100) / 100,
+          totalBazaarToday: Math.round(totalBazaarToday),
+          totalMealsToday: Math.round(totalMealsToday * 10) / 10,
+          totalDue: Math.round(totalDue * 100) / 100,
+          dueMembersCount,
         },
       },
       { status: 200 }
@@ -301,6 +339,21 @@ export async function DELETE(req: Request) {
 
     if (!userId) {
       return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 });
+    }
+
+    const userToDelete = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!userToDelete) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    }
+
+    if (userToDelete.email === "ourmess001@gmail.com" || userToDelete.id === adminUser.id) {
+      return NextResponse.json(
+        { success: false, error: "Cannot delete the primary admin account" },
+        { status: 400 }
+      );
     }
 
     // ACID transaction to delete user and cascaded relations

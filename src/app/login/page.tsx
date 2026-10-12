@@ -24,6 +24,12 @@ export default function LoginPage() {
                     setError("Google Sign-In session expired or failed. Please click 'Continue with Google' again.");
                 } else if (oauthError === "OAuthAccountNotLinked") {
                     setError("An account with this email already exists under another sign-in method.");
+                } else if (oauthError === "PendingApproval") {
+                    setError("Your account is pending admin approval! Please wait for the admin to approve.");
+                } else if (oauthError === "Suspended") {
+                    setError("Your account has been suspended! Please contact the admin.");
+                } else if (oauthError === "AccessDenied") {
+                    setError("Access denied. You are not authorized to sign in.");
                 } else {
                     setError(`Sign-in error: ${oauthError}`);
                 }

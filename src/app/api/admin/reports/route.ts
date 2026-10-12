@@ -74,8 +74,14 @@ export async function GET(req: Request) {
 
     // 4. Fetch Monthly Expense (Fixed Overheads) for the month
     const monthKey = formatMonthKey(startDate);
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findUnique({
-      where: { month: monthKey },
+    const isoMonthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
+      where: {
+        OR: [
+          { month: monthKey },
+          { month: isoMonthKey }
+        ]
+      },
     });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 

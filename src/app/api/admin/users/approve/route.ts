@@ -35,6 +35,10 @@ export async function PATCH(req: Request) {
       });
       return NextResponse.json({ success: true, message: "Member approved successfully", user: updatedUser }, { status: 200 });
     } else {
+      const userToReject = await prisma.user.findUnique({ where: { id: userId } });
+      if (userToReject?.email === "ourmess001@gmail.com" || userToReject?.role === "admin") {
+        return NextResponse.json({ success: false, error: "Cannot delete the admin account" }, { status: 400 });
+      }
       await prisma.user.delete({
         where: { id: userId },
       });

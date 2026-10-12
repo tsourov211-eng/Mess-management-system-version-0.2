@@ -19,19 +19,26 @@ import {
     IconBell,
     IconTrash,
     IconFileText,
-    IconAlertCircle
+    IconAlertCircle,
+    IconSearch,
+    IconPhone,
+    IconCrown,
+    IconShieldCheck,
+    IconUser
 } from "@tabler/icons-react";
-import { Coins } from "lucide-react";
+import { Coins, Search } from "lucide-react";
 
 export default function ManagerDashboard() {
     const [stats, setStats] = useState({
         totalMealsToday: 0,
         totalBazaarToday: 0,
-        currentMealRate: 46.15,
-        liveMealRate: 46.15,
-        marketDuty: "Super Admin",
+        currentMealRate: 0,
+        liveMealRate: 0,
+        marketDuty: "Unassigned",
         messFund: 0,
     });
+    const [users, setUsers] = useState<any[]>([]);
+    const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
     const [pendingExpenses, setPendingExpenses] = useState<any[]>([]);
     const [pendingBazaarSchedules, setPendingBazaarSchedules] = useState<any[]>([]);
@@ -55,13 +62,71 @@ export default function ManagerDashboard() {
         day: "numeric",
     });
 
+    const getMemberAvatarStyle = (name: string, index: number) => {
+        const initial = (name || "M").trim().charAt(0).toUpperCase();
+        const palettes = [
+            { bg: "bg-[#FFEADB]", text: "text-[#EA580C]" },
+            { bg: "bg-[#DBEAFE]", text: "text-[#2563EB]" },
+            { bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
+            { bg: "bg-[#FCE7F3]", text: "text-[#DB2777]" },
+            { bg: "bg-[#EDE9FE]", text: "text-[#7C3AED]" },
+        ];
+        return {
+            initial,
+            ...palettes[index % palettes.length]
+        };
+    };
+
+    const renderRoleBadge = (role: string) => {
+        const r = (role || "member").toLowerCase();
+        if (r === "admin") {
+            return (
+                <span className="bg-[#F3E8FF] text-[#7C3AED] border border-purple-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                    <IconCrown size={12} stroke={2.5} className="shrink-0" /> ADMIN
+                </span>
+            );
+        }
+        if (r === "manager") {
+            return (
+                <span className="bg-[#E0F2FE] text-[#0284C7] border border-sky-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                    <IconShieldCheck size={12} stroke={2.5} className="shrink-0" /> MANAGER
+                </span>
+            );
+        }
+        if (r === "suspended") {
+            return (
+                <span className="bg-rose-50 text-rose-600 border border-rose-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                    SUSPENDED
+                </span>
+            );
+        }
+        return (
+            <span className="bg-[#DCFCE7] text-[#16A34A] border border-emerald-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <IconUser size={12} stroke={2.5} className="shrink-0" /> MEMBER
+            </span>
+        );
+    };
+
+    const filteredUsers = users.filter((u) => {
+        if (!memberSearchQuery.trim()) return true;
+        const q = memberSearchQuery.toLowerCase();
+        return (
+            (u.name && u.name.toLowerCase().includes(q)) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            (u.role && u.role.toLowerCase().includes(q))
+        );
+    });
+
     useEffect(() => {
         fetchDashboardData();
     }, []);
 
     const fetchDashboardData = async () => {
         try {
-            const res = await fetch("/api/manager/dashboard");
+            const [res, usersRes] = await Promise.all([
+                fetch("/api/manager/dashboard"),
+                fetch("/api/admin/users")
+            ]);
             if (res.ok) {
                 const data = await res.json();
                 if (data.stats) {
@@ -76,6 +141,11 @@ export default function ManagerDashboard() {
                 setPendingGuestMeals(data.pendingGuestMeals || []);
                 setNotices(data.notices || []);
                 setSelectedSchedules([]);
+            }
+            if (usersRes.ok) {
+                const usersData = await usersRes.json();
+                const allUsers = usersData.users || [];
+                setUsers(allUsers.filter((u: any) => u.role !== 'pending'));
             }
         } catch (error) {
             console.error("Error fetching manager dashboard data:", error);
@@ -224,7 +294,7 @@ export default function ManagerDashboard() {
                             Current Meal Rate
                         </span>
                         <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                            ৳ {Number(stats.currentMealRate || stats.liveMealRate || 46.15).toFixed(2)}
+                            ৳ {Number(stats.currentMealRate ?? stats.liveMealRate ?? 0).toFixed(2)}
                         </span>
                     </div>
                 </div>
@@ -308,8 +378,8 @@ export default function ManagerDashboard() {
 
                     <div className="z-10 mt-2">
                         <p className="text-xs text-gray-400 font-medium">Market Duty</p>
-                        <p className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5 tracking-tight truncate" title={stats.marketDuty || "Super Admin"}>
-                            {stats.marketDuty || "Super Admin"}
+                        <p className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5 tracking-tight truncate" title={stats.marketDuty || "Unassigned"}>
+                            {stats.marketDuty || "Unassigned"}
                         </p>
                     </div>
 
@@ -470,7 +540,7 @@ export default function ManagerDashboard() {
                         <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
                     ) : notices.length === 0 ? (
                         <div className="py-7 text-center">
-                            <p className="text-xs font-bold text-slate-500">All caught up! 🎉 No new notices.</p>
+                            <p className="text-xs font-bold text-slate-600">All caught up! 🪶 No new notices.</p>
                             <p className="text-[11px] text-slate-400 mt-0.5">Check back later for new announcements.</p>
                         </div>
                     ) : (
@@ -729,6 +799,125 @@ export default function ManagerDashboard() {
                             )}
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* ─── Mess Members Section (Cards Grid) ─── */}
+            <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-5 sm:p-6 hover:shadow-md transition-shadow">
+                {/* Header with Search */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-orange-50 text-[#FF6B00] flex items-center justify-center shrink-0 shadow-sm">
+                            <IconUsers size={22} stroke={2.4} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-black text-gray-900 tracking-tight">Mess Members</h2>
+                                <span className="bg-orange-100 text-[#FF6B00] text-xs font-black px-2.5 py-0.5 rounded-full">
+                                    {users.length} Total
+                                </span>
+                            </div>
+                            <p className="text-xs font-semibold text-gray-400 mt-0.5">Active mess members and accounts</p>
+                        </div>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="w-full sm:w-72 relative">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Search by name, email, or role..."
+                            value={memberSearchQuery}
+                            onChange={(e) => setMemberSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/30 focus:bg-white text-gray-900 font-medium transition-all"
+                        />
+                        {memberSearchQuery && (
+                            <button 
+                                onClick={() => setMemberSearchQuery("")} 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                <IconX size={14} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Members Grid */}
+                <div className="pt-6">
+                    {isLoading ? (
+                        <div className="p-12 text-center text-gray-400 font-bold">Loading members...</div>
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="p-12 text-center text-gray-400 font-bold">No members found matching your search.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {filteredUsers.map((user, idx) => {
+                                const avatar = getMemberAvatarStyle(user.name, idx);
+                                const isPositive = (user.balance ?? 0) >= 0;
+
+                                return (
+                                    <div 
+                                        key={user.id} 
+                                        className="bg-white rounded-2xl border border-gray-100/90 p-5 shadow-2xs hover:shadow-md hover:border-orange-200/60 transition-all flex flex-col justify-between group"
+                                    >
+                                        <div>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-2xs ${avatar.bg} ${avatar.text}`}>
+                                                        {avatar.initial}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h3 className="font-extrabold text-gray-900 text-sm truncate group-hover:text-[#FF6B00] transition-colors">
+                                                            {user.name || "Member"}
+                                                        </h3>
+                                                        <p className="text-xs text-gray-400 font-medium truncate mt-0.5">
+                                                            {user.email}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0">
+                                                    {renderRoleBadge(user.role)}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium mt-4 pt-3 border-t border-gray-50">
+                                                <span className="flex items-center gap-1.5 text-gray-400">
+                                                    <IconPhone size={14} className="shrink-0" />
+                                                    {user.phone || 'No phone'}
+                                                </span>
+                                                {user.role === 'suspended' ? (
+                                                    <span className="flex items-center gap-1.5 text-rose-600 font-bold text-xs bg-rose-50 px-2 py-0.5 rounded-md">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                                        Suspended
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-md">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                                        Active
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Financial Badges (Read-Only for Manager) */}
+                                        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100 text-center">
+                                            <div className="bg-gray-50 rounded-xl p-2">
+                                                <p className="text-[10px] font-bold text-gray-400">Deposit</p>
+                                                <p className="text-xs font-black text-gray-800 mt-0.5">৳ {Number(user.deposit || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-gray-50 rounded-xl p-2">
+                                                <p className="text-[10px] font-bold text-gray-400">Meals</p>
+                                                <p className="text-xs font-black text-gray-800 mt-0.5">{user.totalMeals || 0}</p>
+                                            </div>
+                                            <div className={`rounded-xl p-2 ${isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                                                <p className="text-[10px] font-bold opacity-75">Balance</p>
+                                                <p className="text-xs font-black mt-0.5">৳ {Math.round(user.balance || 0).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 

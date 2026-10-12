@@ -213,10 +213,15 @@ export default function BazaarManagementPage() {
         todayScheduleStatus === "approved";
 
     // Total meal count for the day across breakfast, lunch, dinner & guests
+    // Note: Breakfast counts as 0.5 meals, Lunch as 1.0 meal, Dinner as 1.0 meal
+    const breakfastMealCount = cookingHeadcount?.breakfast?.meals ?? (
+        Math.round(((cookingHeadcount?.breakfast?.total ?? 0) * 0.5) * 10) / 10
+    );
+    const lunchMealCount = cookingHeadcount?.lunch?.meals ?? (cookingHeadcount?.lunch?.total ?? 0);
+    const dinnerMealCount = cookingHeadcount?.dinner?.meals ?? (cookingHeadcount?.dinner?.total ?? 0);
+
     const totalDayMeals = cookingHeadcount?.totalMealsToday ?? (
-        (cookingHeadcount?.breakfast?.total ?? 0) + 
-        (cookingHeadcount?.lunch?.total ?? 0) + 
-        (cookingHeadcount?.dinner?.total ?? 0)
+        Math.round((breakfastMealCount + lunchMealCount + dinnerMealCount) * 10) / 10
     );
 
     return (
@@ -253,7 +258,7 @@ export default function BazaarManagementPage() {
                         <div className="my-auto py-1 relative z-10">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Food Cost</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                ৳ {stats.totalExpense > 0 ? stats.totalExpense.toLocaleString() : "300"}
+                                ৳ {(stats.totalExpense ?? 0).toLocaleString()}
                             </h3>
                         </div>
                         <div className="relative z-10">
@@ -309,7 +314,7 @@ export default function BazaarManagementPage() {
                         <div className="my-auto py-1 relative z-10">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Mess Fund</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                ৳ {stats.availableBalance > 0 ? stats.availableBalance.toLocaleString() : "4,600"}
+                                ৳ {(stats.availableBalance ?? 0).toLocaleString()}
                             </h3>
                         </div>
                         <div className="relative z-10">
@@ -682,7 +687,7 @@ export default function BazaarManagementPage() {
                     <div className="my-auto py-2 relative z-10">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Food Cost</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            ৳ {stats.totalExpense > 0 ? stats.totalExpense.toLocaleString() : "300"}
+                            ৳ {(stats.totalExpense ?? 0).toLocaleString()}
                         </h3>
                     </div>
                     <div className="relative z-10">
@@ -736,7 +741,7 @@ export default function BazaarManagementPage() {
                     <div className="my-auto py-2 relative z-10">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Mess Fund</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            ৳ {stats.availableBalance > 0 ? stats.availableBalance.toLocaleString() : "4,600"}
+                            ৳ {(stats.availableBalance ?? 0).toLocaleString()}
                         </h3>
                     </div>
                     <div className="relative z-10">
@@ -875,7 +880,7 @@ export default function BazaarManagementPage() {
                                         Meals
                                     </span>
                                     <span className="inline-flex items-center gap-1 text-[10px] font-black bg-white/20 backdrop-blur-sm text-white px-2.5 py-0.5 rounded-full border border-white/20">
-                                        {cookingHeadcount?.breakfast?.total ?? 0} B • {cookingHeadcount?.lunch?.total ?? 0} L • {cookingHeadcount?.dinner?.total ?? 0} D
+                                        {breakfastMealCount}B • {lunchMealCount}L • {dinnerMealCount}D
                                     </span>
                                 </div>
                             </div>

@@ -15,7 +15,12 @@ import {
     IconChartPie,
     IconDotsVertical,
     IconFileSpreadsheet,
-    IconFileTypePdf
+    IconFileTypePdf,
+    IconDownload,
+    IconLoader2,
+    IconX,
+    IconCheck,
+    IconFileText
 } from "@tabler/icons-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -40,6 +45,13 @@ export default function AdminReportsView() {
     });
     const [members, setMembers] = useState<any[]>([]);
 
+    // Full Report Export and Modal States
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
+    const [isFullReportModalOpen, setIsFullReportModalOpen] = useState(false);
+    const [fullReportData, setFullReportData] = useState<any>(null);
+    const [isLoadingFullReport, setIsLoadingFullReport] = useState(false);
+
     useEffect(() => {
         fetchReports();
     }, [selectedMonth, selectedYear]);
@@ -58,6 +70,28 @@ export default function AdminReportsView() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const fetchFullReportData = async (m: number, y: number) => {
+        setIsLoadingFullReport(true);
+        try {
+            const res = await fetch(`/api/admin/monthly-full-report?month=${m}&year=${y}`);
+            if (res.ok) {
+                const data = await res.json();
+                setFullReportData(data);
+                return data;
+            }
+        } catch (error) {
+            console.error("Error fetching full report data:", error);
+        } finally {
+            setIsLoadingFullReport(false);
+        }
+        return null;
+    };
+
+    const openFullReportModal = async () => {
+        setIsFullReportModalOpen(true);
+        await fetchFullReportData(selectedMonth, selectedYear);
     };
 
     // Filter members for the table in real-time
@@ -103,79 +137,530 @@ export default function AdminReportsView() {
 
     const monthName = new Date(selectedYear, selectedMonth - 1, 1).toLocaleString('default', { month: 'long' });
 
-    const handleExportExcel = () => {
-        const excelData = filteredMembers.map((m, index) => ({
-            "#": index + 1,
-            "Member Name": m.name,
-            "Bazaar Amount (Tk)": m.bazaarAmount || 0,
-            "Deposit Amount (Tk)": m.depositAmount || 0,
-            "Meals Consumed": m.mealsConsumed || 0,
-            "Meal Cost (Tk)": m.mealCost ?? Math.round((m.mealsConsumed || 0) * (stats.liveMealRate || 0) * 100) / 100,
-            "Fixed Overhead (Tk)": m.fixedCost ?? stats.fixedCostPerMember ?? 0,
-            "Total Cost (Tk)": m.totalCost ?? ((m.mealCost ?? 0) + (m.fixedCost ?? 0)),
-            "Net Balance (Tk)": m.currentBalance || 0
-        }));
-        
-        excelData.push({
-            "#": "Total",
-            "Member Name": "-",
-            "Bazaar Amount (Tk)": filteredTotals.bazaarAmount,
-            "Deposit Amount (Tk)": filteredTotals.depositAmount,
-            "Meals Consumed": filteredTotals.mealsConsumed,
-            "Meal Cost (Tk)": filteredTotals.mealCost,
-            "Fixed Overhead (Tk)": filteredTotals.fixedCost,
-            "Total Cost (Tk)": filteredTotals.totalCost,
-            "Net Balance (Tk)": filteredTotals.currentBalance
-        } as any);
+    // ─── Export All Members Full Details to Excel ───
+    const handleExportExcel = async () => {
+        setIsExportingExcel(true);
+        try {
+            let data = fullReportData;
+            if (!data || data.month !== selectedMonth || data.year !== selectedYear) {
+                data = await fetchFullReportData(selectedMonth, selectedYear);
+            }
+            if (!data) {
+                alert("Failed to fetch full report details for Excel export.");
+                return;
+            }
 
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Financial Report");
-        
-        XLSX.writeFile(workbook, `Mess_Financial_Report_${monthName}_${selectedYear}.xlsx`);
+            const workbook = XLSX.utils.book_new();
+
+            // 1. Mess Summary Overview Tab
+            const summaryRows = (data.memberReports || []).map((m: any, idx: number) => ({
+                "#": idx + 1,
+                "Member Name": m.name,
+                "Phone": m.phone || "-",
+                "Email": m.email || "-",
+                "Role": m.role,
+                "Total Meals": m.stats.totalMeals,
+                "Meal Rate (Tk)": data.stats.liveMealRate.toFixed(2),
+                "Meal Cost (Tk)": m.stats.mealCost,
+                "Fixed Overhead (Tk)": m.stats.fixedCost,
+                "Bazaar Spent (Tk)": m.stats.totalBazaar,
+                "Total Cost (Tk)": m.stats.totalCost,
+                "Total Deposit (Tk)": m.stats.totalDeposit,
+                "Net Balance (Tk)": m.stats.currentBalance,
+            }));
+
+            // Totals Row
+            const totalMealsAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.totalMeals, 0);
+            const totalMealCostAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.mealCost, 0);
+            const totalFixedCostAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.fixedCost, 0);
+            const totalBazaarAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.totalBazaar, 0);
+            const totalCostAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.totalCost, 0);
+            const totalDepositAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.totalDeposit, 0);
+            const totalBalanceAll = (data.memberReports || []).reduce((acc: number, m: any) => acc + m.stats.currentBalance, 0);
+
+            summaryRows.push({
+                "#": "TOTAL",
+                "Member Name": `${data.memberReports.length} Members`,
+                "Phone": "-",
+                "Email": "-",
+                "Role": "-",
+                "Total Meals": totalMealsAll,
+                "Meal Rate (Tk)": data.stats.liveMealRate.toFixed(2),
+                "Meal Cost (Tk)": Math.round(totalMealCostAll * 100) / 100,
+                "Fixed Overhead (Tk)": Math.round(totalFixedCostAll * 100) / 100,
+                "Bazaar Spent (Tk)": Math.round(totalBazaarAll * 100) / 100,
+                "Total Cost (Tk)": Math.round(totalCostAll * 100) / 100,
+                "Total Deposit (Tk)": Math.round(totalDepositAll * 100) / 100,
+                "Net Balance (Tk)": Math.round(totalBalanceAll * 100) / 100,
+            });
+
+            const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+            XLSX.utils.book_append_sheet(workbook, summarySheet, "Mess Summary");
+
+            // 2. All Members Daily Log Master Tab
+            const masterDailyRows: any[] = [];
+            (data.memberReports || []).forEach((m: any) => {
+                (m.dailyBreakdown || []).forEach((row: any) => {
+                    const depositNotes = row.deposits.map((d: any) => `${d.method || "Deposit"}${d.note ? `: ${d.note}` : ""}`).join("; ") || "-";
+                    const bazaarNotes = row.bazaars.map((b: any) => b.description || "Bazaar").join("; ") || "-";
+
+                    masterDailyRows.push({
+                        "Date": row.formattedDate,
+                        "Day": row.dayName,
+                        "Member Name": m.name,
+                        "Phone": m.phone || "-",
+                        "Breakfast": row.breakfast > 0 ? row.breakfast : 0,
+                        "Lunch": row.lunch > 0 ? row.lunch : 0,
+                        "Dinner": row.dinner > 0 ? row.dinner : 0,
+                        "Guest": row.guest > 0 ? row.guest : 0,
+                        "Total Meals": row.totalMeals,
+                        "Deposit Amount (Tk)": row.depositAmount,
+                        "Deposit Details": depositNotes,
+                        "Bazaar Spent (Tk)": row.bazaarAmount,
+                        "Bazaar Details": bazaarNotes,
+                    });
+                });
+            });
+
+            const dailyMasterSheet = XLSX.utils.json_to_sheet(masterDailyRows);
+            XLSX.utils.book_append_sheet(workbook, dailyMasterSheet, "All Members Daily Log");
+
+            // 3. Bazaar Purchases Tab
+            if (data.allBazaars && data.allBazaars.length > 0) {
+                const bazaarRows = data.allBazaars.map((b: any, idx: number) => ({
+                    "#": idx + 1,
+                    "Date": b.formattedDate,
+                    "Purchaser Name": b.memberName,
+                    "Phone": b.phone || "-",
+                    "Items / Description": b.description,
+                    "Amount (Tk)": b.amount,
+                    "Status": b.status,
+                }));
+                bazaarRows.push({
+                    "#": "TOTAL",
+                    "Date": "-",
+                    "Purchaser Name": "-",
+                    "Phone": "-",
+                    "Items / Description": "Total Bazaar Spent",
+                    "Amount (Tk)": data.stats.totalBazaarCost,
+                    "Status": "Approved",
+                });
+                const bazaarSheet = XLSX.utils.json_to_sheet(bazaarRows);
+                XLSX.utils.book_append_sheet(workbook, bazaarSheet, "Bazaar Purchases");
+            }
+
+            // 4. Deposits Log Tab
+            if (data.allDeposits && data.allDeposits.length > 0) {
+                const depositRows = data.allDeposits.map((d: any, idx: number) => ({
+                    "#": idx + 1,
+                    "Date": d.formattedDate,
+                    "Member Name": d.memberName,
+                    "Phone": d.phone || "-",
+                    "Amount (Tk)": d.amount,
+                    "Payment Method": d.method,
+                    "Status": d.status,
+                    "Note": d.note || "-",
+                }));
+                depositRows.push({
+                    "#": "TOTAL",
+                    "Date": "-",
+                    "Member Name": "-",
+                    "Phone": "-",
+                    "Amount (Tk)": data.stats.totalDeposit,
+                    "Payment Method": "-",
+                    "Status": "Approved",
+                    "Note": "Total Deposits Collected",
+                });
+                const depositSheet = XLSX.utils.json_to_sheet(depositRows);
+                XLSX.utils.book_append_sheet(workbook, depositSheet, "Deposits Log");
+            }
+
+            // 5. Individual Member Tabs (1-31 Day Statement for each member)
+            (data.memberReports || []).forEach((m: any, mIdx: number) => {
+                const memberDayRows = (m.dailyBreakdown || []).map((row: any) => {
+                    const depositNotes = row.deposits.map((d: any) => `${d.method || "Deposit"}${d.note ? `: ${d.note}` : ""}`).join("; ") || "-";
+                    const bazaarNotes = row.bazaars.map((b: any) => b.description || "Bazaar").join("; ") || "-";
+                    return {
+                        "Date": row.formattedDate,
+                        "Day": row.dayName,
+                        "Breakfast": row.breakfast > 0 ? row.breakfast : 0,
+                        "Lunch": row.lunch > 0 ? row.lunch : 0,
+                        "Dinner": row.dinner > 0 ? row.dinner : 0,
+                        "Guest": row.guest > 0 ? row.guest : 0,
+                        "Total Meals": row.totalMeals,
+                        "Deposit (Tk)": row.depositAmount,
+                        "Deposit Details": depositNotes,
+                        "Bazaar (Tk)": row.bazaarAmount,
+                        "Bazaar Details": bazaarNotes,
+                    };
+                });
+
+                // Member Totals Row
+                memberDayRows.push({
+                    "Date": "TOTAL",
+                    "Day": `${data.daysInMonth} Days`,
+                    "Breakfast": m.stats.breakdownMeals?.breakfast || 0,
+                    "Lunch": m.stats.breakdownMeals?.lunch || 0,
+                    "Dinner": m.stats.breakdownMeals?.dinner || 0,
+                    "Guest": m.stats.breakdownMeals?.guest || 0,
+                    "Total Meals": m.stats.totalMeals,
+                    "Deposit (Tk)": m.stats.totalDeposit,
+                    "Deposit Details": `Balance: Tk ${m.stats.currentBalance}`,
+                    "Bazaar (Tk)": m.stats.totalBazaar,
+                    "Bazaar Details": `Meal Cost: Tk ${m.stats.mealCost}`,
+                });
+
+                const memSheet = XLSX.utils.json_to_sheet(memberDayRows);
+                const safeTabName = (m.name || `Member_${mIdx + 1}`)
+                    .replace(/[\\/?*[\]:]/g, "")
+                    .trim()
+                    .slice(0, 22);
+                const finalTabName = `${mIdx + 1}.${safeTabName || `Mem${mIdx + 1}`}`;
+                XLSX.utils.book_append_sheet(workbook, memSheet, finalTabName);
+            });
+
+            const safeMessName = (data.messName || "Mess").replace(/[^a-zA-Z0-9]/g, "_");
+            XLSX.writeFile(workbook, `${safeMessName}_All_Members_Full_Report_${data.monthName}_${data.year}.xlsx`);
+        } catch (error) {
+            console.error("Excel Export Error:", error);
+            alert("Failed to export complete Excel report.");
+        } finally {
+            setIsExportingExcel(false);
+        }
     };
 
-    const handleExportPDF = () => {
-        const doc = new jsPDF();
-        
-        doc.setFontSize(16);
-        doc.text(`Financial Report - ${monthName} ${selectedYear}`, 14, 20);
-        doc.setFontSize(10);
-        doc.text(`Live Meal Rate: Tk ${(stats.liveMealRate || 0).toFixed(2)} | Total Bazaar: Tk ${(stats.totalBazaarCost || 0).toLocaleString()}`, 14, 26);
+    // ─── Export All Members Full Details to PDF ───
+    const handleExportPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            let data = fullReportData;
+            if (!data || data.month !== selectedMonth || data.year !== selectedYear) {
+                data = await fetchFullReportData(selectedMonth, selectedYear);
+            }
+            if (!data) {
+                alert("Failed to fetch full report details for PDF export.");
+                return;
+            }
 
-        const tableColumn = ["#", "Member Name", "Bazaar (Tk)", "Deposit (Tk)", "Meals", "Balance (Tk)"];
-        const tableRows: any[] = [];
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
 
-        filteredMembers.forEach((m, index) => {
-            tableRows.push([
-                index + 1,
-                m.name,
-                m.bazaarAmount > 0 ? m.bazaarAmount.toLocaleString() : "-",
-                m.depositAmount > 0 ? m.depositAmount.toLocaleString() : "-",
-                m.mealsConsumed,
-                (m.currentBalance < 0 ? "-" : "+") + " " + Math.abs(m.currentBalance || 0).toFixed(2)
+            // ═════════════════════════════════════════════════════════════════════
+            // PAGE 1: MESS EXECUTIVE SUMMARY & ALL MEMBERS MASTER OVERVIEW
+            // ═════════════════════════════════════════════════════════════════════
+            
+            // Header Banner
+            doc.setFillColor(255, 107, 0); // Vibrant Mess Orange
+            doc.rect(0, 0, pageWidth, 28, "F");
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.text(data.messName || "AMADER MESS", 14, 12);
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text("All Members Monthly Full Financial & Activity Statement", 14, 20);
+
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${data.monthName} ${data.year}`, pageWidth - 14, 15, { align: "right" });
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Generated by: ${data.generatedBy.name} (${data.generatedBy.role})`, pageWidth - 14, 22, { align: "right" });
+
+            // Executive Key Metrics Box
+            autoTable(doc, {
+                startY: 33,
+                head: [["Total Members", "Total Mess Bazaar", "Total Meals", "Live Meal Rate", "Overhead / Member", "Total Deposits", "Mess Cash Balance"]],
+                body: [[
+                    `${data.stats.totalMembers}`,
+                    `Tk ${data.stats.totalBazaarCost.toLocaleString()}`,
+                    `${data.stats.totalMealsConsumed}`,
+                    `Tk ${data.stats.liveMealRate.toFixed(2)}`,
+                    `Tk ${data.stats.fixedCostPerMember.toFixed(2)}`,
+                    `Tk ${data.stats.totalDeposit.toLocaleString()}`,
+                    `${data.stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(data.stats.currentBalance).toLocaleString()}`
+                ]],
+                theme: "grid",
+                headStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: "bold", fontSize: 7.5, halign: "center" },
+                bodyStyles: { textColor: [15, 23, 42], fontSize: 8.5, fontStyle: "bold", halign: "center" },
+                margin: { left: 14, right: 14 },
+            });
+
+            // All Members Summary Overview Table
+            const lastY1 = (doc as any).lastAutoTable?.finalY || 52;
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            doc.text("All Members Financial Summary Overview:", 14, lastY1 + 9);
+
+            const summaryColumns = ["#", "Member Name", "Phone", "Meals", "Meal Cost", "Fixed Cost", "Bazaar", "Deposits", "Net Balance"];
+            const summaryRows: any[] = [];
+            
+            let sumMeals = 0;
+            let sumMealCost = 0;
+            let sumFixedCost = 0;
+            let sumBazaar = 0;
+            let sumDeposits = 0;
+            let sumBalance = 0;
+
+            (data.memberReports || []).forEach((m: any, idx: number) => {
+                sumMeals += m.stats.totalMeals;
+                sumMealCost += m.stats.mealCost;
+                sumFixedCost += m.stats.fixedCost;
+                sumBazaar += m.stats.totalBazaar;
+                sumDeposits += m.stats.totalDeposit;
+                sumBalance += m.stats.currentBalance;
+
+                summaryRows.push([
+                    idx + 1,
+                    m.name,
+                    m.phone || "-",
+                    m.stats.totalMeals,
+                    `Tk ${m.stats.mealCost.toFixed(2)}`,
+                    `Tk ${m.stats.fixedCost.toFixed(2)}`,
+                    m.stats.totalBazaar > 0 ? `Tk ${m.stats.totalBazaar.toLocaleString()}` : "-",
+                    `Tk ${m.stats.totalDeposit.toLocaleString()}`,
+                    `${m.stats.isPositive ? "+" : "-"} Tk ${Math.abs(m.stats.currentBalance).toFixed(2)}`
+                ]);
+            });
+
+            // Totals Row
+            summaryRows.push([
+                "TOTAL",
+                `${data.memberReports.length} Members`,
+                "-",
+                sumMeals,
+                `Tk ${sumMealCost.toFixed(2)}`,
+                `Tk ${sumFixedCost.toFixed(2)}`,
+                `Tk ${sumBazaar.toLocaleString()}`,
+                `Tk ${sumDeposits.toLocaleString()}`,
+                `${sumBalance >= 0 ? "+" : "-"} Tk ${Math.abs(sumBalance).toFixed(2)}`
             ]);
-        });
 
-        tableRows.push([
-            "Total",
-            "-",
-            filteredTotals.bazaarAmount.toLocaleString(),
-            filteredTotals.depositAmount.toLocaleString(),
-            filteredTotals.mealsConsumed,
-            (filteredTotals.currentBalance < 0 ? "-" : "+") + " " + Math.abs(filteredTotals.currentBalance).toFixed(2)
-        ]);
+            autoTable(doc, {
+                startY: lastY1 + 13,
+                head: [summaryColumns],
+                body: summaryRows,
+                theme: "striped",
+                headStyles: { fillColor: [255, 107, 0], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
+                bodyStyles: { fontSize: 7.5, textColor: [51, 65, 85] },
+                footStyles: { fillColor: [241, 245, 249], fontStyle: "bold" },
+                margin: { left: 14, right: 14 },
+            });
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 32,
-            theme: 'grid',
-            headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: 'bold' },
-            footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: 'bold' },
-        });
+            // ═════════════════════════════════════════════════════════════════════
+            // SUBSEQUENT PAGES: COMPLETE DAY-BY-DAY STATEMENT FOR EVERY MEMBER
+            // ═════════════════════════════════════════════════════════════════════
+            (data.memberReports || []).forEach((m: any, mIdx: number) => {
+                doc.addPage();
 
-        doc.save(`Mess_Financial_Report_${monthName}_${selectedYear}.pdf`);
+                // Member Header Band
+                doc.setFillColor(30, 41, 59); // Slate 800
+                doc.rect(0, 0, pageWidth, 24, "F");
+
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(13);
+                doc.setFont("helvetica", "bold");
+                doc.text(`${mIdx + 1}. Member: ${m.name} (${m.role})`, 14, 10);
+
+                doc.setFontSize(8.5);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Phone: ${m.phone || "N/A"}  |  Email: ${m.email || "N/A"}  |  Mess: ${data.messName}`, 14, 17);
+
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "bold");
+                doc.text(`${data.monthName} ${data.year}`, pageWidth - 14, 14, { align: "right" });
+
+                // Member Financial Snapshot Box
+                autoTable(doc, {
+                    startY: 28,
+                    head: [["Deposits Collected", "Total Meals", "Meal Rate", "Meal Cost", "Fixed Cost", "Bazaar Spent", "Final Net Balance"]],
+                    body: [[
+                        `Tk ${m.stats.totalDeposit.toLocaleString()}`,
+                        `${m.stats.totalMeals}`,
+                        `Tk ${data.stats.liveMealRate.toFixed(2)}`,
+                        `Tk ${m.stats.mealCost.toFixed(2)}`,
+                        `Tk ${m.stats.fixedCost.toFixed(2)}`,
+                        `Tk ${m.stats.totalBazaar.toLocaleString()}`,
+                        `${m.stats.isPositive ? "+" : "-"} Tk ${Math.abs(m.stats.currentBalance).toFixed(2)}`
+                    ]],
+                    theme: "grid",
+                    headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: "bold", fontSize: 7, halign: "center" },
+                    bodyStyles: { textColor: [15, 23, 42], fontSize: 8, fontStyle: "bold", halign: "center" },
+                    margin: { left: 14, right: 14 },
+                });
+
+                // Member Day-by-Day Statement Table
+                const lastYMem = (doc as any).lastAutoTable?.finalY || 45;
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(30, 41, 59);
+                doc.text(`Full Month Daily Meals, Payments & Bazaar Activity Log (${data.monthName} ${data.year}):`, 14, lastYMem + 7);
+
+                const dayColumns = ["Date", "Day", "B", "L", "D", "Guest", "Meals", "Deposit (Tk)", "Bazaar (Tk)", "Notes & Details"];
+                const dayRows: any[] = [];
+
+                (m.dailyBreakdown || []).forEach((row: any) => {
+                    const depositText = row.depositAmount > 0 
+                        ? `Tk ${row.depositAmount.toLocaleString()}` 
+                        : (row.deposits?.length > 0 ? `Tk ${row.deposits[0].amount} (${row.deposits[0].status})` : "-");
+
+                    const bazaarText = row.bazaarAmount > 0 
+                        ? `Tk ${row.bazaarAmount.toLocaleString()}` 
+                        : "-";
+
+                    const notes = [
+                        ...row.deposits.map((d: any) => `${d.method || "Deposit"}${d.note ? `: ${d.note}` : ""}`),
+                        ...row.bazaars.map((b: any) => b.description || "Bazaar shopping"),
+                    ].filter(Boolean).join(" | ") || "-";
+
+                    dayRows.push([
+                        row.formattedDate.slice(0, 6),
+                        row.dayName,
+                        row.breakfast > 0 ? row.breakfast : "-",
+                        row.lunch > 0 ? row.lunch : "-",
+                        row.dinner > 0 ? row.dinner : "-",
+                        row.guest > 0 ? row.guest : "-",
+                        row.totalMeals > 0 ? row.totalMeals : "-",
+                        depositText,
+                        bazaarText,
+                        notes
+                    ]);
+                });
+
+                // Member Totals Row
+                dayRows.push([
+                    "TOTAL",
+                    "-",
+                    m.stats.breakdownMeals?.breakfast || "-",
+                    m.stats.breakdownMeals?.lunch || "-",
+                    m.stats.breakdownMeals?.dinner || "-",
+                    m.stats.breakdownMeals?.guest || "-",
+                    `${m.stats.totalMeals}`,
+                    `Tk ${m.stats.totalDeposit.toLocaleString()}`,
+                    `Tk ${m.stats.totalBazaar.toLocaleString()}`,
+                    `Balance: ${m.stats.isPositive ? "+" : "-"} Tk ${Math.abs(m.stats.currentBalance).toFixed(2)}`
+                ]);
+
+                autoTable(doc, {
+                    startY: lastYMem + 10,
+                    head: [dayColumns],
+                    body: dayRows,
+                    theme: "striped",
+                    headStyles: { fillColor: [255, 107, 0], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 6.8 },
+                    bodyStyles: { fontSize: 6.8, textColor: [51, 65, 85] },
+                    margin: { left: 14, right: 14 },
+                });
+            });
+
+            // ═════════════════════════════════════════════════════════════════════
+            // FINAL PAGE: MESS-WIDE BAZAAR PURCHASES & DEPOSITS AUDIT LOG
+            // ═════════════════════════════════════════════════════════════════════
+            if ((data.allBazaars && data.allBazaars.length > 0) || (data.allDeposits && data.allDeposits.length > 0)) {
+                doc.addPage();
+
+                // Header Banner
+                doc.setFillColor(255, 107, 0);
+                doc.rect(0, 0, pageWidth, 20, "F");
+
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(13);
+                doc.setFont("helvetica", "bold");
+                doc.text("Mess Bazaar Shopping & Deposit Transactions Audit Log", 14, 13);
+
+                let currentAuditY = 27;
+
+                // 1. All Bazaar Shopping Table
+                if (data.allBazaars && data.allBazaars.length > 0) {
+                    doc.setFontSize(10);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(30, 41, 59);
+                    doc.text(`All Bazaar Expenses for ${data.monthName} ${data.year} (Total: Tk ${data.stats.totalBazaarCost.toLocaleString()}):`, 14, currentAuditY);
+
+                    const bazaarCols = ["Date", "Purchaser Name", "Phone", "Items / Description", "Amount (Tk)", "Status"];
+                    const bazaarRows = data.allBazaars.map((b: any) => [
+                        b.formattedDate,
+                        b.memberName,
+                        b.phone || "-",
+                        b.description || "Bazaar shopping",
+                        `Tk ${b.amount.toLocaleString()}`,
+                        b.status
+                    ]);
+
+                    autoTable(doc, {
+                        startY: currentAuditY + 4,
+                        head: [bazaarCols],
+                        body: bazaarRows,
+                        theme: "striped",
+                        headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.2 },
+                        bodyStyles: { fontSize: 7.2, textColor: [51, 65, 85] },
+                        margin: { left: 14, right: 14 },
+                    });
+
+                    currentAuditY = (doc as any).lastAutoTable?.finalY + 10;
+                }
+
+                // 2. All Deposits Table
+                if (data.allDeposits && data.allDeposits.length > 0) {
+                    if (currentAuditY > pageHeight - 60) {
+                        doc.addPage();
+                        currentAuditY = 20;
+                    }
+
+                    doc.setFontSize(10);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(30, 41, 59);
+                    doc.text(`All Member Deposits for ${data.monthName} ${data.year} (Total: Tk ${data.stats.totalDeposit.toLocaleString()}):`, 14, currentAuditY);
+
+                    const depositCols = ["Date", "Member Name", "Phone", "Amount (Tk)", "Method", "Status", "Note"];
+                    const depositRows = data.allDeposits.map((d: any) => [
+                        d.formattedDate,
+                        d.memberName,
+                        d.phone || "-",
+                        `Tk ${d.amount.toLocaleString()}`,
+                        d.method || "Cash",
+                        d.status,
+                        d.note || "-"
+                    ]);
+
+                    autoTable(doc, {
+                        startY: currentAuditY + 4,
+                        head: [depositCols],
+                        body: depositRows,
+                        theme: "striped",
+                        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.2 },
+                        bodyStyles: { fontSize: 7.2, textColor: [51, 65, 85] },
+                        margin: { left: 14, right: 14 },
+                    });
+                }
+            }
+
+            // Page numbers on all pages
+            const totalPages = doc.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7.5);
+                doc.setTextColor(148, 163, 184);
+                doc.text(
+                    `Page ${i} of ${totalPages} · ${data.messName || "Amader Mess"} · All Members Full Monthly Report`,
+                    pageWidth / 2,
+                    pageHeight - 6,
+                    { align: "center" }
+                );
+            }
+
+            const safeMessName = (data.messName || "Mess").replace(/[^a-zA-Z0-9]/g, "_");
+            doc.save(`${safeMessName}_All_Members_Full_Report_${data.monthName}_${data.year}.pdf`);
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            alert("Failed to export complete PDF report.");
+        } finally {
+            setIsExportingPDF(false);
+        }
     };
 
     return (
@@ -183,6 +668,7 @@ export default function AdminReportsView() {
             
             {/* ═══════════════════════════════════════════════════════════════════
                 MOBILE VIEW: Matching reports.png Pixel-for-Pixel
+
                ═══════════════════════════════════════════════════════════════════ */}
             <div className="md:hidden flex flex-col gap-3.5 w-full max-w-md mx-auto">
                 
@@ -244,25 +730,44 @@ export default function AdminReportsView() {
                         {/* Download Excel */}
                         <button 
                             onClick={handleExportExcel}
-                            className="w-full bg-white border border-emerald-100 text-emerald-700 text-xs font-bold px-3 py-2.5 rounded-2xl shadow-sm hover:bg-emerald-50 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform"
+                            disabled={isExportingExcel || isExportingPDF}
+                            className="w-full bg-white border border-emerald-100 text-emerald-700 text-xs font-bold px-3 py-2.5 rounded-2xl shadow-sm hover:bg-emerald-50 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform disabled:opacity-60"
                         >
-                            <span className="w-4 h-4 rounded bg-[#107C41] text-white font-black text-[10px] flex items-center justify-center shrink-0">
-                                X
-                            </span>
-                            <span className="truncate">Download Excel</span>
+                            {isExportingExcel ? (
+                                <IconLoader2 size={16} className="animate-spin text-emerald-600" />
+                            ) : (
+                                <span className="w-4 h-4 rounded bg-[#107C41] text-white font-black text-[10px] flex items-center justify-center shrink-0">
+                                    X
+                                </span>
+                            )}
+                            <span className="truncate">{isExportingExcel ? "Generating..." : "Download Excel"}</span>
                         </button>
 
                         {/* Download PDF */}
                         <button 
                             onClick={handleExportPDF}
-                            className="w-full bg-white border border-rose-100 text-rose-700 text-xs font-bold px-3 py-2.5 rounded-2xl shadow-sm hover:bg-rose-50 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform"
+                            disabled={isExportingExcel || isExportingPDF}
+                            className="w-full bg-white border border-rose-100 text-rose-700 text-xs font-bold px-3 py-2.5 rounded-2xl shadow-sm hover:bg-rose-50 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform disabled:opacity-60"
                         >
-                            <span className="w-4 h-4 rounded bg-[#E11D48] text-white font-black text-[7px] flex items-center justify-center shrink-0">
-                                PDF
-                            </span>
-                            <span className="truncate">Download PDF</span>
+                            {isExportingPDF ? (
+                                <IconLoader2 size={16} className="animate-spin text-rose-600" />
+                            ) : (
+                                <span className="w-4 h-4 rounded bg-[#E11D48] text-white font-black text-[7px] flex items-center justify-center shrink-0">
+                                    PDF
+                                </span>
+                            )}
+                            <span className="truncate">{isExportingPDF ? "Generating..." : "Download PDF"}</span>
                         </button>
                     </div>
+
+                    {/* Row 3: All Members Full Report Statement Modal Trigger */}
+                    <button
+                        onClick={openFullReportModal}
+                        className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold py-2 px-3 rounded-2xl shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
+                    >
+                        <IconDownload size={15} stroke={2.2} />
+                        <span>All Members Statement & Preview</span>
+                    </button>
                 </div>
 
                 {/* 3. 6 Financial Summary Metric Cards (2-Column Grid) */}
@@ -653,14 +1158,38 @@ export default function AdminReportsView() {
                             ))}
                         </select>
 
-                        <button onClick={handleExportExcel} className="flex items-center gap-2 bg-white border border-green-200 text-green-700 hover:bg-green-50 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors cursor-pointer">
-                            <IconFileSpreadsheet size={18} stroke={2.5} className="text-green-600" />
-                            Download Excel
+                        <button 
+                            onClick={handleExportExcel} 
+                            disabled={isExportingExcel || isExportingPDF}
+                            className="flex items-center gap-2 bg-white border border-green-200 text-green-700 hover:bg-green-50 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors cursor-pointer disabled:opacity-60"
+                        >
+                            {isExportingExcel ? (
+                                <IconLoader2 size={18} className="animate-spin text-green-600" />
+                            ) : (
+                                <IconFileSpreadsheet size={18} stroke={2.5} className="text-green-600" />
+                            )}
+                            {isExportingExcel ? "Generating Excel..." : "Download Excel"}
                         </button>
 
-                        <button onClick={handleExportPDF} className="flex items-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors cursor-pointer">
-                            <IconFileTypePdf size={18} stroke={2.5} className="text-red-500" />
-                            Download PDF
+                        <button 
+                            onClick={handleExportPDF} 
+                            disabled={isExportingExcel || isExportingPDF}
+                            className="flex items-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors cursor-pointer disabled:opacity-60"
+                        >
+                            {isExportingPDF ? (
+                                <IconLoader2 size={18} className="animate-spin text-red-500" />
+                            ) : (
+                                <IconFileTypePdf size={18} stroke={2.5} className="text-red-500" />
+                            )}
+                            {isExportingPDF ? "Generating PDF..." : "Download PDF"}
+                        </button>
+
+                        <button
+                            onClick={openFullReportModal}
+                            className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm px-4 py-2 rounded-lg shadow-sm transition-transform active:scale-95 cursor-pointer"
+                        >
+                            <IconDownload size={17} stroke={2.2} />
+                            Full Report Preview
                         </button>
                     </div>
                 </div>
@@ -885,6 +1414,169 @@ export default function AdminReportsView() {
                     </div>
                 </div>
             </div>
+
+            {/* ─── All Members Full Report Download & Preview Modal ─── */}
+            {isFullReportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden">
+                        {/* Header */}
+                        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-start justify-between bg-gradient-to-r from-orange-50 to-amber-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-orange-500/25">
+                                    <IconFileReport size={26} stroke={2.2} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg sm:text-xl font-extrabold text-gray-900 leading-tight">
+                                        All Members Monthly Full Report
+                                    </h3>
+                                    <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
+                                        {monthName} {selectedYear} · Complete audit statements for all members
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsFullReportModalOpen(false)}
+                                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-white rounded-xl transition-colors cursor-pointer"
+                            >
+                                <IconX size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
+                            {isLoadingFullReport ? (
+                                <div className="py-16 flex flex-col items-center justify-center gap-3">
+                                    <IconLoader2 size={36} className="animate-spin text-orange-500" />
+                                    <p className="text-sm font-bold text-gray-500">Loading complete mess records & logs...</p>
+                                </div>
+                            ) : fullReportData ? (
+                                <>
+                                    {/* Highlights Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                        <div className="bg-orange-50/70 border border-orange-100 rounded-2xl p-3">
+                                            <p className="text-[10px] font-bold text-orange-600 uppercase">Total Members</p>
+                                            <p className="text-lg font-black text-gray-900 mt-0.5">{fullReportData.stats.totalMembers}</p>
+                                        </div>
+                                        <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-3">
+                                            <p className="text-[10px] font-bold text-blue-600 uppercase">Live Meal Rate</p>
+                                            <p className="text-lg font-black text-gray-900 mt-0.5">Tk {fullReportData.stats.liveMealRate.toFixed(2)}</p>
+                                        </div>
+                                        <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-3">
+                                            <p className="text-[10px] font-bold text-emerald-600 uppercase">Total Deposits</p>
+                                            <p className="text-lg font-black text-gray-900 mt-0.5">Tk {fullReportData.stats.totalDeposit.toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-purple-50/70 border border-purple-100 rounded-2xl p-3">
+                                            <p className="text-[10px] font-bold text-purple-600 uppercase">Total Bazaar</p>
+                                            <p className="text-lg font-black text-gray-900 mt-0.5">Tk {fullReportData.stats.totalBazaarCost.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Export Action Cards */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                        {/* PDF Card */}
+                                        <div className="border border-rose-100 bg-rose-50/30 rounded-2xl p-4 flex flex-col justify-between gap-3">
+                                            <div>
+                                                <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
+                                                    <IconFileTypePdf size={22} stroke={2.2} />
+                                                    <span>Full Report PDF</span>
+                                                </div>
+                                                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                                    Includes executive summary, master member overview, day-by-day (1-31) activity sheets for every member, and full bazaar/deposit audit logs.
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={handleExportPDF}
+                                                disabled={isExportingPDF}
+                                                className="w-full bg-[#E11D48] hover:bg-rose-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer disabled:opacity-60"
+                                            >
+                                                {isExportingPDF ? (
+                                                    <>
+                                                        <IconLoader2 size={16} className="animate-spin" />
+                                                        <span>Generating PDF...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <IconDownload size={16} stroke={2.4} />
+                                                        <span>Download Complete PDF</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Excel Card */}
+                                        <div className="border border-emerald-100 bg-emerald-50/30 rounded-2xl p-4 flex flex-col justify-between gap-3">
+                                            <div>
+                                                <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
+                                                    <IconFileSpreadsheet size={22} stroke={2.2} />
+                                                    <span>Full Report Excel (.xlsx)</span>
+                                                </div>
+                                                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                                    Includes multi-sheet workbook with Mess Summary, master 31-day activity logs, bazaar shopping receipts, deposits log, and separate member tabs.
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={handleExportExcel}
+                                                disabled={isExportingExcel}
+                                                className="w-full bg-[#107C41] hover:bg-emerald-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-md shadow-emerald-700/20 flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer disabled:opacity-60"
+                                            >
+                                                {isExportingExcel ? (
+                                                    <>
+                                                        <IconLoader2 size={16} className="animate-spin" />
+                                                        <span>Generating Excel...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <IconDownload size={16} stroke={2.4} />
+                                                        <span>Download Complete Excel</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Members Included List Preview */}
+                                    <div className="space-y-2 pt-2">
+                                        <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider">
+                                            Members Included in Report ({fullReportData.memberReports?.length || 0})
+                                        </h4>
+                                        <div className="border border-gray-100 rounded-2xl overflow-hidden max-h-56 overflow-y-auto divide-y divide-gray-100 bg-white">
+                                            {fullReportData.memberReports.map((m: any, idx: number) => (
+                                                <div key={m.id} className="p-3 flex items-center justify-between text-xs hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="text-gray-400 font-bold w-4 text-center">{idx + 1}</span>
+                                                        <div>
+                                                            <p className="font-extrabold text-gray-900">{m.name}</p>
+                                                            <p className="text-[10px] text-gray-500 font-medium">{m.phone || m.email || "Member"}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-extrabold text-gray-900">{m.stats.totalMeals} Meals · Tk {m.stats.totalDeposit.toLocaleString()}</p>
+                                                        <p className={`text-[10px] font-bold ${m.stats.currentBalance < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                                            Balance: {m.stats.isPositive ? "+" : "-"}Tk {Math.abs(m.stats.currentBalance).toFixed(2)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <p className="text-center text-gray-400 py-10 font-bold">Failed to load report data.</p>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 sm:p-5 border-t border-gray-100 bg-[#F8FAFC] flex items-center justify-end">
+                            <button
+                                onClick={() => setIsFullReportModalOpen(false)}
+                                className="px-5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

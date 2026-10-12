@@ -91,7 +91,8 @@ export function calculateMemberSummary(params: {
   } = params;
 
   const mealCost = Math.round((totalMeals * mealRate) * 100) / 100;
-  const totalCost = Math.round((mealCost + actualSharedCost) * 100) / 100;
+  const sharedOverhead = actualSharedCost > 0 ? actualSharedCost : fixedCost;
+  const totalCost = Math.round((mealCost + sharedOverhead) * 100) / 100;
   const balance = Math.round((totalDeposit - totalCost) * 100) / 100;
   const isPositive = balance >= 0;
 

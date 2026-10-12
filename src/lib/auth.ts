@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { comparePassword } from "@/lib/security";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -38,12 +39,27 @@ export const authOptions: AuthOptions = {
         }
 
         const normalizedEmail = credentials.email.trim().toLowerCase();
+
+        // Rate limiting: 5 failed attempts per minute per email
+        const rateCheck = checkRateLimit(`login:email:${normalizedEmail}`, 5, 60 * 1000);
+        if (!rateCheck.success) {
+          throw new Error("Too many failed login attempts. Please wait 1 minute before trying again.");
+        }
+
         const user = await prisma.user.findUnique({
           where: { email: normalizedEmail },
         });
 
         if (!user) {
           throw new Error("Invalid email or password!");
+        }
+
+        if (user.role === "suspended") {
+          throw new Error("Your account has been suspended! Please contact the admin.");
+        }
+
+        if (user.role === "pending") {
+          throw new Error("Your account is pending admin approval!");
         }
 
         if (!user.password) {
@@ -57,10 +73,6 @@ export const authOptions: AuthOptions = {
 
         if (!isPasswordValid) {
           throw new Error("Invalid email or password!");
-        }
-
-        if (user.role === "pending") {
-          throw new Error("Your account is pending admin approval!");
         }
 
         return {
@@ -93,6 +105,42 @@ export const authOptions: AuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        const email = user.email?.trim().toLowerCase();
+        if (!email) return false;
+
+        const existingUser = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (existingUser) {
+          if (existingUser.role === "suspended") {
+            return "/login?error=Suspended";
+          }
+          if (existingUser.role === "pending") {
+            return "/login?error=PendingApproval";
+          }
+          return true;
+        }
+
+        // New Google user registration -> create in pending state awaiting admin approval
+        await prisma.user.create({
+          data: {
+            name: user.name || "Google User",
+            email,
+            image: user.image,
+            role: "pending",
+            defaultBreakfast: 0.5,
+            defaultLunch: 1.0,
+            defaultDinner: 1.0,
+          },
+        });
+
+        return "/login?error=PendingApproval";
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, session: updateSession }) {
       // Strip any base64 data URIs so cookie never exceeds HTTP limits
       if (token.picture && typeof token.picture === "string" && token.picture.startsWith("data:")) {
@@ -104,6 +152,9 @@ export const authOptions: AuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || "member";
+        if (token.role === "suspended" || token.role === "pending") {
+          token.isDeleted = true;
+        }
         if (user.name) token.name = user.name;
         token.lastChecked = Date.now();
       } else if (token?.id || token?.email) {

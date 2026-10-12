@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
     IconArrowLeft, 
     IconUsers, 
@@ -13,6 +14,10 @@ import {
 } from "@tabler/icons-react";
 
 export default function GuestMealsPage() {
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role;
+    const backHref = userRole === "admin" ? "/admin" : "/manager";
+
     const [guestMeals, setGuestMeals] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -65,9 +70,9 @@ export default function GuestMealsPage() {
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Link 
-                        href="/manager" 
+                        href={backHref} 
                         className="w-10 h-10 rounded-2xl bg-white/90 border border-gray-100 flex items-center justify-center text-gray-700 shadow-sm hover:bg-white transition-all cursor-pointer"
-                        aria-label="Back to Manager Dashboard"
+                        aria-label={userRole === "admin" ? "Back to Admin Dashboard" : "Back to Manager Dashboard"}
                     >
                         <IconArrowLeft size={20} stroke={2.5} />
                     </Link>

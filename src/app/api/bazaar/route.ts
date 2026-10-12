@@ -13,15 +13,20 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+
+    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
+    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
     // 1. Whose responsibility is it today
     let todaySchedule = await prisma.bazaarSchedule.findFirst({
       where: {
-        date: { gte: today, lt: tomorrow },
+        date: todayDateFilter,
       },
       include: {
         user: { select: { id: true, name: true, email: true, phone: true } },
@@ -39,7 +44,7 @@ export async function GET() {
         todaySchedule = {
           id: "today-default",
           userId: defaultUser.id,
-          date: today,
+          date: todayStart,
           status: "pending",
           user: defaultUser,
         };
@@ -49,7 +54,7 @@ export async function GET() {
     // 2. Upcoming bazaar schedule
     const upcomingSchedules = await prisma.bazaarSchedule.findMany({
       where: {
-        date: { gte: tomorrow },
+        date: { gte: todayEnd },
       },
       orderBy: { date: "asc" },
       take: 5,
@@ -61,25 +66,27 @@ export async function GET() {
     // 3. Today's bazaar expense
     const todayExpenses = await prisma.expense.findMany({
       where: {
-        date: { gte: today, lt: tomorrow },
+        date: todayDateFilter,
       },
       include: {
         user: { select: { name: true } },
       },
     });
 
-    const todayTotal = todayExpenses.reduce((acc, e) => acc + e.amount, 0);
+    const todayTotal = todayExpenses
+      .filter((e) => e.status !== "Rejected")
+      .reduce((acc, e) => acc + e.amount, 0);
 
     // 4. Today's Cooking Headcount Calculation ("Accurate Market Count")
     const todayMealLogs = await prisma.mealLog.findMany({
-      where: { date: { gte: today, lt: tomorrow } },
+      where: { date: todayDateFilter },
       include: { user: { select: { name: true } } },
     });
 
     // Fetch APPROVED guest meals only for today (strictly exclude pending and rejected)
     const todayApprovedGuestMeals = await prisma.guestMealRequest.findMany({
       where: {
-        date: { gte: today, lt: tomorrow },
+        date: todayDateFilter,
         status: "Approved",
       },
       include: { user: { select: { name: true } } },
@@ -109,7 +116,23 @@ export async function GET() {
     const breakfastTotalHeads = breakfastMembers + breakfastGuests;
     const lunchTotalHeads = lunchMembers + lunchGuests;
     const dinnerTotalHeads = dinnerMembers + dinnerGuests;
-    const totalMealsToday = breakfastTotalHeads + lunchTotalHeads + dinnerTotalHeads;
+
+    // In Amader Mess, breakfast is strictly 0.5 meals, while lunch and dinner are 1.0 meal each
+    const breakfastMemberPortions = todayMealLogs.reduce((acc, m) => acc + (m.breakfast || 0), 0);
+    const lunchMemberPortions = todayMealLogs.reduce((acc, m) => acc + (m.lunch || 0), 0);
+    const dinnerMemberPortions = todayMealLogs.reduce((acc, m) => acc + (m.dinner || 0), 0);
+
+    const breakfastMeals = Math.round((
+      (todayMealLogs.length > 0 ? breakfastMemberPortions : (breakfastMembers * 0.5)) + (breakfastGuests * 0.5)
+    ) * 10) / 10;
+    const lunchMeals = Math.round((
+      (todayMealLogs.length > 0 ? lunchMemberPortions : lunchMembers) + lunchGuests
+    ) * 10) / 10;
+    const dinnerMeals = Math.round((
+      (todayMealLogs.length > 0 ? dinnerMemberPortions : dinnerMembers) + dinnerGuests
+    ) * 10) / 10;
+
+    const totalMealsToday = Math.round((breakfastMeals + lunchMeals + dinnerMeals) * 10) / 10;
 
     const totalMemberPortions = todayMealLogs.reduce(
       (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0),
@@ -129,9 +152,24 @@ export async function GET() {
         todayExpenses,
         todayTotal,
         cookingHeadcount: {
-          breakfast: { members: breakfastMembers, guests: breakfastGuests, total: breakfastTotalHeads },
-          lunch: { members: lunchMembers, guests: lunchGuests, total: lunchTotalHeads },
-          dinner: { members: dinnerMembers, guests: dinnerGuests, total: dinnerTotalHeads },
+          breakfast: { 
+            members: breakfastMembers, 
+            guests: breakfastGuests, 
+            total: breakfastTotalHeads,
+            meals: breakfastMeals,
+          },
+          lunch: { 
+            members: lunchMembers, 
+            guests: lunchGuests, 
+            total: lunchTotalHeads,
+            meals: lunchMeals,
+          },
+          dinner: { 
+            members: dinnerMembers, 
+            guests: dinnerGuests, 
+            total: dinnerTotalHeads,
+            meals: dinnerMeals,
+          },
           totalMealsToday,
           totalCookingHeads,
           approvedGuestRequests: todayApprovedGuestMeals.map((g) => ({

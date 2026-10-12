@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateMealRate } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
 export async function GET() {
@@ -58,13 +59,18 @@ export async function GET() {
     });
 
     // 3. Total meals today
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+
+    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
+    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
     const todayMeals = await prisma.mealLog.findMany({
-      where: { date: { gte: today, lt: tomorrow } },
+      where: { date: todayDateFilter },
     });
     const totalMealsToday = todayMeals.reduce(
       (acc, meal) =>
@@ -74,7 +80,7 @@ export async function GET() {
 
     // 4. Today's bazaar expenses (which are Approved)
     const todayExpenses = await prisma.expense.findMany({
-      where: { date: { gte: today, lt: tomorrow }, status: "Approved" },
+      where: { date: todayDateFilter, status: "Approved" },
     });
     const totalBazaarToday = todayExpenses.reduce(
       (acc, exp) => acc + exp.amount,
@@ -82,8 +88,8 @@ export async function GET() {
     );
 
     // 5. Month-specific live meal rate calculation
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const dateFilter = { gte: startOfMonth, lt: endOfMonth };
 
     const monthExpenses = await prisma.expense.aggregate({
@@ -97,17 +103,14 @@ export async function GET() {
       (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
       0
     );
-    const rawRate = (totalMonthMeals > 0 && (monthExpenses._sum.amount || 0) > 0)
-      ? (monthExpenses._sum.amount || 0) / totalMonthMeals
-      : 46.15;
-    const currentMealRate = Math.round(rawRate * 100) / 100;
+    const currentMealRate = calculateMealRate(monthExpenses._sum.amount || 0, totalMonthMeals);
 
     // 6. Market Duty for today
     const todayDuty = await prisma.bazaarSchedule.findFirst({
-      where: { date: { gte: today, lt: tomorrow } },
+      where: { date: todayDateFilter },
       include: { user: { select: { name: true } } },
     });
-    const marketDuty = todayDuty?.user?.name || "Super Admin";
+    const marketDuty = todayDuty?.user?.name || "Unassigned";
 
     // 7. Mess Fund: Total Deposits Collected - Total Actual Expenses Paid (Approved)
     const depositAgg = await prisma.deposit.aggregate({

@@ -24,9 +24,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
+
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const targetYear = yearParam ? parseInt(yearParam) : now.getFullYear();
+    const targetMonth = monthParam ? parseInt(monthParam) : now.getMonth() + 1;
+
+    const startOfMonth = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
     const dateFilter = { gte: startOfMonth, lt: endOfMonth };
 
     // 1. 💡 Total Deposit for the current month
@@ -69,9 +76,15 @@ export async function GET(req: Request) {
     const liveMealRate = calculateMealRate(totalMessExpense, totalMessMeals);
 
     // 6. Monthly Fixed Overhead
-    const monthKey = formatMonthKey(now);
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findUnique({
-      where: { month: monthKey },
+    const monthKey = formatMonthKey(startOfMonth);
+    const isoMonthKey = `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
+    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
+      where: {
+        OR: [
+          { month: monthKey },
+          { month: isoMonthKey }
+        ]
+      },
     });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 

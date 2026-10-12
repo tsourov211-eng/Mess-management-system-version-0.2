@@ -20,5 +20,9 @@ export default async function ReportsPage() {
         redirect("/login");
     }
 
+    if (user.role === "member") {
+        return <ReportsView />;
+    }
+
     return <AdminReportsView />;
 }

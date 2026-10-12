@@ -24,7 +24,16 @@ import {
     IconReceipt2,
     IconCalculator,
     IconArrowUpRight,
-    IconArrowDownRight
+    IconArrowDownRight,
+    IconCreditCard,
+    IconShoppingCart as TablerShoppingCart,
+    IconUsers as TablerUsers,
+    IconBell,
+    IconCalendarUser,
+    IconArrowRight,
+    IconFileText,
+    IconAlertCircle,
+    IconTrash
 } from "@tabler/icons-react";
 import {
     Crown,
@@ -67,6 +76,21 @@ export default function AdminDashboardPage() {
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     const [activeMobileDropdown, setActiveMobileDropdown] = useState<string | null>(null);
+
+    // Operational queues & management states
+    const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+    const [pendingExpenses, setPendingExpenses] = useState<any[]>([]);
+    const [pendingBazaarSchedules, setPendingBazaarSchedules] = useState<any[]>([]);
+    const [pendingGuestMeals, setPendingGuestMeals] = useState<any[]>([]);
+    const [selectedSchedules, setSelectedSchedules] = useState<string[]>([]);
+    const [notices, setNotices] = useState<any[]>([]);
+    const [selectedNotice, setSelectedNotice] = useState<any | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -142,9 +166,139 @@ export default function AdminDashboardPage() {
 
     useEffect(() => {
         fetchUsers();
-        // Detect if mobile (roughly) or just fetch for all to be safe
         fetchMobileDashboardData();
+        fetchDashboardData();
     }, []);
+
+    const fetchDashboardData = async () => {
+        try {
+            const res = await fetch("/api/manager/dashboard");
+            if (res.ok) {
+                const data = await res.json();
+                setPendingDeposits(data.pendingDeposits || []);
+                setPendingExpenses(data.pendingExpenses || []);
+                setPendingBazaarSchedules(data.pendingBazaarSchedules || []);
+                setPendingGuestMeals(data.pendingGuestMeals || []);
+                setNotices(data.notices || []);
+                setSelectedSchedules([]);
+            }
+        } catch (error) {
+            console.error("Error fetching manager dashboard data for admin:", error);
+        }
+    };
+
+    // Notice Board Handlers
+    const handleClearAllNotices = async () => {
+        if (notices.length === 0) return;
+        setNotices([]);
+        showToast("All notices cleared successfully.", "success");
+        try {
+            await fetch("/api/members/clear-notices", { method: "POST" });
+        } catch (error) {
+            console.error("Failed to clear notices:", error);
+        }
+    };
+
+    const handleDismissNotice = async (noticeId: string) => {
+        setNotices((prev) => prev.filter((n) => n.id !== noticeId));
+        setSelectedNotice(null);
+        showToast("Notice dismissed successfully.", "success");
+        try {
+            await fetch("/api/members/clear-notices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ noticeId }),
+            });
+        } catch (error) {
+            console.error("Failed to dismiss notice:", error);
+        }
+    };
+
+    // Actions for operational queues (deposits, expenses, guest meals)
+    const handleQueueAction = async (id: string, type: 'deposit' | 'expense' | 'guestMeal', action: 'Approve' | 'Reject') => {
+        const label = type === 'guestMeal' ? 'guest meal request' : type;
+        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this ${label}?`)) return;
+
+        try {
+            const res = await fetch("/api/manager/action", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, type, action })
+            });
+
+            if (res.ok) {
+                showToast(`${label} ${action.toLowerCase()}d successfully.`, "success");
+                fetchDashboardData();
+                fetchUsers();
+            } else {
+                showToast(`Failed to ${action.toLowerCase()} ${type}.`, "error");
+            }
+        } catch (error) {
+            console.error(error);
+            showToast(`Error processing ${type}.`, "error");
+        }
+    };
+
+    const handleScheduleAction = async (id: string, action: 'Approve' | 'Reject') => {
+        const status = action === 'Approve' ? 'approved' : 'rejected';
+        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this schedule?`)) return;
+
+        try {
+            const res = await fetch("/api/members/bazaar-schedule", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scheduleId: id, status })
+            });
+
+            if (res.ok) {
+                showToast(`Schedule ${status} successfully.`, "success");
+                fetchDashboardData();
+                fetchUsers();
+            } else {
+                showToast(`Failed to ${action.toLowerCase()} schedule.`, "error");
+            }
+        } catch (error) {
+            console.error(error);
+            showToast("Error processing schedule.", "error");
+        }
+    };
+
+    const handleSelectAllSchedules = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedSchedules(pendingBazaarSchedules.map(s => s.id));
+        } else {
+            setSelectedSchedules([]);
+        }
+    };
+
+    const handleSelectSchedule = (id: string) => {
+        setSelectedSchedules(prev => 
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleApproveSelectedSchedules = async () => {
+        if (selectedSchedules.length === 0) return;
+        if (!confirm(`Are you sure you want to approve ${selectedSchedules.length} selected schedule(s)?`)) return;
+        
+        try {
+            const promises = selectedSchedules.map(id => 
+                fetch("/api/members/bazaar-schedule", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scheduleId: id, status: "approved" })
+                })
+            );
+            await Promise.all(promises);
+            setSelectedSchedules([]);
+            showToast("Selected schedules approved successfully.", "success");
+            fetchDashboardData();
+            fetchUsers();
+        } catch (error) {
+            console.error(error);
+            showToast("Failed to approve schedules.", "error");
+        }
+    };
 
     const fetchMobileDashboardData = async () => {
         try {
@@ -170,6 +324,9 @@ export default function AdminDashboardPage() {
                 setPendingMembers(allUsers.filter((u: any) => u.role === 'pending'));
                 if (data.stats) {
                     setStats(data.stats);
+                    if (data.stats.totalBazaarToday !== undefined) {
+                        setTodayBazaarTotal(data.stats.totalBazaarToday);
+                    }
                 }
             }
         } catch (error) {
@@ -310,7 +467,7 @@ export default function AdminDashboardPage() {
                     <div className="my-auto py-2">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Food Cost</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {stats.totalFoodCost > 0 ? stats.totalFoodCost.toLocaleString() : "300"}
+                            Tk {(stats.totalFoodCost ?? 0).toLocaleString()}
                         </h3>
                     </div>
                     <div className="flex items-center justify-between pt-1">
@@ -359,7 +516,7 @@ export default function AdminDashboardPage() {
                     <div className="my-auto py-2">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Mess Fund</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {stats.messFund > 0 ? stats.messFund.toLocaleString() : "4,600"}
+                            Tk {(stats.messFund ?? 0).toLocaleString()}
                         </h3>
                     </div>
                     <div>
@@ -491,6 +648,411 @@ export default function AdminDashboardPage() {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── Management Action & Operational Queue Cards (Matching Image) ─── */}
+            <div className="hidden md:block space-y-6">
+                {/* 1. Top Row of 4 Action Cards (Bazaar Requests, Payments, Expenses, Guest Meals) */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                    {/* 1. Bazaar Requests */}
+                    <Link 
+                        href="/bazaar-requests"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[145px]"
+                    >
+                        <div>
+                            <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
+                                <IconCalendar size={22} stroke={2.2} />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 mt-3 truncate group-hover:text-[#FF6B00] transition-colors">
+                                Bazaar Requests
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-bold">
+                                <IconClock size={13} stroke={2.5} />
+                                <span>{pendingBazaarSchedules.length}</span>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={16} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* 2. Payments */}
+                    <Link 
+                        href="/payments"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[145px]"
+                    >
+                        <div>
+                            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shadow-2xs">
+                                <IconCreditCard size={22} stroke={2.2} />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 mt-3 truncate group-hover:text-blue-600 transition-colors">
+                                Payments
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-bold">
+                                <IconClock size={13} stroke={2.5} />
+                                <span>{pendingDeposits.length}</span>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={16} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* 3. Expenses */}
+                    <Link 
+                        href="/expenses"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[145px]"
+                    >
+                        <div>
+                            <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
+                                <TablerShoppingCart size={22} stroke={2.2} />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 mt-3 truncate group-hover:text-[#FF6B00] transition-colors">
+                                Expenses
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-bold">
+                                <IconClock size={13} stroke={2.5} />
+                                <span>{pendingExpenses.length}</span>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={16} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* 4. Guest Meals */}
+                    <Link 
+                        href="/guest-meals"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[145px]"
+                    >
+                        <div>
+                            <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-2xs">
+                                <TablerUsers size={22} stroke={2.2} />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 mt-3 truncate group-hover:text-purple-600 transition-colors">
+                                Guest Meals
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-bold">
+                                <IconClock size={13} stroke={2.5} />
+                                <span>{pendingGuestMeals.length}</span>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={16} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+
+                {/* 2. Notice Board Card */}
+                <div className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-10 h-10 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm shadow-orange-500/20 shrink-0">
+                                <IconBell size={20} stroke={2.2} />
+                            </div>
+                            <h2 className="text-base font-black text-slate-900">Notice Board</h2>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {notices.length > 0 && (
+                                <span className="bg-[#FF6B00] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full">
+                                    {notices.length} New
+                                </span>
+                            )}
+                            {notices.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearAllNotices}
+                                    className="text-xs font-semibold text-gray-500 hover:text-rose-600 px-2.5 py-1 rounded-full hover:bg-rose-50 transition-colors cursor-pointer"
+                                >
+                                    Clear All
+                                </button>
+                            )}
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(notices[0] || null)}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-xs font-bold px-3.5 py-1 rounded-full transition-colors cursor-pointer"
+                            >
+                                View All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="divide-y divide-slate-100 mt-3">
+                        {isLoading ? (
+                            <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
+                        ) : notices.length === 0 ? (
+                            <div className="py-8 text-center">
+                                <p className="text-xs font-bold text-slate-600">All caught up! 🪶 No new notices.</p>
+                                <p className="text-[11px] text-slate-400 mt-1">Check back later for new announcements.</p>
+                            </div>
+                        ) : (
+                            notices.slice(0, 5).map((notice, index) => {
+                                const isGuestMeal = notice.type === "guest_meal";
+                                const nDate = notice.createdAt 
+                                    ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+                                    : todayFormattedShort;
+
+                                return (
+                                    <div 
+                                        key={notice.id || index}
+                                        onClick={() => setSelectedNotice(notice)}
+                                        className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50/60 p-2 rounded-2xl transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            {isGuestMeal ? (
+                                                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+                                                    <TablerUsers size={18} stroke={2.2} />
+                                                </div>
+                                            ) : (
+                                                <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
+                                                    <IconFileText size={18} stroke={2.2} />
+                                                </div>
+                                            )}
+
+                                            <div className="min-w-0">
+                                                <h4 className="text-xs font-black text-slate-900 leading-tight truncate">
+                                                    {notice.title}
+                                                </h4>
+                                                <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+                                                    {notice.description}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                                            <span className="text-[10px] font-bold whitespace-nowrap">{nDate}</span>
+                                            <IconChevronRight size={14} stroke={2.5} />
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                {/* 3. Member Bazaar Date Requests */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <div className="p-5 flex items-center justify-between gap-4 border-b border-gray-100 bg-[#F8FAFC]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 shadow-sm shrink-0">
+                                <IconCalendarUser className="w-5 h-5" stroke={2} />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-extrabold text-gray-900">Member Bazaar Date Requests</h2>
+                                <p className="text-xs text-gray-500">Review and approve members' requested bazaar dates for this month.</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <span className="bg-orange-100 text-orange-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-orange-200">
+                                <IconClock size={14} /> {pendingBazaarSchedules.length} Pending
+                            </span>
+                            <Link href="/bazaar-requests" className="text-xs font-bold text-gray-700 hover:text-orange-600 transition-colors flex items-center gap-1 bg-white px-3.5 py-2 rounded-xl border border-gray-200 hover:border-orange-200 shadow-sm">
+                                Full Queue <IconArrowRight size={14} />
+                            </Link>
+                            {selectedSchedules.length > 0 && (
+                                <button onClick={handleApproveSelectedSchedules} className="bg-[#00B050] hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer">
+                                    <IconCheck size={14} stroke={3} /> Approve Selected ({selectedSchedules.length})
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 w-12 text-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer" 
+                                            checked={pendingBazaarSchedules.length > 0 && selectedSchedules.length === pendingBazaarSchedules.length}
+                                            onChange={handleSelectAllSchedules}
+                                        />
+                                    </th>
+                                    <th className="p-4 w-12">#</th>
+                                    <th className="p-4">Member</th>
+                                    <th className="p-4">Requested Date</th>
+                                    <th className="p-4">Note</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-gray-400 font-bold text-sm">Loading...</td>
+                                    </tr>
+                                ) : pendingBazaarSchedules.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-gray-400 font-bold text-sm">No pending bazaar requests.</td>
+                                    </tr>
+                                ) : pendingBazaarSchedules.map((item, idx) => (
+                                    <tr key={item.id} className={`hover:bg-orange-50/30 transition-colors ${selectedSchedules.includes(item.id) ? 'bg-orange-50/50' : ''}`}>
+                                        <td className="p-4 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer" 
+                                                checked={selectedSchedules.includes(item.id)}
+                                                onChange={() => handleSelectSchedule(item.id)}
+                                            />
+                                        </td>
+                                        <td className="p-4 text-sm font-bold text-gray-400">{idx + 1}</td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-8 h-8 rounded-full bg-[#0B132B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                                                    {item.user?.name?.charAt(0) || 'M'}
+                                                </div>
+                                                <span className="font-extrabold text-gray-900 text-sm">{item.user?.name || 'Member'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-sm font-bold text-gray-700">
+                                            {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </td>
+                                        <td className="p-4 text-sm font-medium text-gray-600">
+                                            {item.note || "I will go to the bazar."}
+                                        </td>
+                                        <td className="p-4">
+                                            <span className="bg-orange-100 text-orange-600 px-2.5 py-1 rounded-md text-xs font-bold border border-orange-200">
+                                                Pending
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => handleScheduleAction(item.id, 'Approve')} className="bg-[#00B050] hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer">
+                                                    <IconCheck size={14} stroke={3} /> Approve
+                                                </button>
+                                                <button onClick={() => handleScheduleAction(item.id, 'Reject')} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer">
+                                                    <IconX size={14} stroke={3} /> Reject
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* 4. 3-Column Split for Payments, Expenses, and Guest Meals */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Pending Payments */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[400px] hover:shadow-md transition-shadow">
+                        <div className="p-4 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <IconWallet size={18} stroke={2.5} />
+                                </div>
+                                <h3 className="text-sm font-extrabold text-gray-900">Payments ({pendingDeposits.length})</h3>
+                            </div>
+                            <Link href="/payments" className="text-xs font-bold text-blue-600 hover:underline">
+                                View
+                            </Link>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                            {pendingDeposits.length === 0 ? (
+                                <p className="text-center text-gray-400 font-bold py-12 text-xs">No pending payments.</p>
+                            ) : (
+                                pendingDeposits.map(item => (
+                                    <div key={item.id} className="p-3 rounded-2xl bg-gray-50 border border-gray-100 space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-extrabold text-sm text-gray-900">{item.user?.name}</span>
+                                            <span className="font-black text-emerald-600 text-sm">৳ {item.amount}</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium">Method: {item.method}</p>
+                                        <div className="flex gap-2 pt-1">
+                                            <button onClick={() => handleQueueAction(item.id, 'deposit', 'Reject')} className="flex-1 text-xs font-bold text-red-600 bg-white border border-red-200 py-1.5 rounded-xl hover:bg-red-50 cursor-pointer">Reject</button>
+                                            <button onClick={() => handleQueueAction(item.id, 'deposit', 'Approve')} className="flex-1 text-xs font-bold text-white bg-blue-600 py-1.5 rounded-xl hover:bg-blue-700 cursor-pointer">Approve</button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Pending Expenses */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[400px] hover:shadow-md transition-shadow">
+                        <div className="p-4 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                                    <IconShoppingBag size={18} stroke={2.5} />
+                                </div>
+                                <h3 className="text-sm font-extrabold text-gray-900">Expenses ({pendingExpenses.length})</h3>
+                            </div>
+                            <Link href="/expenses" className="text-xs font-bold text-orange-600 hover:underline">
+                                View
+                            </Link>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                            {pendingExpenses.length === 0 ? (
+                                <p className="text-center text-gray-400 font-bold py-12 text-xs">No pending expenses.</p>
+                            ) : (
+                                pendingExpenses.map(item => (
+                                    <div key={item.id} className="p-3 rounded-2xl bg-gray-50 border border-gray-100 space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-extrabold text-sm text-gray-900">{item.user?.name}</span>
+                                            <span className="font-black text-orange-600 text-sm">৳ {item.amount}</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium">{item.description || "Bazaar Expense"}</p>
+                                        <div className="flex gap-2 pt-1">
+                                            <button onClick={() => handleQueueAction(item.id, 'expense', 'Reject')} className="flex-1 text-xs font-bold text-red-600 bg-white border border-red-200 py-1.5 rounded-xl hover:bg-red-50 cursor-pointer">Reject</button>
+                                            <button onClick={() => handleQueueAction(item.id, 'expense', 'Approve')} className="flex-1 text-xs font-bold text-white bg-[#FF6B00] py-1.5 rounded-xl hover:bg-orange-600 cursor-pointer">Approve</button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Pending Guest Meals */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[400px] hover:shadow-md transition-shadow">
+                        <div className="p-4 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                                    <TablerUsers size={18} stroke={2.5} />
+                                </div>
+                                <h3 className="text-sm font-extrabold text-gray-900">Guest Meals ({pendingGuestMeals.length})</h3>
+                            </div>
+                            <Link href="/guest-meals" className="text-xs font-bold text-purple-600 hover:underline">
+                                View
+                            </Link>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                            {pendingGuestMeals.length === 0 ? (
+                                <p className="text-center text-gray-400 font-bold py-12 text-xs">No pending guest meals.</p>
+                            ) : (
+                                pendingGuestMeals.map(item => (
+                                    <div key={item.id} className="p-3 rounded-2xl bg-gray-50 border border-gray-100 space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-extrabold text-sm text-gray-900">{item.user?.name}</span>
+                                            <span className="text-xs font-black text-purple-600 bg-purple-100 px-2 py-0.5 rounded-md">
+                                                {item.guests} {item.guests > 1 ? 'Guests' : 'Guest'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium">{item.mealType} meal</p>
+                                        <div className="flex gap-2 pt-1">
+                                            <button onClick={() => handleQueueAction(item.id, 'guestMeal', 'Reject')} className="flex-1 text-xs font-bold text-red-600 bg-white border border-red-200 py-1.5 rounded-xl hover:bg-red-50 cursor-pointer">Reject</button>
+                                            <button onClick={() => handleQueueAction(item.id, 'guestMeal', 'Approve')} className="flex-1 text-xs font-bold text-white bg-emerald-600 py-1.5 rounded-xl hover:bg-emerald-700 cursor-pointer">Approve</button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -702,7 +1264,7 @@ export default function AdminDashboardPage() {
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Food Cost</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                Tk {stats.totalFoodCost > 0 ? stats.totalFoodCost.toLocaleString() : "300"}
+                                Tk {(stats.totalFoodCost ?? 0).toLocaleString()}
                             </h3>
                         </div>
                         <div>
@@ -748,7 +1310,7 @@ export default function AdminDashboardPage() {
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Mess Fund</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                Tk {stats.messFund > 0 ? stats.messFund.toLocaleString() : "4,600"}
+                                Tk {(stats.messFund ?? 0).toLocaleString()}
                             </h3>
                         </div>
                         <div>
@@ -889,6 +1451,294 @@ export default function AdminDashboardPage() {
                             )}
                         </div>
                     )}
+                </div>
+
+                {/* ─── Operational & Management Action Cards (Mobile View) ─── */}
+                <div className="grid grid-cols-2 gap-2.5">
+                    {/* Bazaar Requests */}
+                    <Link 
+                        href="/bazaar-requests"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[130px]"
+                    >
+                        <div>
+                            <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
+                                <IconCalendar size={20} stroke={2.2} />
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-[#FF6B00] transition-colors">
+                                Bazaar Requests
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2.5 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2 py-0.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                <IconClock size={12} stroke={2.5} />
+                                <span>{pendingBazaarSchedules.length}</span>
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={14} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* Payments */}
+                    <Link 
+                        href="/payments"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[130px]"
+                    >
+                        <div>
+                            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shadow-2xs">
+                                <IconCreditCard size={20} stroke={2.2} />
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-blue-600 transition-colors">
+                                Payments
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2.5 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2 py-0.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                <IconClock size={12} stroke={2.5} />
+                                <span>{pendingDeposits.length}</span>
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={14} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* Expenses */}
+                    <Link 
+                        href="/expenses"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[130px]"
+                    >
+                        <div>
+                            <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
+                                <TablerShoppingCart size={20} stroke={2.2} />
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-[#FF6B00] transition-colors">
+                                Expenses
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2.5 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2 py-0.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                <IconClock size={12} stroke={2.5} />
+                                <span>{pendingExpenses.length}</span>
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={14} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* Guest Meals */}
+                    <Link 
+                        href="/guest-meals"
+                        className="bg-white/95 backdrop-blur-sm rounded-3xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[130px]"
+                    >
+                        <div>
+                            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-2xs">
+                                <TablerUsers size={20} stroke={2.2} />
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-purple-600 transition-colors">
+                                Guest Meals
+                            </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2.5 pt-1">
+                            <div className="bg-orange-50/80 border border-orange-100 text-orange-600 px-2 py-0.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                <IconClock size={12} stroke={2.5} />
+                                <span>{pendingGuestMeals.length}</span>
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <IconChevronRight size={14} stroke={2.5} />
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+
+                {/* Notice Board (Mobile) */}
+                <div className="bg-white/95 backdrop-blur-sm p-4 rounded-3xl shadow-sm border border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm shrink-0">
+                                <IconBell size={17} stroke={2.2} />
+                            </div>
+                            <h2 className="text-sm font-black text-slate-900">Notice Board</h2>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            {notices.length > 0 && (
+                                <span className="bg-[#FF6B00] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    {notices.length} New
+                                </span>
+                            )}
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(notices[0] || null)}
+                                className="bg-blue-50 text-blue-600 border border-blue-100 text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                            >
+                                View All
+                            </button>
+                        </div>
+                    </div>
+                    <div className="mt-2.5 divide-y divide-slate-100">
+                        {isLoading ? (
+                            <p className="py-4 text-center text-xs text-slate-400 font-bold">Loading notices...</p>
+                        ) : notices.length === 0 ? (
+                            <div className="py-4 text-center">
+                                <p className="text-xs font-bold text-slate-600">All caught up! 🪶 No new notices.</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">Check back later for new announcements.</p>
+                            </div>
+                        ) : (
+                            notices.slice(0, 3).map((notice, idx) => (
+                                <div 
+                                    key={notice.id || idx}
+                                    onClick={() => setSelectedNotice(notice)}
+                                    className="py-2.5 flex items-center justify-between gap-2 cursor-pointer"
+                                >
+                                    <p className="text-xs font-black text-slate-800 truncate">{notice.title}</p>
+                                    <IconChevronRight size={13} className="text-slate-400 shrink-0" />
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Member Bazaar Date Requests (Mobile) */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 p-4 shadow-sm">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                                <IconCalendarUser className="w-4 h-4" stroke={2} />
+                            </div>
+                            <div>
+                                <h3 className="text-xs sm:text-sm font-extrabold text-gray-900">Bazaar Date Requests</h3>
+                                <p className="text-[10px] text-gray-400">{pendingBazaarSchedules.length} pending requests</p>
+                            </div>
+                        </div>
+                        <Link href="/bazaar-requests" className="text-[11px] font-bold text-orange-600 hover:underline flex items-center gap-1">
+                            Full Queue <IconArrowRight size={12} />
+                        </Link>
+                    </div>
+
+                    <div className="divide-y divide-gray-100 mt-2 max-h-60 overflow-y-auto">
+                        {pendingBazaarSchedules.length === 0 ? (
+                            <p className="py-6 text-center text-xs text-gray-400 font-bold">No pending bazaar requests.</p>
+                        ) : (
+                            pendingBazaarSchedules.map((item) => (
+                                <div key={item.id} className="py-2.5 flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-extrabold text-xs text-gray-900">{item.user?.name || "Member"}</span>
+                                        <span className="text-[11px] font-bold text-orange-600">
+                                            {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-500">{item.note || "I will go to the bazar."}</p>
+                                    <div className="flex gap-2 pt-1">
+                                        <button onClick={() => handleScheduleAction(item.id, 'Reject')} className="flex-1 text-[11px] font-bold text-red-600 border border-red-200 py-1 rounded-lg">Reject</button>
+                                        <button onClick={() => handleScheduleAction(item.id, 'Approve')} className="flex-1 text-[11px] font-bold text-white bg-[#00B050] py-1 rounded-lg">Approve</button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* 3 Mobile Pending Queue Cards (Payments, Expenses, Guest Meals) */}
+                <div className="space-y-2.5">
+                    {/* Payments */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-100 p-3.5 shadow-sm">
+                        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <IconWallet size={15} stroke={2.5} />
+                                </div>
+                                <h4 className="text-xs font-extrabold text-gray-900">Payments ({pendingDeposits.length})</h4>
+                            </div>
+                            <Link href="/payments" className="text-[11px] font-bold text-blue-600 hover:underline">View</Link>
+                        </div>
+                        {pendingDeposits.length === 0 ? (
+                            <p className="py-4 text-center text-xs text-gray-400 font-bold">No pending payments.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto mt-1">
+                                {pendingDeposits.slice(0, 3).map(item => (
+                                    <div key={item.id} className="py-2 space-y-1">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-extrabold text-gray-900">{item.user?.name}</span>
+                                            <span className="font-black text-emerald-600">৳ {item.amount}</span>
+                                        </div>
+                                        <div className="flex gap-1.5 pt-1">
+                                            <button onClick={() => handleQueueAction(item.id, 'deposit', 'Reject')} className="flex-1 text-[10px] font-bold text-red-600 border border-red-200 py-0.5 rounded-md">Reject</button>
+                                            <button onClick={() => handleQueueAction(item.id, 'deposit', 'Approve')} className="flex-1 text-[10px] font-bold text-white bg-blue-600 py-0.5 rounded-md">Approve</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Expenses */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-100 p-3.5 shadow-sm">
+                        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
+                                    <IconShoppingBag size={15} stroke={2.5} />
+                                </div>
+                                <h4 className="text-xs font-extrabold text-gray-900">Expenses ({pendingExpenses.length})</h4>
+                            </div>
+                            <Link href="/expenses" className="text-[11px] font-bold text-orange-600 hover:underline">View</Link>
+                        </div>
+                        {pendingExpenses.length === 0 ? (
+                            <p className="py-4 text-center text-xs text-gray-400 font-bold">No pending expenses.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto mt-1">
+                                {pendingExpenses.slice(0, 3).map(item => (
+                                    <div key={item.id} className="py-2 space-y-1">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-extrabold text-gray-900">{item.user?.name}</span>
+                                            <span className="font-black text-orange-600">৳ {item.amount}</span>
+                                        </div>
+                                        <div className="flex gap-1.5 pt-1">
+                                            <button onClick={() => handleQueueAction(item.id, 'expense', 'Reject')} className="flex-1 text-[10px] font-bold text-red-600 border border-red-200 py-0.5 rounded-md">Reject</button>
+                                            <button onClick={() => handleQueueAction(item.id, 'expense', 'Approve')} className="flex-1 text-[10px] font-bold text-white bg-[#FF6B00] py-0.5 rounded-md">Approve</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Guest Meals */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-100 p-3.5 shadow-sm">
+                        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                                    <TablerUsers size={15} stroke={2.5} />
+                                </div>
+                                <h4 className="text-xs font-extrabold text-gray-900">Guest Meals ({pendingGuestMeals.length})</h4>
+                            </div>
+                            <Link href="/guest-meals" className="text-[11px] font-bold text-purple-600 hover:underline">View</Link>
+                        </div>
+                        {pendingGuestMeals.length === 0 ? (
+                            <p className="py-4 text-center text-xs text-gray-400 font-bold">No pending guest meals.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto mt-1">
+                                {pendingGuestMeals.slice(0, 3).map(item => (
+                                    <div key={item.id} className="py-2 space-y-1">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-extrabold text-gray-900">{item.user?.name}</span>
+                                            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                                                {item.guests} Guest(s)
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-1.5 pt-1">
+                                            <button onClick={() => handleQueueAction(item.id, 'guestMeal', 'Reject')} className="flex-1 text-[10px] font-bold text-red-600 border border-red-200 py-0.5 rounded-md">Reject</button>
+                                            <button onClick={() => handleQueueAction(item.id, 'guestMeal', 'Approve')} className="flex-1 text-[10px] font-bold text-white bg-emerald-600 py-0.5 rounded-md">Approve</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* 5. "Mess Members" Section (Main List Card) */}
@@ -1116,6 +1966,82 @@ export default function AdminDashboardPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Floating Toast Notification ─── */}
+            {toast && (
+                <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs sm:text-sm font-bold border transition-all animate-in slide-in-from-top-4 duration-200 ${
+                    toast.type === "success" 
+                        ? "bg-slate-900 text-white border-slate-800" 
+                        : toast.type === "error" 
+                        ? "bg-rose-600 text-white border-rose-700" 
+                        : "bg-indigo-600 text-white border-indigo-700"
+                }`}>
+                    {toast.type === "success" && <IconCheck size={18} className="text-emerald-400" stroke={3} />}
+                    {toast.type === "error" && <IconAlertCircle size={18} className="text-rose-200" stroke={2.5} />}
+                    <span>{toast.message}</span>
+                </div>
+            )}
+
+            {/* ─── Notice Detail Modal ─── */}
+            {selectedNotice && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setSelectedNotice(null)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-5 sm:p-6 space-y-3 relative z-10 animate-in zoom-in-95 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                    <IconBell size={18} stroke={2.5} />
+                                </div>
+                                <h3 className="text-sm font-black text-slate-900 line-clamp-1">
+                                    {selectedNotice.title}
+                                </h3>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(null)}
+                                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                            >
+                                <IconX size={18} stroke={2.5} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium pt-1">
+                            {selectedNotice.description}
+                        </p>
+
+                        {selectedNotice.createdAt && (
+                            <p className="text-[10px] text-slate-400 font-bold pt-2 border-t border-slate-100">
+                                {new Date(selectedNotice.createdAt).toLocaleString("en-US", { 
+                                    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric" 
+                                })}
+                            </p>
+                        )}
+
+                        <div className="flex items-center gap-2.5 pt-2">
+                            <button 
+                                type="button"
+                                onClick={() => handleDismissNotice(selectedNotice.id)}
+                                className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/70 font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                                <IconTrash size={15} stroke={2.2} />
+                                <span>Dismiss</span>
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(null)}
+                                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
