@@ -1078,19 +1078,19 @@ export default function AdminDashboardPage() {
                     </div>
 
                     {/* Search Bar */}
-                    <div className="w-72 relative">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div className="w-72 relative group">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-[#FF6B00] transition-colors" />
                         <input 
                             type="text" 
                             placeholder="Search by name, email, or role..."
                             value={memberSearchQuery}
                             onChange={(e) => setMemberSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/30 focus:bg-white text-gray-900 font-medium transition-all"
+                            className="w-full pl-9 pr-8 py-2 text-xs bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-[#FF6B00] rounded-xl outline-none focus:ring-4 focus:ring-orange-500/15 text-gray-900 font-semibold placeholder:text-gray-400 shadow-sm transition-all"
                         />
                         {memberSearchQuery && (
                             <button 
                                 onClick={() => setMemberSearchQuery("")} 
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-100 transition-colors"
                             >
                                 <X size={14} />
                             </button>
@@ -1768,20 +1768,20 @@ export default function AdminDashboardPage() {
                     {/* Search Input Bar (Toggled or active) */}
                     {isMobileSearchOpen && (
                         <div className="pt-3 pb-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <div className="relative group">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-[#FF6B00] transition-colors" />
                                 <input 
                                     type="text" 
                                     placeholder="Search by name, email, or role..."
                                     value={memberSearchQuery}
                                     onChange={(e) => setMemberSearchQuery(e.target.value)}
                                     autoFocus
-                                    className="w-full pl-9 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/40 focus:bg-white text-gray-900 font-medium"
+                                    className="w-full pl-9 pr-8 py-2 text-xs bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-[#FF6B00] rounded-xl outline-none focus:ring-4 focus:ring-orange-500/15 text-gray-900 font-semibold placeholder:text-gray-400 shadow-sm transition-all"
                                 />
                                 {memberSearchQuery && (
                                     <button 
                                         onClick={() => setMemberSearchQuery("")} 
-                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-100 transition-colors"
                                     >
                                         <X size={14} />
                                     </button>

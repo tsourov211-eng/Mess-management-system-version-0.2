@@ -156,15 +156,25 @@ export default function MembersListPage() {
                 {/* 2. Search & "+ Add" Action Row */}
                 <div className="flex items-center gap-2.5">
                     {/* Search Input */}
-                    <div className="relative flex-1">
-                        <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" stroke={2.2} />
+                    <div className="relative flex-1 group">
+                        <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#FF6B00] w-4 h-4 transition-colors pointer-events-none" stroke={2.2} />
                         <input 
                             type="text" 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search members by name, role or phone..." 
-                            className="w-full bg-white/95 rounded-2xl pl-10 pr-4 py-3 border border-gray-100 shadow-sm text-xs sm:text-sm font-medium text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                            placeholder="Search members by name, role..." 
+                            className="w-full bg-white rounded-2xl pl-10 pr-9 py-3 border-2 border-gray-300 hover:border-gray-400 focus:border-[#FF6B00] shadow-sm text-xs sm:text-sm font-semibold text-gray-900 placeholder:text-gray-400 outline-none focus:ring-4 focus:ring-orange-500/15 transition-all"
                         />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                                title="Clear search"
+                            >
+                                <IconX size={15} stroke={2.5} />
+                            </button>
+                        )}
                     </div>
 
                     {/* "+ Add" Button (Admin only) */}
@@ -332,15 +342,25 @@ export default function MembersListPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="relative w-72">
-                            <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <div className="relative w-72 sm:w-80 group">
+                            <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#FF6B00] w-5 h-5 transition-colors pointer-events-none" stroke={2} />
                             <input 
                                 type="text" 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Search members by name, role or phone..." 
-                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm font-medium transition-all"
+                                className="w-full pl-11 pr-10 py-2.5 bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-[#FF6B00] rounded-xl outline-none focus:ring-4 focus:ring-orange-500/15 text-sm font-semibold text-gray-900 placeholder:text-gray-400 shadow-sm transition-all"
                             />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm("")}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                                    title="Clear search"
+                                >
+                                    <IconX size={16} stroke={2.5} />
+                                </button>
+                            )}
                         </div>
 
                         {isAdmin && (
