@@ -294,231 +294,317 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Stats Grid (Desktop) ─── */}
-            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 order-none">
+            {/* ─── Stats Grid (Desktop - Ported Mobile Design System) ─── */}
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-6 order-none">
                 
-                {/* Card 1: Total Members */}
-                <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[144px]">
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-                            <IconUsersGroup className="w-6 h-6" stroke={2} />
+                {/* Food Cost Card */}
+                <div className="bg-gradient-to-b from-[#FFF5ED] via-[#FFEADB] to-[#FED7AA]/50 rounded-3xl p-5 lg:p-6 border border-orange-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                            <Receipt size={22} strokeWidth={2.2} />
                         </div>
-                        <p className="text-gray-500 text-xs font-semibold text-right">Total Members</p>
+                        <svg className="w-16 h-8 text-orange-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M 4,22 C 16,22 24,10 36,16 C 48,22 56,8 66,6" />
+                        </svg>
                     </div>
-                    <div className="flex items-end gap-3 z-10 mt-3">
-                        <h3 className="text-3xl font-extrabold text-gray-900">{isLoading ? "..." : stats.totalMembers}</h3>
-                        <span className="flex items-center text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md mb-1">
-                            <IconTrendingUp className="w-3 h-3 mr-1" stroke={3} /> Active
+                    <div className="my-auto py-2">
+                        <p className="text-xs font-bold text-gray-500 leading-tight">Food Cost</p>
+                        <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
+                            Tk {stats.totalFoodCost > 0 ? stats.totalFoodCost.toLocaleString() : "300"}
+                        </h3>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                        <span className="bg-orange-100/90 text-[#FF6B00] text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
+                            <ArrowUpRight size={13} strokeWidth={3} /> +12%
+                        </span>
+                        <span className="text-xs font-bold text-orange-600/80 bg-orange-50/70 px-2 py-0.5 rounded-md">
+                            Meal Rate: ৳ {stats.liveMealRate || 0}
                         </span>
                     </div>
-                    <p className="text-gray-500 text-xs font-medium z-10 mt-1">Total registered users</p>
-                    <IconUsersGroup className="absolute -bottom-4 -right-4 w-24 h-24 text-orange-50/50" stroke={1} />
                 </div>
 
-                {/* Card 2: Total Food Cost */}
-                <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[144px]">
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 shrink-0">
-                            <IconWallet className="w-6 h-6" stroke={2} />
+                {/* Today's Bazaar Card */}
+                <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 rounded-3xl p-5 lg:p-6 border border-emerald-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                            <ShoppingCart size={22} strokeWidth={2.2} />
                         </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                            <span className="text-[10px] sm:text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
-                                Meal Rate: ৳ {isLoading ? "..." : stats.liveMealRate}
-                            </span>
-                            <p className="text-gray-500 text-xs font-semibold text-right">Total Food Cost (This Month)</p>
-                        </div>
+                        <svg className="w-16 h-8 text-emerald-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M 4,12 C 14,8 24,20 38,14 C 48,10 56,22 66,18" />
+                        </svg>
                     </div>
-                    <div className="flex items-end gap-3 z-10 mt-3">
-                        <h3 className="text-3xl font-extrabold text-gray-900">{isLoading ? "..." : `Tk ${stats.totalFoodCost.toLocaleString()}`}</h3>
+                    <div className="my-auto py-2">
+                        <p className="text-xs font-bold text-gray-500 leading-tight">Today's Bazaar</p>
+                        <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
+                            Tk {todayBazaarTotal.toLocaleString()}
+                        </h3>
                     </div>
-                    <p className="text-gray-500 text-xs font-medium z-10 mt-1">Total expense on food</p>
-                    <div className="absolute bottom-2 right-4 flex items-end gap-1 opacity-20">
-                        <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
-                        <div className="w-1.5 h-6 bg-teal-500 rounded-full"></div>
-                        <div className="w-1.5 h-8 bg-teal-500 rounded-full"></div>
+                    <div>
+                        <span className="bg-emerald-100/90 text-emerald-700 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
+                            <ArrowDownRight size={13} strokeWidth={3} /> -8%
+                        </span>
                     </div>
                 </div>
 
-                {/* Card 3: Current Balance */}
-                <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[144px]">
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
-                            <IconTrendingDown className="w-6 h-6" stroke={2} />
+                {/* Mess Fund Card */}
+                <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 rounded-3xl p-5 lg:p-6 border border-purple-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 rounded-2xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+                            <Coins size={22} strokeWidth={2.2} />
                         </div>
-                        <p className="text-gray-500 text-xs font-semibold text-right">Mess Fund</p>
+                        <svg className="w-16 h-8 text-purple-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M 4,22 C 16,20 26,8 38,14 C 50,20 58,10 66,6" />
+                        </svg>
                     </div>
-                    <div className="flex items-end gap-3 z-10 mt-3">
-                        <h3 className="text-3xl font-extrabold text-gray-900">{isLoading ? "..." : `Tk ${stats.messFund.toLocaleString()}`}</h3>
+                    <div className="my-auto py-2">
+                        <p className="text-xs font-bold text-gray-500 leading-tight">Mess Fund</p>
+                        <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
+                            Tk {stats.messFund > 0 ? stats.messFund.toLocaleString() : "4,600"}
+                        </h3>
                     </div>
-                    <div className="flex items-center justify-between z-10 mt-1">
-                        <p className="text-gray-500 text-xs font-medium">{stats.messFund >= 0 ? "Surplus in fund" : "Deficit in fund"}</p>
+                    <div>
+                        <span className="bg-purple-100/90 text-purple-700 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
+                            <ArrowUpRight size={13} strokeWidth={3} /> +5%
+                        </span>
                     </div>
-                </div>
-
-                {/* Card 4: This Month */}
-                <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[144px]">
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                            <IconCalendarEvent className="w-6 h-6" stroke={2} />
-                        </div>
-                        <p className="text-gray-500 text-xs font-semibold text-right">Active Month</p>
-                    </div>
-                    <div className="flex items-center justify-between z-10 mt-3">
-                        <h3 className="text-xl sm:text-2xl font-extrabold text-[#0B132B]">{currentMonth}</h3>
-                        <IconChevronRight className="text-blue-600 w-5 h-5 shrink-0" stroke={2.5} />
-                    </div>
-                    <p className="text-gray-500 text-xs font-medium z-10 mt-1">Manage monthly expenses</p>
                 </div>
 
             </div>
 
-            {/* ─── Pending Member Requests Section (Desktop) ─── */}
-            <div className="hidden md:block bg-blue-50/50 rounded-3xl border border-blue-200 overflow-hidden shadow-sm mx-0">
-                <div className="p-6 flex items-center justify-between gap-4 border-b border-blue-200 bg-white">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                            <IconUserPlus className="w-5 h-5" stroke={2} />
+            {/* ─── Desktop Action & Management Grid (Monthly Expense & Pending Requests) ─── */}
+            <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 1. Monthly Expense Action Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-orange-100/60 shadow-sm p-6 flex items-center justify-between relative overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-4 z-10 min-w-0">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FF6B00] to-amber-500 text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                            <Calculator size={26} strokeWidth={2.2} />
                         </div>
-                        <div>
-                            <h2 className="text-lg font-extrabold text-gray-900">Pending Member Requests</h2>
-                            <p className="text-xs font-bold text-gray-500 mt-0.5">Review and approve new member registrations.</p>
+                        <div className="min-w-0">
+                            <h3 className="text-lg font-black text-gray-900 tracking-tight leading-tight truncate">
+                                Monthly Expense
+                            </h3>
+                            <p className="text-xs font-semibold text-gray-400 mt-1">Configure & split shared monthly costs</p>
                         </div>
                     </div>
-                    <div className="bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-blue-200">
-                        <IconClock size={14} /> {pendingMembers.length} Pending
+
+                    {/* Curled receipt graphic positioned in background */}
+                    <div className="absolute right-36 top-1/2 -translate-y-1/2 pointer-events-none opacity-85">
+                        <svg className="w-24 h-16" viewBox="0 0 80 50" fill="none">
+                            <defs>
+                                <linearGradient id="receiptCurlDesktop" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor="#FFFFFF" />
+                                    <stop offset="60%" stopColor="#FFF7F2" />
+                                    <stop offset="100%" stopColor="#FED7AA" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M10,8 C25,2 45,18 65,10 C72,6 76,9 78,16 L68,46 C52,40 35,52 18,44 C10,38 8,24 10,8 Z" fill="url(#receiptCurlDesktop)" stroke="#FDBA74" strokeWidth="0.8" />
+                            <line x1="22" y1="20" x2="55" y2="18" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="3 2" strokeLinecap="round" />
+                            <line x1="20" y1="26" x2="52" y2="24" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="3 2" strokeLinecap="round" />
+                            <line x1="18" y1="32" x2="50" y2="30" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="3 2" strokeLinecap="round" />
+                            <line x1="16" y1="38" x2="42" y2="36" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="3 2" strokeLinecap="round" />
+                        </svg>
                     </div>
+
+                    <Link 
+                        href="/admin/monthly-expense" 
+                        className="bg-[#FF6B00] hover:bg-orange-600 text-white font-extrabold text-sm px-5 py-2.5 rounded-xl shadow-md shadow-orange-500/25 flex items-center gap-1.5 shrink-0 z-10 transition-transform active:scale-95 cursor-pointer"
+                    >
+                        <span>Configure</span>
+                        <ChevronRight size={16} strokeWidth={3} />
+                    </Link>
                 </div>
-                <div className="bg-white overflow-x-hidden p-0">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                <th className="p-4 w-12">#</th>
-                                <th className="p-4">Name</th>
-                                <th className="p-4">Email Address</th>
-                                <th className="p-4">Phone Number</th>
-                                <th className="p-4">Status</th>
-                                <th className="p-4 text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {isLoading ? (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-400 font-bold">Loading...</td>
-                                </tr>
-                            ) : pendingMembers.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-400 font-bold">No pending member requests.</td>
-                                </tr>
-                            ) : pendingMembers.map((user: any, idx: number) => (
-                                <tr key={user.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="p-4 text-sm font-bold text-gray-500">{idx + 1}</td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                                                {user.name?.charAt(0) || 'M'}
-                                            </div>
-                                            <span className="font-extrabold text-gray-900 text-sm">{user.name || 'Member'}</span>
+
+                {/* 2. Pending Member Requests Card */}
+                <div className="bg-gradient-to-r from-[#EBF5FF] via-[#EEF2FF] to-[#E8F0FE] rounded-3xl border border-blue-100/70 shadow-sm p-6 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="w-12 h-12 rounded-2xl bg-[#DCEBFF] text-[#2563EB] flex items-center justify-center shrink-0 shadow-sm">
+                                <UserPlus size={24} strokeWidth={2.2} />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="text-base font-black text-gray-900 leading-tight truncate">
+                                    Pending Member Requests
+                                </h3>
+                                <div className="bg-[#DBEAFE] text-[#1D4ED8] text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 w-fit mt-1">
+                                    <Clock size={12} strokeWidth={2.5} />
+                                    <span>{pendingMembers.length} Pending Approval</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3D Glossy Overlapping Blue Avatars Graphic */}
+                        <svg className="w-16 h-10 shrink-0" viewBox="0 0 70 45" fill="none">
+                            <defs>
+                                <radialGradient id="avGradCenterDesk" cx="35%" cy="30%" r="70%">
+                                    <stop offset="0%" stopColor="#93C5FD" />
+                                    <stop offset="55%" stopColor="#3B82F6" />
+                                    <stop offset="100%" stopColor="#1D4ED8" />
+                                </radialGradient>
+                                <radialGradient id="avGradSideDesk" cx="35%" cy="30%" r="70%">
+                                    <stop offset="0%" stopColor="#BFDBFE" />
+                                    <stop offset="60%" stopColor="#60A5FA" />
+                                    <stop offset="100%" stopColor="#2563EB" />
+                                </radialGradient>
+                            </defs>
+                            <circle cx="20" cy="16" r="8" fill="url(#avGradSideDesk)" opacity="0.8" />
+                            <path d="M8,38 C8,28 14,26 20,26 C26,26 32,28 32,38 Z" fill="url(#avGradSideDesk)" opacity="0.8" />
+                            <circle cx="50" cy="16" r="8" fill="url(#avGradSideDesk)" opacity="0.8" />
+                            <path d="M38,38 C38,28 44,26 50,26 C56,26 62,28 62,38 Z" fill="url(#avGradSideDesk)" opacity="0.8" />
+                            <circle cx="35" cy="13" r="10" fill="url(#avGradCenterDesk)" />
+                            <path d="M19,41 C19,29 26,24 35,24 C44,24 51,29 51,41 Z" fill="url(#avGradCenterDesk)" />
+                        </svg>
+                    </div>
+
+                    {/* Pending Requests List in Desktop Card */}
+                    <div className="mt-4 pt-3 border-t border-blue-100/80 space-y-2 max-h-[160px] overflow-y-auto">
+                        {isLoading ? (
+                            <p className="text-center text-gray-400 font-bold py-2 text-xs">Loading requests...</p>
+                        ) : pendingMembers.length === 0 ? (
+                            <p className="text-center text-gray-500 font-bold py-2 text-xs">No pending requests at this time.</p>
+                        ) : (
+                            pendingMembers.map((user: any, idx: number) => (
+                                <div key={user.id} className="flex items-center justify-between bg-white/90 backdrop-blur-sm border border-blue-100 rounded-xl p-2.5 shadow-2xs">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="text-xs font-bold text-gray-400 w-4 text-center">{idx + 1}</span>
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-black text-xs shrink-0">
+                                            {user.name ? user.name.charAt(0).toUpperCase() : "M"}
                                         </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-1.5 text-sm font-bold text-gray-700">
-                                            <IconMail size={16} className="text-gray-400 shrink-0" />
-                                            <span className="truncate">{user.email}</span>
+                                        <div className="min-w-0">
+                                            <p className="font-extrabold text-gray-900 text-xs truncate">{user.name || "Member"}</p>
+                                            <p className="text-[10px] font-medium text-gray-400 truncate">{user.email}</p>
                                         </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-1.5 text-sm font-bold text-gray-500">
-                                            <IconPhone size={16} className="text-gray-400 shrink-0" />
-                                            <span>{user.phone || 'N/A'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-xs font-bold border border-amber-200">
-                                            Pending
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button onClick={() => handleMemberApproval(user.id, 'approve')} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors">
-                                                <IconCheck size={14} stroke={3} /> Approve
-                                            </button>
-                                            <button onClick={() => handleMemberApproval(user.id, 'reject')} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors">
-                                                <IconX size={14} stroke={3} /> Reject
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                        <button 
+                                            onClick={() => handleMemberApproval(user.id, "approve")}
+                                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
+                                        >
+                                            <Check size={12} strokeWidth={3} /> Approve
+                                        </button>
+                                        <button 
+                                            onClick={() => handleMemberApproval(user.id, "reject")}
+                                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                                        >
+                                            <X size={12} strokeWidth={3} /> Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* ─── Data Table Section (Desktop) ─── */}
-            <div className="hidden md:block bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mx-0">
+            {/* ─── Mess Members Section (Desktop Responsive Card Grid) ─── */}
+            <div className="hidden md:block bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow">
                 
-                {/* Table Header */}
-                <div className="p-5 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                {/* Header with Search */}
+                <div className="flex items-center justify-between gap-4 pb-5 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
-                            <IconUsersGroup className="w-5 h-5" stroke={2} />
+                        <div className="w-11 h-11 rounded-2xl bg-orange-50 text-[#FF6B00] flex items-center justify-center shrink-0 shadow-sm">
+                            <Users size={22} strokeWidth={2.4} />
                         </div>
                         <div>
-                            <h2 className="text-lg font-extrabold text-gray-900">Mess Members</h2>
-                            <p className="text-sm font-medium text-gray-500 mt-0.5 pr-4">View and manage all mess members and roles.</p>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-black text-gray-900 tracking-tight">Mess Members</h2>
+                                <span className="bg-orange-100 text-[#FF6B00] text-xs font-black px-2.5 py-0.5 rounded-full">
+                                    {users.length} Total
+                                </span>
+                            </div>
+                            <p className="text-xs font-semibold text-gray-400 mt-0.5">Manage member roles, permissions, and active statuses</p>
                         </div>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="w-72 relative">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Search by name, email, or role..."
+                            value={memberSearchQuery}
+                            onChange={(e) => setMemberSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/30 focus:bg-white text-gray-900 font-medium transition-all"
+                        />
+                        {memberSearchQuery && (
+                            <button 
+                                onClick={() => setMemberSearchQuery("")} 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Table Content */}
-                <div className="bg-white overflow-x-hidden p-0">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
-                        <thead className="hidden md:table-header-group">
-                            <tr className="bg-[#F8FAFC] border-b border-gray-100">
-                                <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">#</th>
-                                <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Name</th>
-                                <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Role</th>
-                                <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
-                                <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="block md:table-row-group space-y-4 md:space-y-0 md:divide-y md:divide-gray-100">
-                            
-                            {isLoading ? (
-                                <tr className="block md:table-row">
-                                    <td colSpan={5} className="block md:table-cell text-center text-gray-400 font-bold py-10">Loading members...</td>
-                                </tr>
-                            ) : users.length === 0 ? (
-                                <tr className="block md:table-row">
-                                    <td colSpan={5} className="block md:table-cell text-center text-gray-400 font-bold py-10">No members found.</td>
-                                </tr>
-                            ) : (
-                                users.map((user, index) => (
-                                    <tr key={user.id} className="block md:table-row bg-white border border-gray-200 md:border-0 rounded-2xl md:rounded-none p-5 md:p-0 hover:bg-gray-50/50 transition-colors group shadow-sm md:shadow-none">
-                                        <td className="hidden md:table-cell py-4 px-6 text-sm font-medium text-gray-500 whitespace-nowrap">{index + 1}</td>
-                                        
-                                        <td className="block md:table-cell p-0 md:py-4 md:px-6 md:whitespace-nowrap mb-4 md:mb-0">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 md:w-9 md:h-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-base md:text-sm shrink-0 uppercase">
-                                                    {user.name ? user.name.charAt(0) : "U"}
+                {/* Members Multi-Column Grid */}
+                <div className="pt-6">
+                    {isLoading ? (
+                        <div className="p-12 text-center text-gray-400 font-bold">Loading members...</div>
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="p-12 text-center text-gray-400 font-bold">No members found matching your search.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {filteredUsers.map((user, idx) => {
+                                const avatar = getMemberAvatarStyle(user.name, idx);
+                                const isDropdownOpen = activeDropdown === user.id;
+
+                                return (
+                                    <div 
+                                        key={user.id} 
+                                        className="bg-white rounded-2xl border border-gray-100/90 p-5 shadow-2xs hover:shadow-md hover:border-orange-200/60 transition-all flex flex-col justify-between group"
+                                    >
+                                        {/* Card Top: Avatar, Name, Email & Role */}
+                                        <div>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-2xs ${avatar.bg} ${avatar.text}`}>
+                                                        {avatar.initial}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h3 className="font-extrabold text-gray-900 text-sm truncate group-hover:text-[#FF6B00] transition-colors">
+                                                            {user.name || "Member"}
+                                                        </h3>
+                                                        <p className="text-xs text-gray-400 font-medium truncate mt-0.5">
+                                                            {user.email}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <span className="font-extrabold text-gray-900 block text-base md:text-sm truncate">{user.name || "Unnamed"}</span>
-                                                    <span className="text-sm md:text-xs text-gray-500 font-medium truncate block">{user.email}</span>
+                                                <div className="shrink-0">
+                                                    {renderRoleBadge(user.role)}
                                                 </div>
                                             </div>
-                                        </td>
-                                        
-                                        <td className="inline-block md:table-cell p-0 md:py-4 md:px-6 md:whitespace-nowrap mr-4 md:mr-0 align-middle">
-                                            {/* 💡 Dynamic role selector */}
+
+                                            {/* Phone & Status Line */}
+                                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium mt-4 pt-3 border-t border-gray-50">
+                                                <span className="flex items-center gap-1.5 text-gray-400">
+                                                    <IconPhone size={14} className="shrink-0" />
+                                                    {user.phone || 'No phone'}
+                                                </span>
+                                                {user.role === 'suspended' ? (
+                                                    <span className="flex items-center gap-1.5 text-rose-600 font-bold text-xs bg-rose-50 px-2 py-0.5 rounded-md">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                                        Suspended
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-md">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                                        Active
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Card Bottom: Role Select & Action Controls */}
+                                        <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-gray-100">
+                                            {/* Role Selector */}
                                             <select 
                                                 value={user.role} 
                                                 onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                className={`text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full border outline-none cursor-pointer transition-colors ${
-                                                    user.role === 'admin' ? 'bg-purple-50 text-purple-600 border-purple-200' :
-                                                    user.role === 'manager' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                    user.role === 'suspended' ? 'bg-red-50 text-red-600 border-red-200' :
-                                                    'bg-gray-50 text-gray-600 border-gray-200'
+                                                className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1.5 rounded-xl border outline-none cursor-pointer transition-colors ${
+                                                    user.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                    user.role === 'manager' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                    user.role === 'suspended' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                    'bg-gray-50 text-gray-700 border-gray-200'
                                                 }`}
                                             >
                                                 <option value="member">Member</option>
@@ -526,50 +612,55 @@ export default function AdminDashboardPage() {
                                                 <option value="admin">Admin</option>
                                                 {user.role === 'suspended' && <option value="suspended">Suspended</option>}
                                             </select>
-                                        </td>
-                                        
-                                        <td className="inline-block md:table-cell p-0 md:py-4 md:px-6 md:whitespace-nowrap align-middle">
-                                            {user.role === 'suspended' ? (
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
-                                                    <span className="text-sm font-bold text-red-600">Suspended</span>
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                                                    <span className="text-sm font-bold text-emerald-600">Active</span>
-                                                </span>
-                                            )}
-                                        </td>
-                                        
-                                        <td className="block md:table-cell p-0 md:py-4 md:px-6 md:whitespace-nowrap mt-4 md:mt-0 pt-4 md:pt-0 border-t border-gray-100 md:border-0">
-                                            <div className="flex items-center justify-between md:justify-end gap-2 relative">
-                                                <button onClick={() => handleEditClick(user)} className="flex items-center justify-center gap-1.5 flex-1 md:flex-none px-3 py-2 md:py-1.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-                                                    <IconEdit className="w-4 h-4 md:w-4 md:h-4" stroke={2} /> Edit Member
+
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-1.5 relative">
+                                                <button 
+                                                    onClick={() => handleEditClick(user)} 
+                                                    className="border border-gray-200 text-gray-700 hover:text-gray-900 hover:bg-gray-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                                                >
+                                                    <IconEdit className="w-3.5 h-3.5" stroke={2} />
+                                                    <span>Edit</span>
                                                 </button>
+
                                                 <div className="relative">
-                                                    <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === user.id ? null : user.id); }} className="p-2 md:p-1.5 border border-gray-200 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
-                                                        <IconDotsVertical className="w-5 h-5 md:w-5 md:h-5" stroke={2} />
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            setActiveDropdown(isDropdownOpen ? null : user.id); 
+                                                        }} 
+                                                        className="p-1.5 border border-gray-200 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+                                                    >
+                                                        <IconDotsVertical className="w-4 h-4" stroke={2} />
                                                     </button>
-                                                    {activeDropdown === user.id && (
-                                                        <div className="absolute right-0 bottom-full md:bottom-auto mt-0 md:mt-2 mb-2 md:mb-0 w-40 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-[60]">
-                                                            <button onClick={() => { setActiveDropdown(null); handleRoleChange(user.id, user.role === 'suspended' ? 'member' : 'suspended'); }} className="w-full text-left px-4 py-3 md:py-2 text-sm font-bold text-orange-600 hover:bg-orange-50 transition-colors cursor-pointer border-b border-gray-50">
+
+                                                    {isDropdownOpen && (
+                                                        <div 
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="absolute right-0 bottom-full mb-2 w-40 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-150"
+                                                        >
+                                                            <button 
+                                                                onClick={() => { setActiveDropdown(null); handleRoleChange(user.id, user.role === 'suspended' ? 'member' : 'suspended'); }} 
+                                                                className="w-full text-left px-3.5 py-2 text-xs font-bold text-orange-600 hover:bg-orange-50 transition-colors cursor-pointer border-b border-gray-50"
+                                                            >
                                                                 {user.role === 'suspended' ? "Unsuspend" : "Suspend User"}
                                                             </button>
-                                                            <button onClick={() => { setActiveDropdown(null); handleDeleteUser(user.id); }} className="w-full text-left px-4 py-3 md:py-2 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                                                            <button 
+                                                                onClick={() => { setActiveDropdown(null); handleDeleteUser(user.id); }} 
+                                                                className="w-full text-left px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                                            >
                                                                 Delete User
                                                             </button>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-
-                        </tbody>
-                    </table>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 

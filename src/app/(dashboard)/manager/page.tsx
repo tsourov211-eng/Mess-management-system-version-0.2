@@ -15,8 +15,13 @@ import {
     IconX,
     IconCalendarUser,
     IconWallet,
-    IconShoppingBag
+    IconShoppingBag,
+    IconBell,
+    IconTrash,
+    IconFileText,
+    IconAlertCircle
 } from "@tabler/icons-react";
+import { Coins } from "lucide-react";
 
 export default function ManagerDashboard() {
     const [stats, setStats] = useState({
@@ -25,13 +30,22 @@ export default function ManagerDashboard() {
         currentMealRate: 46.15,
         liveMealRate: 46.15,
         marketDuty: "Super Admin",
+        messFund: 0,
     });
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
     const [pendingExpenses, setPendingExpenses] = useState<any[]>([]);
     const [pendingBazaarSchedules, setPendingBazaarSchedules] = useState<any[]>([]);
     const [pendingGuestMeals, setPendingGuestMeals] = useState<any[]>([]);
     const [selectedSchedules, setSelectedSchedules] = useState<string[]>([]);
+    const [notices, setNotices] = useState<any[]>([]);
+    const [selectedNotice, setSelectedNotice] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     const today = new Date();
     // Short date for mobile capsule: "Sun, Oct 11"
@@ -60,12 +74,40 @@ export default function ManagerDashboard() {
                 setPendingExpenses(data.pendingExpenses || []);
                 setPendingBazaarSchedules(data.pendingBazaarSchedules || []);
                 setPendingGuestMeals(data.pendingGuestMeals || []);
+                setNotices(data.notices || []);
                 setSelectedSchedules([]);
             }
         } catch (error) {
             console.error("Error fetching manager dashboard data:", error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Notice Board Handlers
+    const handleClearAllNotices = async () => {
+        if (notices.length === 0) return;
+        setNotices([]);
+        showToast("All notices cleared successfully.", "success");
+        try {
+            await fetch("/api/members/clear-notices", { method: "POST" });
+        } catch (error) {
+            console.error("Failed to clear notices:", error);
+        }
+    };
+
+    const handleDismissNotice = async (noticeId: string) => {
+        setNotices((prev) => prev.filter((n) => n.id !== noticeId));
+        setSelectedNotice(null);
+        showToast("Notice dismissed successfully.", "success");
+        try {
+            await fetch("/api/members/clear-notices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ noticeId }),
+            });
+        } catch (error) {
+            console.error("Failed to dismiss notice:", error);
         }
     };
 
@@ -188,21 +230,21 @@ export default function ManagerDashboard() {
                 </div>
             </div>
 
-            {/* ─── C. Top 2 Metric Cards (Meals & Bazaar) ─── */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* ─── C. Top Metric Cards (Meals, Bazaar, Mess Fund, Market Duty) ─── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
                 {/* 1. Meals Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px]">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-2xs">
                         <IconToolsKitchen2 size={20} stroke={2.5} />
                     </div>
                     <div className="z-10 mt-2">
                         <p className="text-xs font-semibold text-gray-500">Meals</p>
-                        <p className="text-2xl font-black text-slate-900 mt-0.5 leading-none">
+                        <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
                             {isLoading ? "..." : (stats.totalMealsToday ?? 0)}
                         </p>
                     </div>
                     {/* Bottom soft mint-green wave illustration */}
-                    <div className="absolute right-0 bottom-0 pointer-events-none w-28 h-16 opacity-80">
+                    <div className="absolute right-0 bottom-0 pointer-events-none w-28 md:w-36 h-16 md:h-20 opacity-80">
                         <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                             <path d="M0 60C30 40 60 55 100 25V60H0Z" fill="#D1FAE5" fillOpacity="0.7"/>
                             <path d="M40 60C65 48 80 50 100 38V60H40Z" fill="#A7F3D0" fillOpacity="0.5"/>
@@ -212,69 +254,88 @@ export default function ManagerDashboard() {
                 </div>
 
                 {/* 2. Bazaar Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px]">
-                    <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
                         <IconShoppingCart size={20} stroke={2.2} />
                     </div>
                     <div className="z-10 mt-2">
                         <p className="text-xs font-semibold text-gray-500">Bazaar</p>
-                        <p className="text-2xl font-black text-slate-900 mt-0.5 leading-none">
-                            ৳ {isLoading ? "..." : (stats.totalBazaarToday ?? 0)}
+                        <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
+                            ৳ {isLoading ? "..." : (stats.totalBazaarToday ?? 0).toLocaleString()}
                         </p>
                     </div>
                     {/* Bottom soft peach/orange wave illustration */}
-                    <div className="absolute right-0 bottom-0 pointer-events-none w-28 h-16 opacity-80">
+                    <div className="absolute right-0 bottom-0 pointer-events-none w-28 md:w-36 h-16 md:h-20 opacity-80">
                         <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                             <path d="M0 60C35 42 65 52 100 28V60H0Z" fill="#FFEDD5" fillOpacity="0.75"/>
                             <path d="M45 60C70 50 85 52 100 40V60H45Z" fill="#FDBA74" fillOpacity="0.45"/>
                         </svg>
                     </div>
                 </div>
-            </div>
 
-            {/* ─── D. "Market Duty" Hero Card (Dark Navy Theme) ─── */}
-            <div className="bg-gradient-to-r from-slate-950 via-[#0B132B] to-slate-950 text-white rounded-3xl p-4 sm:p-5 shadow-lg border border-slate-800 mb-4 relative overflow-hidden">
-                <div className="flex items-center justify-between gap-3 relative z-10">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-white/10 text-orange-400 flex items-center justify-center border border-white/10 shrink-0">
-                            <IconShoppingCart size={22} stroke={2.2} />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-xs text-gray-400 font-medium">Market Duty</p>
-                            <p className="text-lg font-black text-white mt-0.5 tracking-tight truncate">
-                                {stats.marketDuty || "Super Admin"}
-                            </p>
-                        </div>
+                {/* 3. Mess Fund Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-2xs">
+                        <Coins size={20} strokeWidth={2.2} />
                     </div>
-                    
-                    <div className="bg-[#00B050] text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm shrink-0">
-                        <IconCheck size={14} stroke={3} />
-                        <span>Assigned</span>
+                    <div className="z-10 mt-2">
+                        <p className="text-xs font-semibold text-gray-500">Mess Fund</p>
+                        <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
+                            ৳ {isLoading ? "..." : (stats.messFund ?? 0).toLocaleString()}
+                        </p>
+                    </div>
+                    {/* Bottom soft lavender/purple wave illustration */}
+                    <div className="absolute right-0 bottom-0 pointer-events-none w-28 md:w-36 h-16 md:h-20 opacity-80">
+                        <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                            <path d="M0 60C30 40 60 55 100 25V60H0Z" fill="#EDE9FE" fillOpacity="0.75"/>
+                            <path d="M40 60C65 48 80 50 100 38V60H40Z" fill="#DDD6FE" fillOpacity="0.5"/>
+                            <path d="M75 35C80 25 92 28 95 35C88 40 78 38 75 35Z" fill="#8B5CF6" fillOpacity="0.4"/>
+                        </svg>
                     </div>
                 </div>
 
-                {/* Bottom subtle dark orange/amber organic curve */}
-                <div className="absolute inset-x-0 bottom-0 pointer-events-none h-6 overflow-hidden">
-                    <svg viewBox="0 0 400 30" fill="none" preserveAspectRatio="none" className="w-full h-full">
-                        <path d="M0 30C120 10 280 25 400 5V30H0Z" fill="#FF6B00" fillOpacity="0.25"/>
-                        <path d="M0 30C150 18 250 12 400 15V30H0Z" fill="#EA580C" fillOpacity="0.35"/>
-                    </svg>
+                {/* 4. Market Duty Hero Card */}
+                <div className="bg-gradient-to-b from-slate-950 via-[#0B132B] to-slate-950 text-white rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg border border-slate-800 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-xl transition-shadow">
+                    <div className="flex items-center justify-between gap-2 relative z-10">
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-white/10 text-orange-400 flex items-center justify-center border border-white/10 shrink-0">
+                            <IconShoppingCart size={20} stroke={2.2} />
+                        </div>
+                        <div className="bg-[#00B050] text-white text-[10px] md:text-xs font-bold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full flex items-center gap-1 shadow-sm shrink-0">
+                            <IconCheck size={12} stroke={3} />
+                            <span>Assigned</span>
+                        </div>
+                    </div>
+
+                    <div className="z-10 mt-2">
+                        <p className="text-xs text-gray-400 font-medium">Market Duty</p>
+                        <p className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5 tracking-tight truncate" title={stats.marketDuty || "Super Admin"}>
+                            {stats.marketDuty || "Super Admin"}
+                        </p>
+                    </div>
+
+                    {/* Bottom subtle dark orange/amber organic curve */}
+                    <div className="absolute inset-x-0 bottom-0 pointer-events-none h-6 overflow-hidden">
+                        <svg viewBox="0 0 400 30" fill="none" preserveAspectRatio="none" className="w-full h-full">
+                            <path d="M0 30C120 10 280 25 400 5V30H0Z" fill="#FF6B00" fillOpacity="0.25"/>
+                            <path d="M0 30C150 18 250 12 400 15V30H0Z" fill="#EA580C" fillOpacity="0.35"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
-            {/* ─── E. 4 Action & Management Cards (2x2 Grid) ─── */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* ─── E. 4 Action & Management Cards (2x2 on mobile, 4-col row on desktop) ─── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 md:mb-6">
                 
                 {/* 1. Bazaar Requests Card */}
                 <Link 
                     href="/bazaar-requests"
-                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group"
+                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 md:p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[135px] md:min-h-[155px]"
                 >
                     <div>
-                        <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
                             <IconCalendar size={20} stroke={2.2} />
                         </div>
-                        <h3 className="text-sm font-bold text-slate-900 mt-2.5">
+                        <h3 className="text-sm md:text-base font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-[#FF6B00] transition-colors">
                             Bazaar Requests
                         </h3>
                     </div>
@@ -293,13 +354,13 @@ export default function ManagerDashboard() {
                 {/* 2. Payments Card */}
                 <Link 
                     href="/payments"
-                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group"
+                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 md:p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[135px] md:min-h-[155px]"
                 >
                     <div>
-                        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center">
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shadow-2xs">
                             <IconCreditCard size={20} stroke={2.2} />
                         </div>
-                        <h3 className="text-sm font-bold text-slate-900 mt-2.5">
+                        <h3 className="text-sm md:text-base font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-blue-600 transition-colors">
                             Payments
                         </h3>
                     </div>
@@ -318,13 +379,13 @@ export default function ManagerDashboard() {
                 {/* 3. Expenses Card */}
                 <Link 
                     href="/expenses"
-                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group"
+                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 md:p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[135px] md:min-h-[155px]"
                 >
                     <div>
-                        <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shadow-2xs">
                             <IconShoppingCart size={20} stroke={2.2} />
                         </div>
-                        <h3 className="text-sm font-bold text-slate-900 mt-2.5">
+                        <h3 className="text-sm md:text-base font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-[#FF6B00] transition-colors">
                             Expenses
                         </h3>
                     </div>
@@ -343,13 +404,13 @@ export default function ManagerDashboard() {
                 {/* 4. Guest Meals Card */}
                 <Link 
                     href="/guest-meals"
-                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group"
+                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 md:p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.98] group min-h-[135px] md:min-h-[155px]"
                 >
                     <div>
-                        <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-2xs">
                             <IconUsers size={20} stroke={2.2} />
                         </div>
-                        <h3 className="text-sm font-bold text-slate-900 mt-2.5">
+                        <h3 className="text-sm md:text-base font-extrabold text-slate-900 mt-2.5 truncate group-hover:text-purple-600 transition-colors">
                             Guest Meals
                         </h3>
                     </div>
@@ -367,10 +428,100 @@ export default function ManagerDashboard() {
 
             </div>
 
+            {/* ─── Notice Board Card ─── */}
+            <div className="bg-white/95 backdrop-blur-sm p-4 sm:p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow mb-4 md:mb-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm shadow-orange-500/20 shrink-0">
+                            <IconBell size={20} stroke={2.2} />
+                        </div>
+                        <h2 className="text-base font-black text-slate-900">Notice Board</h2>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                        {notices.length > 0 && (
+                            <span className="bg-[#FF6B00] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full">
+                                {notices.length} New
+                            </span>
+                        )}
+                        {notices.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleClearAllNotices}
+                                className="text-xs font-semibold text-gray-500 hover:text-rose-600 px-2.5 py-1 rounded-full hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                                Clear All
+                            </button>
+                        )}
+                        <button 
+                            type="button"
+                            onClick={() => setSelectedNotice(notices[0] || null)}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-xs font-bold px-3 py-1 rounded-full transition-colors cursor-pointer"
+                        >
+                            View All
+                        </button>
+                    </div>
+                </div>
+
+                {/* Notice Rows */}
+                <div className="divide-y divide-slate-100 mt-3">
+                    {isLoading ? (
+                        <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
+                    ) : notices.length === 0 ? (
+                        <div className="py-7 text-center">
+                            <p className="text-xs font-bold text-slate-500">All caught up! 🎉 No new notices.</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Check back later for new announcements.</p>
+                        </div>
+                    ) : (
+                        notices.slice(0, 5).map((notice, index) => {
+                            const isGuestMeal = notice.type === "guest_meal";
+                            const nDate = notice.createdAt 
+                                ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+                                : formattedShortDate;
+
+                            return (
+                                <div 
+                                    key={notice.id || index}
+                                    onClick={() => setSelectedNotice(notice)}
+                                    className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50/60 p-2 rounded-2xl transition-colors cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {isGuestMeal ? (
+                                            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+                                                <IconUsers size={18} stroke={2.2} />
+                                            </div>
+                                        ) : (
+                                            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
+                                                <IconFileText size={18} stroke={2.2} />
+                                            </div>
+                                        )}
+
+                                        <div className="min-w-0">
+                                            <h4 className="text-xs font-black text-slate-900 leading-tight truncate">
+                                                {notice.title}
+                                            </h4>
+                                            <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+                                                {notice.description}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                                        <span className="text-[10px] font-bold whitespace-nowrap">{nDate}</span>
+                                        <IconChevronRight size={14} stroke={2.5} />
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
             {/* ─── Desktop-Only Detailed Queue Sections (md: and above) ─── */}
             <div className="hidden md:block space-y-6 pt-2">
                 {/* 1. Member Bazaar Date Requests */}
-                <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="p-5 flex items-center justify-between gap-4 border-b border-gray-100 bg-[#F8FAFC]">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 shadow-sm shrink-0">
@@ -474,9 +625,9 @@ export default function ManagerDashboard() {
                 </div>
 
                 {/* 2. 3-Column Split for Payments, Expenses, and Guest Meals */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Pending Payments */}
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[400px]">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[420px] hover:shadow-md transition-shadow">
                         <div className="p-4 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -510,7 +661,7 @@ export default function ManagerDashboard() {
                     </div>
 
                     {/* Pending Expenses */}
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[400px]">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[420px] hover:shadow-md transition-shadow">
                         <div className="p-4 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
@@ -544,7 +695,7 @@ export default function ManagerDashboard() {
                     </div>
 
                     {/* Pending Guest Meals */}
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[400px]">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[420px] hover:shadow-md transition-shadow">
                         <div className="p-4 border-b border-gray-100 bg-[#F8FAFC] flex justify-between items-center">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
@@ -580,6 +731,82 @@ export default function ManagerDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* ─── Floating Toast Notification ─── */}
+            {toast && (
+                <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs sm:text-sm font-bold border transition-all animate-in slide-in-from-top-4 duration-200 ${
+                    toast.type === "success" 
+                        ? "bg-slate-900 text-white border-slate-800" 
+                        : toast.type === "error" 
+                        ? "bg-rose-600 text-white border-rose-700" 
+                        : "bg-indigo-600 text-white border-indigo-700"
+                }`}>
+                    {toast.type === "success" && <IconCheck size={18} className="text-emerald-400" stroke={3} />}
+                    {toast.type === "error" && <IconAlertCircle size={18} className="text-rose-200" stroke={2.5} />}
+                    <span>{toast.message}</span>
+                </div>
+            )}
+
+            {/* ─── Notice Detail Modal ─── */}
+            {selectedNotice && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setSelectedNotice(null)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-5 sm:p-6 space-y-3 relative z-10 animate-in zoom-in-95 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                    <IconBell size={18} stroke={2.5} />
+                                </div>
+                                <h3 className="text-sm font-black text-slate-900 line-clamp-1">
+                                    {selectedNotice.title}
+                                </h3>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(null)}
+                                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                            >
+                                <IconX size={18} stroke={2.5} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium pt-1">
+                            {selectedNotice.description}
+                        </p>
+
+                        {selectedNotice.createdAt && (
+                            <p className="text-[10px] text-slate-400 font-bold pt-2 border-t border-slate-100">
+                                {new Date(selectedNotice.createdAt).toLocaleString("en-US", { 
+                                    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric" 
+                                })}
+                            </p>
+                        )}
+
+                        <div className="flex items-center gap-2.5 pt-2">
+                            <button 
+                                type="button"
+                                onClick={() => handleDismissNotice(selectedNotice.id)}
+                                className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/70 font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                                <IconTrash size={15} stroke={2.2} />
+                                <span>Dismiss</span>
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(null)}
+                                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

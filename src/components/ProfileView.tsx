@@ -380,21 +380,29 @@ export default function ProfileView() {
             {/* ═══════════════════════════════════════════════════════════════════
                 DESKTOP VIEW: Spacious Responsive Layout
                ═══════════════════════════════════════════════════════════════════ */}
-            <div className="hidden md:block max-w-4xl mx-auto space-y-6">
+            {/* ═══════════════════════════════════════════════════════════════════
+                DESKTOP VIEW: Spacious Responsive Layout
+               ═══════════════════════════════════════════════════════════════════ */}
+            <div className="hidden md:block max-w-5xl mx-auto space-y-6">
                 
                 {/* Hero Profile Card (Desktop) */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 relative overflow-hidden">
-                    <div className="flex items-start justify-between">
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-8 relative overflow-hidden hover:shadow-md transition-shadow">
+                    {/* Bottom wave decoration */}
+                    <svg className="absolute -bottom-2 -right-2 w-72 h-36 pointer-events-none opacity-15 text-orange-500" viewBox="0 0 200 80" fill="currentColor">
+                        <path d="M0,60 C50,20 120,70 200,30 L200,80 L0,80 Z" />
+                    </svg>
+
+                    <div className="flex items-start justify-between relative z-10">
                         <div className="flex items-center gap-6">
-                            <div className="w-24 h-24 rounded-full bg-[#0F172A] text-white font-black text-4xl flex items-center justify-center shadow-md border-4 border-white">
+                            <div className="w-24 h-24 rounded-2xl bg-[#0F172A] text-white font-black text-4xl flex items-center justify-center shadow-md border-4 border-white">
                                 {profileData?.image ? (
-                                    <Image src={profileData.image} alt="Avatar" width={96} height={96} className="w-full h-full rounded-full object-cover" />
+                                    <Image src={profileData.image} alt="Avatar" width={96} height={96} className="w-full h-full rounded-2xl object-cover" />
                                 ) : (
                                     <span>{userInitial}</span>
                                 )}
                             </div>
                             <div>
-                                <h1 className="text-2xl font-black text-slate-900">{profileData?.name || "Member Name"}</h1>
+                                <h1 className="text-2xl lg:text-3xl font-black text-slate-900">{profileData?.name || "Member Name"}</h1>
                                 <p className="text-sm font-semibold text-slate-500 flex items-center gap-1.5 mt-1">
                                     <Mail size={16} className="text-[#FF6B00]" /> {profileData?.email}
                                 </p>
@@ -410,17 +418,17 @@ export default function ProfileView() {
                                 });
                                 setIsEditProfileOpen(true);
                             }}
-                            className="bg-[#FFF7ED] border border-orange-200 text-[#EA580C] text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-orange-100/70 transition-colors cursor-pointer"
+                            className="bg-[#FFF7ED] border border-orange-200 text-[#EA580C] text-sm font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-orange-100/70 transition-colors cursor-pointer shadow-2xs"
                         >
                             <Pencil size={15} /> Edit Profile
                         </button>
                     </div>
 
                     {/* Contact Details Stack */}
-                    <div className="grid grid-cols-2 gap-4 mt-8">
-                        <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-4 flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-2xl bg-[#FFF7ED] text-[#FF6B00] flex items-center justify-center shrink-0">
-                                <Phone size={20} />
+                    <div className="grid grid-cols-2 gap-4 mt-8 relative z-10">
+                        <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-4 flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-2xl bg-[#FFF7ED] text-[#FF6B00] flex items-center justify-center shrink-0 shadow-2xs">
+                                <Phone size={20} strokeWidth={2.2} />
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-400 uppercase">Phone Number</p>
@@ -428,9 +436,9 @@ export default function ProfileView() {
                             </div>
                         </div>
 
-                        <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-4 flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-2xl bg-[#FFF7ED] text-[#FF6B00] flex items-center justify-center shrink-0">
-                                <MapPin size={20} />
+                        <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-4 flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-2xl bg-[#FFF7ED] text-[#FF6B00] flex items-center justify-center shrink-0 shadow-2xs">
+                                <MapPin size={20} strokeWidth={2.2} />
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-400 uppercase">Address</p>
@@ -440,31 +448,34 @@ export default function ProfileView() {
                     </div>
                 </div>
 
-                {/* Financial Summary & Default Meals (Desktop) */}
-                <div className="grid grid-cols-3 gap-6">
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                            <Wallet size={24} />
+                {/* Financial Summary & Default Meals (Desktop 3-Column Grid) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Total Deposit */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                            <Wallet size={24} strokeWidth={2.2} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase">Total Deposit</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Deposit</p>
                             <h3 className="text-2xl font-black text-slate-900 mt-0.5">Tk {Number(stats.totalDeposit || 0).toLocaleString()}</h3>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                            <Utensils size={24} />
+                    {/* Total Meals */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                            <Utensils size={24} strokeWidth={2.2} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase">Total Meals</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Meals</p>
                             <h3 className="text-2xl font-black text-slate-900 mt-0.5">{Number(stats.totalMeals || 0)}</h3>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
+                    {/* Default Meals */}
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-400 uppercase">Default Meals</span>
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Default Meals</span>
                             <button
                                 onClick={() => {
                                     setMealsForm({
@@ -474,23 +485,24 @@ export default function ProfileView() {
                                     });
                                     setIsEditMealsOpen(true);
                                 }}
-                                className="text-xs font-bold text-[#EA580C] hover:underline"
+                                className="text-xs font-bold text-[#EA580C] hover:underline cursor-pointer flex items-center gap-1"
                             >
-                                Edit
+                                <Pencil size={12} />
+                                <span>Edit</span>
                             </button>
                         </div>
-                        <div className="flex items-center justify-between mt-3 text-center">
-                            <div>
-                                <span className="block text-[10px] font-bold text-slate-400">B</span>
-                                <span className="text-lg font-black text-slate-900">{profileData?.defaultBreakfast ?? 0.5}</span>
+                        <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                            <div className="bg-amber-50/70 border border-amber-200/50 rounded-xl p-2">
+                                <span className="block text-[9px] font-bold text-amber-700 uppercase">Breakfast</span>
+                                <span className="text-base font-black text-slate-900">{profileData?.defaultBreakfast ?? 0.5}</span>
                             </div>
-                            <div>
-                                <span className="block text-[10px] font-bold text-slate-400">L</span>
-                                <span className="text-lg font-black text-slate-900">{profileData?.defaultLunch ?? 1}</span>
+                            <div className="bg-blue-50/70 border border-blue-200/50 rounded-xl p-2">
+                                <span className="block text-[9px] font-bold text-blue-700 uppercase">Lunch</span>
+                                <span className="text-base font-black text-slate-900">{profileData?.defaultLunch ?? 1}</span>
                             </div>
-                            <div>
-                                <span className="block text-[10px] font-bold text-slate-400">D</span>
-                                <span className="text-lg font-black text-slate-900">{profileData?.defaultDinner ?? 1}</span>
+                            <div className="bg-purple-50/70 border border-purple-200/50 rounded-xl p-2">
+                                <span className="block text-[9px] font-bold text-purple-700 uppercase">Dinner</span>
+                                <span className="text-base font-black text-slate-900">{profileData?.defaultDinner ?? 1}</span>
                             </div>
                         </div>
                     </div>

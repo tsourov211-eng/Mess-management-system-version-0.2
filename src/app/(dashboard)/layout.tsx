@@ -23,7 +23,8 @@ import {
     IconPlus,
     IconBellOff,
     IconClock,
-    IconCheck
+    IconCheck,
+    IconTrash
 } from "@tabler/icons-react";
 import { getUserDisplayRole } from "@/lib/user";
 
@@ -114,6 +115,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     };
 
+    const handleDismissNotification = async (noticeId: string) => {
+        setNotices((prev) => prev.filter((n) => n.id !== noticeId));
+        setSelectedNotice(null);
+        try {
+            await fetch("/api/members/clear-notices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ noticeId }),
+            });
+        } catch (error) {
+            console.error("Failed to dismiss notice:", error);
+        }
+    };
+
     const handleNoticeClick = (notice: NoticeItem) => {
         // 1. Mark as read in local state
         setNotices((prev) =>
@@ -154,11 +169,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (basePath === "admin") {
             return [
                 { name: "Dashboard", href: "/admin", icon: IconHome },
-                { name: "Monthly Expense", href: "/admin/monthly-expense", icon: IconCalendarEvent },
                 { name: "Members", href: "/members-list", icon: IconUsers },
                 { name: "Food Management", href: "/meals", icon: IconToolsKitchen2 },
                 { name: "Expenses", href: "/bazaar", icon: IconReceipt },
                 { name: "Reports", href: "/reports", icon: IconChartBar },
+                { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
                 { name: "My Profile", href: `/${basePath}/profile`, icon: IconUser }, 
                 { name: "Settings", href: "/settings", icon: IconSettings },
             ];
@@ -196,7 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const userInitial = displayName.charAt(0);
 
     return (
-        <div className="min-h-screen bg-[url('/MobileDashboardBg.png')] md:bg-[#F8FAFC] lg:bg-[url('/admin_dashboard_desktop_bg.png')] bg-cover bg-center bg-no-repeat md:bg-fixed flex font-sans">
+        <div className="min-h-screen bg-[url('/MobileDashboardBg.png')] bg-cover bg-center bg-no-repeat bg-fixed flex font-sans">
             
             {/* ─── Mobile Sidebar Overlay ─── */}
             {isSidebarOpen && (
@@ -573,8 +588,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </header>
                 
                 {/* ─── Page Content ─── */}
-                <main className="flex-1 p-4 sm:p-6 pb-28 md:pb-10 lg:px-10 lg:pb-10 overflow-y-auto">
-                    {children}
+                <main className="flex-1 p-4 sm:p-6 pb-28 md:p-0 overflow-y-auto">
+                    <div className="w-full max-w-7xl mx-auto md:px-6 lg:px-8 md:py-8 md:pb-12">
+                        {children}
+                    </div>
                 </main>
             </div>
 
@@ -732,10 +749,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-4 sm:p-5 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                        <div className="p-4 sm:p-5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end gap-2.5">
+                            <button 
+                                onClick={() => handleDismissNotification(selectedNotice.id)}
+                                className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                                <IconTrash size={15} stroke={2.2} />
+                                <span>Dismiss</span>
+                            </button>
                             <button 
                                 onClick={() => setSelectedNotice(null)}
-                                className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+                                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                             >
                                 Close
                             </button>

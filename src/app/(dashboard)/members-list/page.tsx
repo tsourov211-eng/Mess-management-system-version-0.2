@@ -20,7 +20,8 @@ import {
 
 export default function MembersListPage() {
     const { data: session } = useSession();
-    const currentUserRole = (session?.user as { role?: string })?.role || "member";
+    const currentUserRole = (session?.user as { role?: string })?.role?.toLowerCase() || "member";
+    const isAdmin = currentUserRole === "admin";
 
     const [members, setMembers] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -57,6 +58,7 @@ export default function MembersListPage() {
     };
 
     const openEditModal = (member: any) => {
+        if (!isAdmin) return;
         setEditingMember(member);
         setEditForm({
             name: member.name || "",
@@ -68,7 +70,7 @@ export default function MembersListPage() {
 
     const handleSaveEdit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!editingMember) return;
+        if (!editingMember || !isAdmin) return;
         setIsSubmittingEdit(true);
         try {
             const res = await fetch(`/api/members/${editingMember.id}`, {
@@ -94,12 +96,13 @@ export default function MembersListPage() {
     };
 
     const openDeleteDialog = (member: any) => {
+        if (!isAdmin) return;
         setDeletingMember(member);
         setIsDeleteModalOpen(true);
     };
 
     const handleConfirmDelete = async () => {
-        if (!deletingMember) return;
+        if (!deletingMember || !isAdmin) return;
         setIsSubmittingDelete(true);
         try {
             const res = await fetch(`/api/members/${deletingMember.id}`, {
@@ -164,14 +167,16 @@ export default function MembersListPage() {
                         />
                     </div>
 
-                    {/* "+ Add" Button */}
-                    <Link 
-                        href="/admin/add-member"
-                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm px-5 py-3 rounded-2xl shadow-md shadow-orange-500/30 flex items-center gap-1.5 shrink-0 transition-transform active:scale-95"
-                    >
-                        <IconPlus size={18} stroke={3} />
-                        <span>Add</span>
-                    </Link>
+                    {/* "+ Add" Button (Admin only) */}
+                    {isAdmin && (
+                        <Link 
+                            href="/admin/add-member"
+                            className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm px-5 py-3 rounded-2xl shadow-md shadow-orange-500/30 flex items-center gap-1.5 shrink-0 transition-transform active:scale-95"
+                        >
+                            <IconPlus size={18} stroke={3} />
+                            <span>Add</span>
+                        </Link>
+                    )}
                 </div>
 
                 {/* 3. Member Cards List */}
@@ -274,25 +279,27 @@ export default function MembersListPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Action Buttons */}
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <button
-                                                        onClick={() => openEditModal(member)}
-                                                        className="w-8 h-8 rounded-xl bg-[#E8F1FF] text-[#2563EB] hover:bg-blue-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs active:scale-95"
-                                                        title="Edit Member"
-                                                        aria-label="Edit Member"
-                                                    >
-                                                        <IconEdit size={16} stroke={2.2} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openDeleteDialog(member)}
-                                                        className="w-8 h-8 rounded-xl bg-[#FFE4E6] text-[#E11D48] hover:bg-rose-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs active:scale-95"
-                                                        title="Delete Member"
-                                                        aria-label="Delete Member"
-                                                    >
-                                                        <IconTrash size={16} stroke={2.2} />
-                                                    </button>
-                                                </div>
+                                                {/* Action Buttons (Admin only) */}
+                                                {isAdmin && (
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <button
+                                                            onClick={() => openEditModal(member)}
+                                                            className="w-8 h-8 rounded-xl bg-[#E8F1FF] text-[#2563EB] hover:bg-blue-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs active:scale-95"
+                                                            title="Edit Member"
+                                                            aria-label="Edit Member"
+                                                        >
+                                                            <IconEdit size={16} stroke={2.2} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openDeleteDialog(member)}
+                                                            className="w-8 h-8 rounded-xl bg-[#FFE4E6] text-[#E11D48] hover:bg-rose-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs active:scale-95"
+                                                            title="Delete Member"
+                                                            aria-label="Delete Member"
+                                                        >
+                                                            <IconTrash size={16} stroke={2.2} />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
 
                                         </div>
@@ -308,15 +315,20 @@ export default function MembersListPage() {
 
 
             {/* ═══════════════════════════════════════════════════════════════════
-                DESKTOP VIEW: Clean Table Layout
+                DESKTOP VIEW: Responsive Member Cards Grid
                ═══════════════════════════════════════════════════════════════════ */}
             <div className="hidden md:block max-w-7xl mx-auto space-y-6">
                 
                 {/* Header */}
-                <div className="flex items-center justify-between gap-6 bg-white p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between gap-6 bg-white/95 backdrop-blur-sm p-6 lg:p-8 rounded-3xl shadow-sm border border-gray-100">
                     <div>
-                        <h1 className="text-2xl font-black text-[#0B132B]">Mess Members</h1>
-                        <p className="text-sm text-gray-500 font-medium mt-1">Manage all members and their account details.</p>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-black text-[#0B132B]">Mess Members</h1>
+                            <span className="bg-orange-100 text-[#FF6B00] text-xs font-black px-2.5 py-0.5 rounded-full">
+                                {members.length} Total
+                            </span>
+                        </div>
+                        <p className="text-sm text-gray-500 font-medium mt-1">Manage all members, balances, and account details.</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -331,7 +343,7 @@ export default function MembersListPage() {
                             />
                         </div>
 
-                        {currentUserRole === "admin" && (
+                        {isAdmin && (
                             <Link 
                                 href="/admin/add-member"
                                 className="flex items-center gap-2 bg-[#FF6B00] hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-orange-500/20 transition-all cursor-pointer whitespace-nowrap"
@@ -343,117 +355,114 @@ export default function MembersListPage() {
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/80 border-b border-gray-100">
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Member Info</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Deposit</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {isLoading ? (
-                                <tr>
-                                    <td colSpan={5} className="py-16 text-center font-bold text-gray-400">
-                                        Loading members...
-                                    </td>
-                                </tr>
-                            ) : filteredMembers.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="py-16 text-center font-bold text-gray-400">
-                                        No members found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredMembers.map((member) => {
-                                    const isPositive = (member.balance ?? 0) >= 0;
-                                    const balanceValue = Math.abs(Number(member.balance || 0));
-                                    const balanceFormatted = balanceValue.toLocaleString(undefined, {
-                                        minimumFractionDigits: balanceValue % 1 !== 0 ? 2 : 0,
-                                        maximumFractionDigits: 2,
-                                    });
+                {/* Member Cards Grid */}
+                {isLoading ? (
+                    <div className="p-16 text-center font-bold text-gray-400 bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100">
+                        Loading members...
+                    </div>
+                ) : filteredMembers.length === 0 ? (
+                    <div className="p-16 text-center font-bold text-gray-400 bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100">
+                        No members found matching your search.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredMembers.map((member) => {
+                            const isPositive = (member.balance ?? 0) >= 0;
+                            const balanceValue = Math.abs(Number(member.balance || 0));
+                            const balanceFormatted = balanceValue.toLocaleString(undefined, {
+                                minimumFractionDigits: balanceValue % 1 !== 0 ? 2 : 0,
+                                maximumFractionDigits: 2,
+                            });
+                            const initial = member.name ? member.name.charAt(0).toUpperCase() : "M";
 
-                                    return (
-                                        <tr key={member.id} className="hover:bg-gray-50/80 transition-colors">
-                                            {/* Member Info */}
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-3.5">
-                                                    <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-black text-base shrink-0">
-                                                        {member.name ? member.name.charAt(0).toUpperCase() : <IconUserCircle size={22} />}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-extrabold text-[#0B132B] text-sm leading-tight">{member.name}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
-                                                                {member.role}
-                                                            </span>
-                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 flex items-center gap-1">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                                Active
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                            return (
+                                <div 
+                                    key={member.id}
+                                    className="bg-white/95 backdrop-blur-sm rounded-3xl p-5 lg:p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-orange-200/60 transition-all flex flex-col justify-between group"
+                                >
+                                    {/* Top Row: Avatar, Name, Role & Phone */}
+                                    <div>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-3.5 min-w-0">
+                                                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-black text-base shrink-0 shadow-2xs group-hover:bg-[#FF6B00] group-hover:text-white transition-colors">
+                                                    {initial}
                                                 </div>
-                                            </td>
-
-                                            {/* Phone */}
-                                            <td className="px-6 py-5">
-                                                <p className="text-sm font-semibold text-gray-700">{member.phone || "N/A"}</p>
-                                            </td>
-
-                                            {/* Deposit */}
-                                            <td className="px-6 py-5">
-                                                <p className="text-sm font-black text-[#0B132B]">
-                                                    ৳ {Number(member.deposit || 0).toLocaleString()}
-                                                </p>
-                                            </td>
-
-                                            {/* Balance */}
-                                            <td className="px-6 py-5">
-                                                <p className={`text-sm font-black ${isPositive ? "text-[#16A34A]" : "text-rose-500"}`}>
-                                                    {isPositive ? "+ ৳ " : "- ৳ "}
-                                                    {balanceFormatted}
-                                                </p>
-                                            </td>
-
-                                            {/* Actions */}
-                                            <td className="px-6 py-5 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => openEditModal(member)}
-                                                        className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-colors cursor-pointer"
-                                                        title="Edit Member"
-                                                    >
-                                                        <IconEdit size={16} stroke={2.2} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openDeleteDialog(member)}
-                                                        className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition-colors cursor-pointer"
-                                                        title="Delete Member"
-                                                    >
-                                                        <IconTrash size={16} stroke={2.2} />
-                                                    </button>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-extrabold text-slate-900 text-base truncate leading-tight group-hover:text-[#FF6B00] transition-colors">
+                                                        {member.name || "Member"}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-400 font-medium truncate mt-0.5">
+                                                        {member.email}
+                                                    </p>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                            </div>
 
+                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
+                                                member.role === 'admin' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                                member.role === 'manager' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                                'bg-gray-100 text-gray-700 border border-gray-200'
+                                            }`}>
+                                                {member.role}
+                                            </span>
+                                        </div>
+
+                                        {/* Phone Line */}
+                                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mt-3.5 pt-3 border-t border-gray-50">
+                                            <IconPhone size={14} className="text-gray-400 shrink-0" stroke={2} />
+                                            <span>{member.phone || "No phone number"}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Middle Row: Deposit & Balance Pills */}
+                                    <div className={`grid grid-cols-2 gap-2.5 ${isAdmin ? "my-4" : "mt-4"}`}>
+                                        <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-3 flex flex-col">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Deposit</span>
+                                            <span className="text-sm font-black text-slate-900 mt-0.5 truncate">
+                                                ৳ {Number(member.deposit || 0).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-3 flex flex-col">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Balance</span>
+                                            <span className={`text-sm font-black mt-0.5 truncate ${isPositive ? "text-emerald-600" : "text-rose-600"}`}>
+                                                {isPositive ? "+ ৳ " : "- ৳ "}
+                                                {balanceFormatted}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Bottom Row: Actions (Admin only) */}
+                                    {isAdmin && (
+                                        <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                                            <button
+                                                onClick={() => openEditModal(member)}
+                                                className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                                title="Edit Member"
+                                            >
+                                                <IconEdit size={14} stroke={2.2} />
+                                                <span>Edit</span>
+                                            </button>
+                                            <button
+                                                onClick={() => openDeleteDialog(member)}
+                                                className="px-3.5 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                                title="Delete Member"
+                                            >
+                                                <IconTrash size={14} stroke={2.2} />
+                                                <span>Delete</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
 
             {/* ═══════════════════════════════════════════════════════════════════
                 EDIT MEMBER MODAL
                ═══════════════════════════════════════════════════════════════════ */}
-            {isEditModalOpen && editingMember && (
+            {isAdmin && isEditModalOpen && editingMember && (
                 <div 
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setIsEditModalOpen(false)}
@@ -560,7 +569,7 @@ export default function MembersListPage() {
             {/* ═══════════════════════════════════════════════════════════════════
                 DELETE CONFIRMATION MODAL
                ═══════════════════════════════════════════════════════════════════ */}
-            {isDeleteModalOpen && deletingMember && (
+            {isAdmin && isDeleteModalOpen && deletingMember && (
                 <div 
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setIsDeleteModalOpen(false)}

@@ -19,9 +19,9 @@ export async function PATCH(
       select: { role: true },
     });
 
-    if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "manager")) {
+    if (!currentUser || currentUser.role !== "admin") {
       return NextResponse.json(
-        { success: false, error: "Forbidden: Manager or Admin privileges required" },
+        { success: false, error: "Forbidden: Only admins can edit member information" },
         { status: 403 }
       );
     }

@@ -292,7 +292,7 @@ function SettingsContent() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 lg:space-y-8">
+        <div className="w-full max-w-md sm:max-w-xl md:max-w-7xl mx-auto space-y-6 lg:space-y-8">
             
             {/* ─── Toast Notification ─── */}
             {toast && (
@@ -346,7 +346,7 @@ function SettingsContent() {
                 
                 {/* ─── Left Sidebar (Dynamic Navigation Tabs) ─── */}
                 <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-2 flex flex-col gap-1">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-2 flex flex-col gap-1">
                         
                         {/* Tab 1: Mess Information */}
                         <button 

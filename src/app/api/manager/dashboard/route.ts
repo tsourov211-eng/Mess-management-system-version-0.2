@@ -13,11 +13,21 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { role: true },
+      select: { id: true, role: true, clearedNotices: true },
     });
     if (!user || (user.role !== "admin" && user.role !== "manager")) {
       return NextResponse.json({ success: false, error: "Forbidden: Manager access required" }, { status: 403 });
     }
+
+    // Notices for manager
+    const notices = await prisma.notice.findMany({
+      where: {
+        isActive: true,
+        id: { notIn: user.clearedNotices || [] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
 
     // 1. Pending payment requests (Deposit)
     const pendingDeposits = await prisma.deposit.findMany({
@@ -99,8 +109,24 @@ export async function GET() {
     });
     const marketDuty = todayDuty?.user?.name || "Super Admin";
 
+    // 7. Mess Fund: Total Deposits Collected - Total Actual Expenses Paid (Approved)
+    const depositAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: { status: "Approved" },
+    });
+    const totalDeposits = depositAgg._sum.amount || 0;
+
+    const expenseAgg = await prisma.expense.aggregate({
+      _sum: { amount: true },
+      where: { status: "Approved" },
+    });
+    const totalExpenses = expenseAgg._sum.amount || 0;
+
+    const messFund = Math.round((totalDeposits - totalExpenses) * 100) / 100;
+
     return NextResponse.json(
       {
+        notices,
         pendingDeposits,
         pendingExpenses,
         pendingBazaarSchedules,
@@ -111,6 +137,7 @@ export async function GET() {
           currentMealRate,
           liveMealRate: currentMealRate,
           marketDuty,
+          messFund,
         },
       },
       { status: 200 }

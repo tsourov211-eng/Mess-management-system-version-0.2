@@ -667,72 +667,107 @@ export default function AdminReportsView() {
 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-                            <IconUsers className="w-5 h-5 md:w-6 md:h-6" stroke={2} />
+                    {/* Card 1: Total Members */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-[#FFF5ED] text-[#FF6B00] flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconUsers size={20} stroke={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Members</p>
-                            <h3 className="text-sm md:text-base font-bold text-gray-900 mt-0.5">{isLoading ? "..." : stats.totalMembers}</h3>
+                        <div className="z-10 mt-3">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Members</p>
+                            <h3 className="text-xl font-black text-gray-900 mt-0.5">{isLoading ? "..." : stats.totalMembers}</h3>
                         </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                            <IconShoppingBag className="w-5 h-5 md:w-6 md:h-6" stroke={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Bazaar</p>
-                            <h3 className="text-sm md:text-base font-bold text-gray-900 mt-0.5">৳ {isLoading ? "..." : stats.totalBazaarCost.toLocaleString()}</h3>
+                        <div className="absolute right-2 bottom-2 opacity-15 text-orange-400 pointer-events-none">
+                            <IconUsers size={44} stroke={1.5} />
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                            <IconWallet className="w-5 h-5 md:w-6 md:h-6" stroke={2} />
+                    {/* Card 2: Total Bazaar */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-[#F0FDF4] text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconShoppingBag size={20} stroke={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Deposit</p>
-                            <h3 className="text-sm md:text-base font-bold text-purple-600 mt-0.5">৳ {isLoading ? "..." : stats.totalDeposit.toLocaleString()}</h3>
+                        <div className="z-10 mt-3">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Bazaar</p>
+                            <h3 className="text-xl font-black text-gray-900 mt-0.5 truncate">৳ {isLoading ? "..." : stats.totalBazaarCost.toLocaleString()}</h3>
                         </div>
+                        <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
+                            <path d="M0,45 C25,45 35,35 50,30 C65,25 75,10 100,5 L100,50 L0,50 Z" fill="#DCFCE7" />
+                            <path d="M0,45 C25,45 35,35 50,30 C65,25 75,10 100,5" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
                     </div>
 
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-                            <IconToolsKitchen2 className="w-5 h-5 md:w-6 md:h-6" stroke={2} />
+                    {/* Card 3: Total Deposit */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-[#FAF5FF] text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconWallet size={20} stroke={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Meals</p>
-                            <h3 className="text-sm md:text-base font-bold text-gray-900 mt-0.5">{isLoading ? "..." : stats.totalMealsConsumed}</h3>
+                        <div className="z-10 mt-3">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Deposit</p>
+                            <h3 className="text-xl font-black text-purple-600 mt-0.5 truncate">৳ {isLoading ? "..." : stats.totalDeposit.toLocaleString()}</h3>
                         </div>
+                        <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
+                            <path d="M0,45 C25,40 40,35 60,25 C75,18 85,12 100,8 L100,50 L0,50 Z" fill="#F3E8FF" />
+                            <path d="M0,45 C25,40 40,35 60,25 C75,18 85,12 100,8" stroke="#A855F7" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
                     </div>
 
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                            <IconChartPie className="w-5 h-5 md:w-6 md:h-6" stroke={2} />
+                    {/* Card 4: Total Meals */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-[#FFF7ED] text-orange-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconToolsKitchen2 size={20} stroke={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</p>
-                            <h3 className={`text-sm md:text-base font-bold mt-0.5 ${stats.currentBalance < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        <div className="z-10 mt-3">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Meals</p>
+                            <h3 className="text-xl font-black text-gray-900 mt-0.5">{isLoading ? "..." : stats.totalMealsConsumed}</h3>
+                        </div>
+                        <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
+                            <path d="M0,42 C20,38 45,32 65,22 C80,15 90,12 100,6 L100,50 L0,50 Z" fill="#FFEDD5" />
+                            <path d="M0,42 C20,38 45,32 65,22 C80,15 90,12 100,6" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
+                    </div>
+
+                    {/* Card 5: Balance */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-[#EFF6FF] text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconChartPie size={20} stroke={2.2} />
+                            </div>
+                        </div>
+                        <div className="z-10 mt-3">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Balance</p>
+                            <h3 className={`text-xl font-black mt-0.5 truncate ${stats.currentBalance < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                                 {isLoading ? "..." : `${stats.currentBalance >= 0 ? '+ ' : '- '}৳ ${Math.abs(stats.currentBalance).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
                             </h3>
                         </div>
+                        <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
+                            <path d="M0,45 C25,45 35,35 50,30 C65,25 75,10 100,5 L100,50 L0,50 Z" fill="#DCFCE7" />
+                            <path d="M0,45 C25,45 35,35 50,30 C65,25 75,10 100,5" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
                     </div>
 
-                    <div className="bg-white p-4 rounded-2xl border border-red-100 shadow-sm flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                            <IconUserMinus className="w-5 h-5 md:w-6 md:h-6" stroke={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Due</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <h3 className="text-sm md:text-base font-bold text-red-500">
-                                    {isLoading ? "..." : `- ৳ ${Math.abs(totalNegativeAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
-                                </h3>
-                                <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
-                                    {isLoading ? "..." : `${negativeMembersCount} ${negativeMembersCount === 1 ? 'member' : 'members'}`}
-                                </span>
+                    {/* Card 6: Total Due */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-3xl border border-red-100/80 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-[#FFF1F2] text-rose-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconUserMinus size={20} stroke={2.2} />
                             </div>
+                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
+                                {negativeMembersCount} {negativeMembersCount === 1 ? 'member' : 'members'}
+                            </span>
+                        </div>
+                        <div className="z-10 mt-3">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Due</p>
+                            <h3 className="text-xl font-black text-rose-600 mt-0.5 truncate">
+                                {isLoading ? "..." : `- ৳ ${Math.abs(totalNegativeAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
+                            </h3>
                         </div>
                     </div>
                 </div>

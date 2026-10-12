@@ -49,10 +49,10 @@ export default function ReportsView() {
     const computedTotalCost = stats.totalCost || (computedMealCost + (stats.fixedCost || 0));
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        <div className="w-full max-w-md sm:max-w-xl md:max-w-7xl mx-auto space-y-4 md:space-y-6 pb-12 animate-in fade-in zoom-in-95 duration-300">
             
             {/* ─── Header Section ─── */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-white/95 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B132B] flex items-center gap-3">
                         <IconReportAnalytics className="text-blue-500 w-8 h-8" stroke={2.5} />
@@ -69,61 +69,101 @@ export default function ReportsView() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 
                 {/* 1. Total Deposit */}
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center">
+                <div className="bg-white/95 backdrop-blur-sm p-5 md:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group flex flex-col justify-between">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
-                            <IconWallet size={18} stroke={2.5} />
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 flex items-center justify-center shrink-0 shadow-sm">
+                            <IconWallet size={20} stroke={2.5} />
                         </div>
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Total Deposit</p>
                     </div>
-                    <h3 className="text-2xl font-extrabold text-gray-900 ml-11">
-                        Tk {isLoading ? "..." : stats.totalDeposit.toLocaleString()}
-                    </h3>
+                    <div className="mt-2 relative z-10">
+                        <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                            Tk {isLoading ? "..." : stats.totalDeposit.toLocaleString()}
+                        </h3>
+                    </div>
+                    {/* Pastel Wave Graphic */}
+                    <div className="absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none text-emerald-500 group-hover:scale-105 transition-transform">
+                        <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full fill-current">
+                            <path d="M0,35 C20,10 40,45 60,20 C80,0 90,25 100,15 L100,50 L0,50 Z" />
+                        </svg>
+                    </div>
                 </div>
 
                 {/* 2. Total Meals */}
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center">
+                <div className="bg-white/95 backdrop-blur-sm p-5 md:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group flex flex-col justify-between">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
-                            <IconChartPie size={18} stroke={2.5} />
+                        <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/60 flex items-center justify-center shrink-0 shadow-sm">
+                            <IconChartPie size={20} stroke={2.5} />
                         </div>
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Total Meals</p>
                     </div>
-                    <h3 className="text-2xl font-extrabold text-gray-900 ml-11">
-                        {isLoading ? "..." : stats.totalMeals}
-                    </h3>
+                    <div className="mt-2 relative z-10">
+                        <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                            {isLoading ? "..." : stats.totalMeals}
+                        </h3>
+                    </div>
+                    {/* Pastel Wave Graphic */}
+                    <div className="absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none text-amber-500 group-hover:scale-105 transition-transform">
+                        <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full fill-current">
+                            <path d="M0,30 C30,45 50,15 75,35 C90,20 95,10 100,25 L100,50 L0,50 Z" />
+                        </svg>
+                    </div>
                 </div>
 
                 {/* 3. Meal Rate */}
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center">
+                <div className="bg-white/95 backdrop-blur-sm p-5 md:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group flex flex-col justify-between">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                            <IconReceipt2 size={18} stroke={2.5} />
+                        <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 border border-purple-100/60 flex items-center justify-center shrink-0 shadow-sm">
+                            <IconReceipt2 size={20} stroke={2.5} />
                         </div>
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Live Meal Rate</p>
                     </div>
-                    <h3 className="text-2xl font-extrabold text-gray-900 ml-11">
-                        Tk {isLoading ? "..." : stats.liveMealRate.toFixed(2)}
-                    </h3>
+                    <div className="mt-2 relative z-10">
+                        <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                            Tk {isLoading ? "..." : stats.liveMealRate.toFixed(2)}
+                        </h3>
+                    </div>
+                    {/* Pastel Wave Graphic */}
+                    <div className="absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none text-purple-500 group-hover:scale-105 transition-transform">
+                        <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full fill-current">
+                            <path d="M0,35 C20,10 40,45 60,20 C80,0 90,25 100,15 L100,50 L0,50 Z" />
+                        </svg>
+                    </div>
                 </div>
 
                 {/* 4. Current Balance */}
-                <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-center ${stats.currentBalance < 0 ? 'bg-red-50/50 border-red-100' : 'bg-emerald-50/50 border-emerald-100'}`}>
+                <div className={`p-5 md:p-6 rounded-3xl border shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group flex flex-col justify-between ${
+                    stats.currentBalance < 0 
+                        ? 'bg-rose-50/70 border-rose-100 text-rose-600' 
+                        : 'bg-white/95 backdrop-blur-sm border-gray-100 text-emerald-600'
+                }`}>
                     <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${stats.currentBalance < 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                            <IconWallet size={18} stroke={2.5} />
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                            stats.currentBalance < 0 
+                                ? 'bg-rose-100 text-rose-600' 
+                                : 'bg-emerald-50 text-emerald-600 border border-emerald-100/60'
+                        }`}>
+                            <IconWallet size={20} stroke={2.5} />
                         </div>
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Current Balance</p>
                     </div>
-                    <h3 className={`text-2xl font-extrabold ml-11 ${stats.currentBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(stats.currentBalance).toLocaleString()}`}
-                    </h3>
+                    <div className="mt-2 relative z-10">
+                        <h3 className={`text-2xl sm:text-3xl font-extrabold ${stats.currentBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(stats.currentBalance).toLocaleString()}`}
+                        </h3>
+                    </div>
+                    {/* Pastel Wave Graphic */}
+                    <div className={`absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none group-hover:scale-105 transition-transform ${stats.currentBalance < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full fill-current">
+                            <path d="M0,25 C25,45 55,10 80,30 C90,15 95,5 100,20 L100,50 L0,50 Z" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
             {/* ─── Detailed Calculation Section ─── */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-5 sm:p-6 border-b border-gray-100 bg-[#F8FAFC] flex items-center gap-3">
+            <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-5 sm:p-6 border-b border-gray-100 bg-slate-50/60 flex items-center gap-3">
                     <IconCalendarStats className="text-gray-500" size={20} stroke={2} />
                     <h3 className="font-extrabold text-gray-900 text-lg">Detailed Calculation</h3>
                 </div>

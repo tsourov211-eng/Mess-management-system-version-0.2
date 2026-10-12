@@ -104,7 +104,10 @@ export async function GET(req: Request) {
     });
 
     const userGuestRequests = await prisma.guestMealRequest.findMany({
-      where: { userId: user.id },
+      where: { 
+        userId: user.id,
+        id: { notIn: user.clearedNotices || [] }
+      },
       orderBy: { updatedAt: "desc" },
       take: 5,
     });

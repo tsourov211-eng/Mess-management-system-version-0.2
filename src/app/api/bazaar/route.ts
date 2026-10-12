@@ -109,6 +109,7 @@ export async function GET() {
     const breakfastTotalHeads = breakfastMembers + breakfastGuests;
     const lunchTotalHeads = lunchMembers + lunchGuests;
     const dinnerTotalHeads = dinnerMembers + dinnerGuests;
+    const totalMealsToday = breakfastTotalHeads + lunchTotalHeads + dinnerTotalHeads;
 
     const totalMemberPortions = todayMealLogs.reduce(
       (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0),
@@ -131,6 +132,7 @@ export async function GET() {
           breakfast: { members: breakfastMembers, guests: breakfastGuests, total: breakfastTotalHeads },
           lunch: { members: lunchMembers, guests: lunchGuests, total: lunchTotalHeads },
           dinner: { members: dinnerMembers, guests: dinnerGuests, total: dinnerTotalHeads },
+          totalMealsToday,
           totalCookingHeads,
           approvedGuestRequests: todayApprovedGuestMeals.map((g) => ({
             id: g.id,

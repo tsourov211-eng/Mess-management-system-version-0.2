@@ -5,6 +5,20 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { safeErrorResponse, sanitizeInput } from "@/lib/security";
 
+function getDhakaHour(): number {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dhaka",
+      hour: "numeric",
+      hour12: false,
+    }).formatToParts(new Date());
+    const hourPart = parts.find((p) => p.type === "hour");
+    return hourPart ? parseInt(hourPart.value, 10) : new Date().getHours();
+  } catch {
+    return new Date().getHours();
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -38,10 +52,42 @@ export async function GET(req: Request) {
       },
     });
 
+    const isManagerOrAdmin = user.role === "manager" || user.role === "admin";
+    const currentHour = getDhakaHour();
+
+    const defaultB = user.defaultBreakfast ?? 0.5;
+    const defaultL = user.defaultLunch ?? 1.0;
+    const defaultD = user.defaultDinner ?? 1.0;
+
     const todayStatus = {
-      breakfast: todaysMeal && todaysMeal.breakfast > 0 ? "ON" : "OFF",
-      lunch: todaysMeal && todaysMeal.lunch > 0 ? "ON" : "OFF",
-      dinner: todaysMeal && todaysMeal.dinner > 0 ? "ON" : "OFF",
+      breakfast: todaysMeal ? (todaysMeal.breakfast > 0 ? "ON" : "OFF") : (defaultB > 0 ? "ON" : "OFF"),
+      lunch: todaysMeal ? (todaysMeal.lunch > 0 ? "ON" : "OFF") : (defaultL > 0 ? "ON" : "OFF"),
+      dinner: todaysMeal ? (todaysMeal.dinner > 0 ? "ON" : "OFF") : (defaultD > 0 ? "ON" : "OFF"),
+    };
+
+    const todayCounts = {
+      breakfast: todaysMeal ? todaysMeal.breakfast : (todayStatus.breakfast === "ON" ? defaultB : 0),
+      lunch: todaysMeal ? todaysMeal.lunch : (todayStatus.lunch === "ON" ? defaultL : 0),
+      dinner: todaysMeal ? todaysMeal.dinner : (todayStatus.dinner === "ON" ? defaultD : 0),
+      guest: todaysMeal ? (todaysMeal.guest ?? 0) : 0,
+    };
+
+    const todayTotal = todayCounts.breakfast + todayCounts.lunch + todayCounts.dinner + todayCounts.guest;
+
+    const cutoffs = {
+      breakfast: {
+        passed: !isManagerOrAdmin && currentHour >= 8,
+        time: "8:00 AM",
+      },
+      lunch: {
+        passed: !isManagerOrAdmin && currentHour >= 12,
+        time: "12:00 PM",
+      },
+      dinner: {
+        passed: !isManagerOrAdmin && currentHour >= 21,
+        time: "9:00 PM",
+      },
+      isManagerOrAdmin,
     };
 
     // Determine tomorrow's meal plan (saved or default)
@@ -52,11 +98,22 @@ export async function GET(req: Request) {
       },
     });
 
+    // Check if user previously selected / requested guest meals for tomorrow
+    const tomorrowsGuestReqs = await prisma.guestMealRequest.findMany({
+      where: {
+        userId: user.id,
+        date: { gte: tomorrow, lt: dayAfterTomorrow },
+        status: { in: ["Approved", "Pending"] },
+      },
+    });
+    const tomorrowGuestCountFromReqs = tomorrowsGuestReqs.reduce((sum, r) => sum + (r.guests || 0), 0);
+    const resolvedTomorrowGuests = Math.max(tomorrowsMeal?.guest || 0, tomorrowGuestCountFromReqs);
+
     const tomorrowPlan = {
-      breakfast: tomorrowsMeal ? tomorrowsMeal.breakfast : (user.defaultBreakfast ?? 0.5),
-      lunch: tomorrowsMeal ? tomorrowsMeal.lunch : (user.defaultLunch ?? 1.0),
-      dinner: tomorrowsMeal ? tomorrowsMeal.dinner : (user.defaultDinner ?? 1.0),
-      guest: tomorrowsMeal ? tomorrowsMeal.guest : 0,
+      breakfast: tomorrowsMeal ? tomorrowsMeal.breakfast : defaultB,
+      lunch: tomorrowsMeal ? tomorrowsMeal.lunch : defaultL,
+      dinner: tomorrowsMeal ? tomorrowsMeal.dinner : defaultD,
+      guest: resolvedTomorrowGuests,
     };
 
     // Fetch monthly meal history
@@ -80,7 +137,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(
-      { success: true, todayStatus, tomorrowPlan, guestRequests, monthlyMeals },
+      { success: true, todayStatus, todayCounts, todayTotal, cutoffs, tomorrowPlan, guestRequests, monthlyMeals },
       { status: 200 }
     );
   } catch (error) {
@@ -120,18 +177,20 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: false, error: "Invalid meal type" }, { status: 400 });
     }
 
-    // Cutoff time validation
-    const now = new Date();
-    const currentHour = now.getHours();
+    // Cutoff time validation (managers and admins can override)
+    const isManagerOrAdmin = user.role === "manager" || user.role === "admin";
+    const currentHour = getDhakaHour();
 
-    if (meal === "breakfast" && currentHour >= 8) {
-      return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
-    }
-    if (meal === "lunch" && currentHour >= 12) {
-      return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
-    }
-    if (meal === "dinner" && currentHour >= 21) {
-      return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
+    if (!isManagerOrAdmin) {
+      if (meal === "breakfast" && currentHour >= 8) {
+        return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
+      }
+      if (meal === "lunch" && currentHour >= 12) {
+        return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
+      }
+      if (meal === "dinner" && currentHour >= 21) {
+        return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
+      }
     }
 
     const today = new Date();
@@ -166,7 +225,32 @@ export async function PATCH(req: Request) {
       dinner: updatedLog.dinner > 0 ? "ON" : "OFF",
     };
 
-    return NextResponse.json({ success: true, todayStatus, mealLog: updatedLog }, { status: 200 });
+    const todayCounts = {
+      breakfast: updatedLog.breakfast,
+      lunch: updatedLog.lunch,
+      dinner: updatedLog.dinner,
+      guest: updatedLog.guest ?? 0,
+    };
+
+    const todayTotal = todayCounts.breakfast + todayCounts.lunch + todayCounts.dinner + todayCounts.guest;
+
+    const cutoffs = {
+      breakfast: {
+        passed: !isManagerOrAdmin && currentHour >= 8,
+        time: "8:00 AM",
+      },
+      lunch: {
+        passed: !isManagerOrAdmin && currentHour >= 12,
+        time: "12:00 PM",
+      },
+      dinner: {
+        passed: !isManagerOrAdmin && currentHour >= 21,
+        time: "9:00 PM",
+      },
+      isManagerOrAdmin,
+    };
+
+    return NextResponse.json({ success: true, todayStatus, todayCounts, todayTotal, cutoffs, mealLog: updatedLog }, { status: 200 });
   } catch (error) {
     return safeErrorResponse(error, "Failed to toggle today meal");
   }
@@ -224,7 +308,7 @@ export async function POST(req: Request) {
 
     // 2. Daily cutoff enforcement
     if (reqDate.getTime() === todayStart.getTime()) {
-      const currentHour = now.getHours();
+      const currentHour = getDhakaHour();
       const normMeal = cleanMealType.toUpperCase();
       if (normMeal.includes("BREAKFAST") && currentHour >= 8) {
         return NextResponse.json({ success: false, error: "Breakfast cutoff time (8:00 AM) has passed for today" }, { status: 400 });
@@ -232,7 +316,7 @@ export async function POST(req: Request) {
       if (normMeal.includes("LUNCH") && currentHour >= 12) {
         return NextResponse.json({ success: false, error: "Lunch cutoff time (12:00 PM) has passed for today" }, { status: 400 });
       }
-      if (normMeal.includes("DINNER") && currentHour >= 21) {
+      if (normMeal.includes("DINNER") && !normMeal.includes("BREAKFAST") && !normMeal.includes("LUNCH") && currentHour >= 21) {
         return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
       }
       if ((normMeal.includes("ALL") || normMeal.includes("BOTH")) && currentHour >= 12) {

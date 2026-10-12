@@ -100,7 +100,7 @@ export default function BazaarRequestsPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-4 pb-12">
+        <div className="w-full max-w-md sm:max-w-xl md:max-w-7xl mx-auto space-y-4 md:space-y-6 pb-12">
             {/* Header & Back Navigation */}
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -170,13 +170,13 @@ export default function BazaarRequestsPage() {
                     <p className="text-xs text-gray-400 font-medium">All member date schedule requests have been reviewed.</p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {requests.map((item, idx) => {
                         const isSelected = selectedIds.includes(item.id);
                         return (
                             <div 
                                 key={item.id} 
-                                className={`bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 border transition-all shadow-sm space-y-3.5 ${
+                                className={`bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 border transition-all shadow-sm hover:shadow-md space-y-3.5 flex flex-col justify-between ${
                                     isSelected ? "border-orange-300 bg-orange-50/30" : "border-gray-100 hover:border-orange-100"
                                 }`}
                             >

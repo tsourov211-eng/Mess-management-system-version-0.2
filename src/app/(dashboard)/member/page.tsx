@@ -21,7 +21,9 @@ import {
     IconAlertCircle,
     IconX,
     IconCircleCheck,
-    IconClock
+    IconClock,
+    IconCreditCard,
+    IconTrash
 } from "@tabler/icons-react";
 
 export default function MemberDashboard() {
@@ -61,6 +63,13 @@ export default function MemberDashboard() {
     const [expenseAmount, setExpenseAmount] = useState("");
     const [expenseDetails, setExpenseDetails] = useState("");
     const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+
+    // ─── Payment / Deposit Modal State ───
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [paymentAmount, setPaymentAmount] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState<"Cash" | "bKash" | "Nagad" | "Bank">("Cash");
+    const [paymentNote, setPaymentNote] = useState("");
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
     // ─── Floating Toast Notification ───
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
@@ -298,6 +307,72 @@ export default function MemberDashboard() {
         }
     };
 
+    // ─── Submit Payment / Deposit ───
+    const handlePaymentSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const amountVal = parseFloat(paymentAmount);
+        if (!amountVal || isNaN(amountVal) || amountVal <= 0) {
+            showToast("Please enter a valid payment amount.", "error");
+            return;
+        }
+
+        setIsSubmittingPayment(true);
+        try {
+            const res = await fetch("/api/members/finance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: "payment",
+                    amount: amountVal,
+                    method: paymentMethod,
+                    note: paymentNote.trim() || undefined,
+                }),
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast("Payment request submitted successfully for manager approval!", "success");
+                setPaymentAmount("");
+                setPaymentNote("");
+                setPaymentMethod("Cash");
+                setIsPaymentModalOpen(false);
+            } else {
+                showToast(data.error || "Failed to submit payment request.", "error");
+            }
+        } catch (error) {
+            showToast("An error occurred while submitting payment.", "error");
+        } finally {
+            setIsSubmittingPayment(false);
+        }
+    };
+
+    // ─── Notice Board Handlers ───
+    const handleClearAllNotices = async () => {
+        if (notices.length === 0) return;
+        setNotices([]);
+        showToast("All notices cleared successfully.", "success");
+        try {
+            await fetch("/api/members/clear-notices", { method: "POST" });
+        } catch (error) {
+            console.error("Failed to clear notices:", error);
+        }
+    };
+
+    const handleDismissNotice = async (noticeId: string) => {
+        setNotices((prev) => prev.filter((n) => n.id !== noticeId));
+        setSelectedNotice(null);
+        showToast("Notice dismissed successfully.", "success");
+        try {
+            await fetch("/api/members/clear-notices", { 
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ noticeId }),
+            });
+        } catch (error) {
+            console.error("Failed to dismiss notice:", error);
+        }
+    };
+
     // Top announcement
     const topAnnouncement = notices.length > 0 ? notices[0] : {
         title: `${monthNames[today.getMonth()]} ${today.getFullYear()} expense finalized!`,
@@ -305,7 +380,7 @@ export default function MemberDashboard() {
     };
 
     return (
-        <div className="max-w-md sm:max-w-xl mx-auto space-y-4 pb-12 animate-in fade-in duration-300">
+        <div className="w-full max-w-md sm:max-w-xl md:max-w-7xl mx-auto space-y-4 md:space-y-6 pb-12 animate-in fade-in duration-300">
             
             {/* ─── Floating Toast Notification ─── */}
             {toast && (
@@ -357,17 +432,17 @@ export default function MemberDashboard() {
             ────────────────────────────────────────────────────────── */}
             <div 
                 onClick={() => setSelectedNotice(topAnnouncement)}
-                className="bg-gradient-to-r from-orange-50/95 via-amber-50/90 to-orange-50/95 border border-orange-200/70 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:bg-orange-100/60 transition-all"
+                className="bg-gradient-to-r from-orange-50/95 via-amber-50/90 to-orange-50/95 border border-orange-200/70 rounded-2xl p-3 md:p-4 flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:bg-orange-100/60 transition-all"
             >
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center shrink-0 shadow-sm shadow-orange-500/25">
                         <IconSpeakerphone size={20} stroke={2.2} />
                     </div>
                     <div className="min-w-0">
-                        <h3 className="text-xs font-black text-slate-900 leading-tight truncate">
+                        <h3 className="text-xs md:text-sm font-black text-slate-900 leading-tight truncate">
                             {topAnnouncement.title}
                         </h3>
-                        <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+                        <p className="text-[11px] md:text-xs font-medium text-slate-500 truncate mt-0.5">
                             {topAnnouncement.description}
                         </p>
                     </div>
@@ -376,106 +451,111 @@ export default function MemberDashboard() {
             </div>
 
             {/* ──────────────────────────────────────────────────────────
-                C. "CURRENT BALANCE" HERO CARD (Dark Teal / Forest Theme)
+                C & D. TOP 3 METRICS (Balance, Deposit, Total Meals)
             ────────────────────────────────────────────────────────── */}
-            <div className="bg-gradient-to-br from-[#064e3b] via-[#042f2e] to-[#022c22] text-white rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden border border-emerald-800/40">
-                {/* Decorative Geometric Wave Line */}
-                <svg 
-                    className="absolute right-4 bottom-2 w-36 h-20 text-emerald-400/20 pointer-events-none" 
-                    viewBox="0 0 100 50" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="3" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                >
-                    <path d="M5 40 L35 40 L55 22 L75 32 L95 10" />
-                </svg>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+                
+                {/* 1. "CURRENT BALANCE" HERO CARD */}
+                <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-[#064e3b] via-[#042f2e] to-[#022c22] text-white rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden border border-emerald-800/40 flex flex-col justify-between min-h-[148px] md:min-h-[170px] hover:shadow-2xl transition-shadow">
+                    {/* Decorative Geometric Wave Line */}
+                    <svg 
+                        className="absolute right-4 bottom-2 w-36 h-20 text-emerald-400/20 pointer-events-none" 
+                        viewBox="0 0 100 50" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="3" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                    >
+                        <path d="M5 40 L35 40 L55 22 L75 32 L95 10" />
+                    </svg>
 
-                {/* Top Row: Wallet Icon on Left, Status Badge & Meal Rate on Right */}
-                <div className="flex items-start justify-between relative z-10">
-                    {/* Wallet squircle badge */}
-                    <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-emerald-300 shadow-inner">
-                        <IconWallet size={24} stroke={2.2} />
+                    {/* Top Row: Wallet Icon on Left, Status Badge & Meal Rate on Right */}
+                    <div className="flex items-start justify-between relative z-10">
+                        {/* Wallet squircle badge */}
+                        <div className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-emerald-300 shadow-inner">
+                            <IconWallet size={24} stroke={2.2} />
+                        </div>
+
+                        {/* Right Block: Status Badge + Meal Rate */}
+                        <div className="flex flex-col items-end">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black shadow-sm ${
+                                currentBalance < 0 
+                                    ? "bg-amber-400 text-amber-950" 
+                                    : "bg-[#10b981] text-[#022c22]"
+                            }`}>
+                                <span>{currentBalance < 0 ? "Due ⚠️" : "Refundable"}</span>
+                                {currentBalance >= 0 && <IconRefresh size={13} stroke={2.5} />}
+                            </span>
+
+                            <div className="mt-2 text-right">
+                                <p className="text-[10px] font-bold text-emerald-200/70 tracking-wide uppercase">Meal Rate</p>
+                                <p className="text-sm sm:text-base font-black text-white mt-0.5">
+                                    Tk {liveMealRate.toFixed(2)}
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Right Block: Status Badge + Meal Rate */}
-                    <div className="flex flex-col items-end">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black shadow-sm ${
-                            currentBalance < 0 
-                                ? "bg-amber-400 text-amber-950" 
-                                : "bg-[#10b981] text-[#022c22]"
-                        }`}>
-                            <span>{currentBalance < 0 ? "Due ⚠️" : "Refundable"}</span>
-                            {currentBalance >= 0 && <IconRefresh size={13} stroke={2.5} />}
-                        </span>
-
-                        <div className="mt-2 text-right">
-                            <p className="text-[10px] font-bold text-emerald-200/70 tracking-wide uppercase">Meal Rate</p>
-                            <p className="text-sm sm:text-base font-black text-white mt-0.5">
-                                Tk {liveMealRate.toFixed(2)}
-                            </p>
-                        </div>
+                    {/* Bottom Left: Balance Amount */}
+                    <div className="mt-3 relative z-10">
+                        <p className="text-xs font-semibold text-emerald-200/80 tracking-wide">Current Balance</p>
+                        <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-0.5">
+                            {isLoadingData ? "..." : `Tk ${Math.abs(currentBalance)}`}
+                        </h2>
                     </div>
                 </div>
 
-                {/* Bottom Left: Balance Amount */}
-                <div className="mt-3 relative z-10">
-                    <p className="text-xs font-semibold text-emerald-200/80 tracking-wide">Current Balance</p>
-                    <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-0.5">
-                        {isLoadingData ? "..." : `Tk ${Math.abs(currentBalance)}`}
-                    </h2>
-                </div>
-            </div>
-
-            {/* ──────────────────────────────────────────────────────────
-                D. 2 QUICK STAT CARDS (Side-by-Side Row)
-            ────────────────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 gap-3">
-                {/* 1. Total Deposit */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-500 border border-blue-100/60 flex items-center justify-center shrink-0">
-                            <IconWallet size={20} stroke={2.2} />
+                {/* 2. Total Deposit Card */}
+                <div className="col-span-1 bg-white/95 backdrop-blur-sm rounded-2xl md:rounded-3xl p-3.5 sm:p-4 md:p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[110px] md:min-h-[170px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-50 text-blue-500 border border-blue-100/60 flex items-center justify-center shrink-0 shadow-2xs">
+                            <IconWallet size={22} stroke={2.2} />
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-500 leading-tight truncate">Total Deposit</p>
-                            <p className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">
-                                Tk {isLoadingData ? "..." : totalDeposit}
-                            </p>
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                            <IconChevronRight size={15} stroke={2.5} />
                         </div>
                     </div>
-                    <div className="w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                        <IconChevronRight size={14} stroke={2.5} />
+                    <div className="mt-2 md:mt-4">
+                        <p className="text-xs font-bold text-slate-500 leading-tight">Total Deposit</p>
+                        <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate">
+                            Tk {isLoadingData ? "..." : totalDeposit}
+                        </p>
                     </div>
                 </div>
 
-                {/* 2. My Total Meals */}
+                {/* 3. My Total Meals Card */}
                 <Link 
                     href="/member/my-meals"
-                    className="bg-white/95 backdrop-blur-sm rounded-2xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:bg-orange-50/30 transition-colors"
+                    className="col-span-1 bg-white/95 backdrop-blur-sm rounded-2xl md:rounded-3xl p-3.5 sm:p-4 md:p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[110px] md:min-h-[170px] hover:shadow-md hover:bg-orange-50/20 transition-all group"
                 >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 border border-orange-100/60 flex items-center justify-center shrink-0">
-                            <IconToolsKitchen2 size={20} stroke={2.2} />
+                    <div className="flex items-center justify-between">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-orange-50 text-orange-500 border border-orange-100/60 flex items-center justify-center shrink-0 shadow-2xs">
+                            <IconToolsKitchen2 size={22} stroke={2.2} />
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-500 leading-tight truncate">My Total Meals</p>
-                            <p className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">
-                                {isLoadingData ? "..." : totalMeals}
-                            </p>
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 group-hover:bg-orange-100 group-hover:text-orange-600 flex items-center justify-center text-slate-400 shrink-0 transition-colors">
+                            <IconChevronRight size={15} stroke={2.5} />
                         </div>
                     </div>
-                    <div className="w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                        <IconChevronRight size={14} stroke={2.5} />
+                    <div className="mt-2 md:mt-4">
+                        <p className="text-xs font-bold text-slate-500 leading-tight">My Total Meals</p>
+                        <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate group-hover:text-[#FF6B00] transition-colors">
+                            {isLoadingData ? "..." : totalMeals}
+                        </p>
                     </div>
                 </Link>
+
             </div>
 
-            {/* ──────────────────────────────────────────────────────────
-                E. "THIS MONTH'S BAZAAR & PAYMENT" CONTAINER CARD
-            ────────────────────────────────────────────────────────── */}
-            <div className="bg-white/95 backdrop-blur-sm p-4 sm:p-5 rounded-3xl shadow-sm border border-gray-100">
+            {/* ─── Desktop Multi-Column Grid (Bazaar & Meals on Left 2 cols, Notice Board on Right) ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Left 2 Columns: Bazaar & Recent Meals */}
+                <div className="lg:col-span-2 space-y-4 md:space-y-6">
+                    {/* ──────────────────────────────────────────────────────────
+                        E. "THIS MONTH'S BAZAAR & PAYMENT" CONTAINER CARD
+                    ────────────────────────────────────────────────────────── */}
+                    <div className="bg-white/95 backdrop-blur-sm p-4 sm:p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -610,11 +690,24 @@ export default function MemberDashboard() {
                     <div className="border border-slate-100/90 bg-slate-50/60 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between">
                         <form onSubmit={handleExpenseSubmit} className="flex flex-col justify-between h-full">
                             <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
-                                        <IconFileText size={16} stroke={2.2} />
+                                <div className="flex items-center justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
+                                            <IconShoppingCart size={17} stroke={2.2} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="text-xs font-black text-slate-900 leading-tight">Update Bazar Expense</h3>
+                                            <p className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">If bazar is done, submit the total expense.</p>
+                                        </div>
                                     </div>
-                                    <h3 className="text-xs font-black text-slate-900">Update Bazaar Expense</h3>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPaymentModalOpen(true)}
+                                        className="bg-orange-50/90 text-orange-600 border border-orange-200/70 text-xs font-bold px-3 py-1 rounded-full hover:bg-orange-100 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
+                                    >
+                                        + Submit Payment
+                                    </button>
                                 </div>
 
                                 <div className="space-y-2">
@@ -732,11 +825,14 @@ export default function MemberDashboard() {
                     )}
                 </div>
             </div>
+            </div>
 
-            {/* ──────────────────────────────────────────────────────────
-                G. "NOTICE BOARD" CARD
-            ────────────────────────────────────────────────────────── */}
-            <div className="bg-white/95 backdrop-blur-sm p-4 sm:p-5 rounded-3xl shadow-sm border border-gray-100">
+            {/* Right Column: Notice Board */}
+            <div className="lg:col-span-1">
+                {/* ──────────────────────────────────────────────────────────
+                    G. "NOTICE BOARD" CARD
+                ────────────────────────────────────────────────────────── */}
+                <div className="bg-white/95 backdrop-blur-sm p-4 sm:p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -746,11 +842,20 @@ export default function MemberDashboard() {
                         <h2 className="text-base font-black text-slate-900">Notice Board</h2>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         {notices.length > 0 && (
                             <span className="bg-[#FF6B00] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full">
                                 {notices.length} New
                             </span>
+                        )}
+                        {notices.length > 0 && (
+                            <button 
+                                type="button"
+                                onClick={handleClearAllNotices}
+                                className="text-xs font-semibold text-gray-500 hover:text-rose-600 px-2.5 py-1 rounded-full hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                                Clear All
+                            </button>
                         )}
                         <button 
                             type="button"
@@ -768,8 +873,8 @@ export default function MemberDashboard() {
                         <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
                     ) : notices.length === 0 ? (
                         <div className="py-7 text-center">
-                            <p className="text-xs font-bold text-slate-500">No active notices.</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">You are all caught up!</p>
+                            <p className="text-xs font-bold text-slate-500">All caught up! 🎉 No new notices.</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Check back later for new announcements.</p>
                         </div>
                     ) : (
                         notices.slice(0, 5).map((notice, index) => {
@@ -815,6 +920,8 @@ export default function MemberDashboard() {
                         })
                     )}
                 </div>
+            </div>
+            </div>
             </div>
 
             {/* ─── Popup Calendar Modal: Select Bazaar Date ─── */}
@@ -1010,13 +1117,163 @@ export default function MemberDashboard() {
                             </p>
                         )}
 
-                        <button 
-                            type="button"
-                            onClick={() => setSelectedNotice(null)}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer mt-2"
-                        >
-                            Close
-                        </button>
+                        <div className="flex items-center gap-2.5 pt-2">
+                            <button 
+                                type="button"
+                                onClick={() => handleDismissNotice(selectedNotice.id)}
+                                className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/70 font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                                <IconTrash size={15} stroke={2.2} />
+                                <span>Dismiss</span>
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedNotice(null)}
+                                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Payment / Deposit Submission Modal ─── */}
+            {isPaymentModalOpen && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => !isSubmittingPayment && setIsPaymentModalOpen(false)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-5 sm:p-6 space-y-4 relative z-10 animate-in zoom-in-95 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
+                                    <IconCreditCard size={18} stroke={2.2} />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900 leading-tight">
+                                        Submit Payment
+                                    </h3>
+                                    <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
+                                        Deposit request to manager for verification
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                disabled={isSubmittingPayment}
+                                onClick={() => setIsPaymentModalOpen(false)}
+                                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                <IconX size={18} stroke={2.5} />
+                            </button>
+                        </div>
+
+                        {/* Modal Form */}
+                        <form onSubmit={handlePaymentSubmit} className="space-y-3.5">
+                            {/* 1. Payment / Deposit Amount */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Payment / Deposit Amount (৳) <span className="text-orange-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        step="any"
+                                        value={paymentAmount} 
+                                        onChange={(e) => setPaymentAmount(e.target.value)} 
+                                        placeholder="Enter amount (e.g. 2000)" 
+                                        className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-2xs font-bold" 
+                                        required 
+                                        autoFocus
+                                    />
+                                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm pointer-events-none">
+                                        ৳
+                                    </span>
+                                </div>
+
+                                {/* Quick Amount Chips */}
+                                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                    {[500, 1000, 2000, 3000, 5000].map((amt) => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => setPaymentAmount(String(amt))}
+                                            className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 text-slate-600 transition-colors cursor-pointer"
+                                        >
+                                            +৳{amt.toLocaleString()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 2. Payment Method */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Payment Method <span className="text-orange-500">*</span>
+                                </label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {[
+                                        { id: "Cash" as const, label: "Cash" },
+                                        { id: "bKash" as const, label: "bKash" },
+                                        { id: "Nagad" as const, label: "Nagad" },
+                                        { id: "Bank" as const, label: "Bank Transfer" },
+                                    ].map((pm) => (
+                                        <button
+                                            key={pm.id}
+                                            type="button"
+                                            onClick={() => setPaymentMethod(pm.id)}
+                                            className={`py-2 px-2.5 rounded-xl border text-xs font-bold text-center transition-all cursor-pointer ${
+                                                paymentMethod === pm.id
+                                                    ? "bg-orange-50 border-orange-500 text-orange-600 shadow-2xs ring-1 ring-orange-500/20"
+                                                    : "bg-slate-50/80 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                            }`}
+                                        >
+                                            {pm.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 3. Trx ID / Note */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Trx ID / Note <span className="text-slate-400 font-normal">(Optional)</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={paymentNote} 
+                                    onChange={(e) => setPaymentNote(e.target.value)} 
+                                    placeholder="E.g. TrxID: 9X8Y7Z... or cash reference" 
+                                    className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-2xs" 
+                                />
+                            </div>
+
+                            {/* Modal Action Buttons */}
+                            <div className="flex items-center justify-end gap-2.5 pt-2">
+                                <button
+                                    type="button"
+                                    disabled={isSubmittingPayment}
+                                    onClick={() => setIsPaymentModalOpen(false)}
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingPayment || !paymentAmount}
+                                    className="flex-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 disabled:opacity-50 text-white text-xs font-extrabold shadow-md shadow-orange-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                >
+                                    <IconSend size={15} stroke={2.5} />
+                                    <span>{isSubmittingPayment ? "Submitting..." : "Submit to Manager"}</span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

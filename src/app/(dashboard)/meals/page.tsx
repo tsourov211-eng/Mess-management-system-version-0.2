@@ -465,10 +465,10 @@ export default function FoodManagementPage() {
             {/* ═══════════════════════════════════════════════════════════════════
                 DESKTOP VIEW: Spacious Responsive Layout
                ═══════════════════════════════════════════════════════════════════ */}
-            <div className="hidden md:block max-w-5xl mx-auto space-y-6">
+            <div className="hidden md:block max-w-7xl mx-auto space-y-6">
                 
                 {/* Header Section */}
-                <div className="flex items-center justify-between gap-5 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between gap-5 bg-white/95 backdrop-blur-sm p-6 lg:p-7 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Food Management</h1>
                         <p className="text-slate-500 text-sm mt-1 font-medium">Manage daily meals, track consumption and calculate meal rates.</p>
@@ -484,41 +484,62 @@ export default function FoodManagementPage() {
                     </button>
                 </div>
 
-                {/* Quick Stats Grid */}
-                <div className="grid grid-cols-3 gap-6">
-                    <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#FFF5ED] text-[#FF6B00] flex items-center justify-center shadow-2xs">
-                            <IconToolsKitchen2 size={24} stroke={2.2} />
+                {/* Quick Stats Grid with Pastel Highlights & Subtle Curves */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Total Meals */}
+                    <div className="bg-gradient-to-b from-[#FFF5ED] via-[#FFEADB] to-[#FED7AA]/50 p-5 lg:p-6 rounded-3xl border border-orange-200/40 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                        <svg className="absolute -bottom-1 -right-1 w-32 h-18 pointer-events-none opacity-30 text-orange-400" viewBox="0 0 100 50" fill="currentColor">
+                            <path d="M0,35 C20,20 50,45 80,25 C90,18 95,20 100,15 L100,50 L0,50 Z" />
+                        </svg>
+
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-11 h-11 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                                <IconToolsKitchen2 size={22} stroke={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-400">Total Meals Today</p>
-                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">{stats.totalMealsToday}</h3>
+                        <div className="z-10 mt-3">
+                            <p className="text-xs font-bold text-gray-500">Total Meals Today</p>
+                            <h3 className="text-2xl lg:text-3xl font-black text-slate-900 mt-0.5">{stats.totalMealsToday}</h3>
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] text-[#3B82F6] flex items-center justify-center shadow-2xs">
-                            <Coins size={24} strokeWidth={2.2} />
+                    {/* Live Meal Rate */}
+                    <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 p-5 lg:p-6 rounded-3xl border border-purple-200/40 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                        <svg className="absolute -bottom-1 -right-1 w-32 h-18 pointer-events-none opacity-30 text-purple-400" viewBox="0 0 100 50" fill="currentColor">
+                            <path d="M0,35 C20,20 50,45 80,25 C90,18 95,20 100,15 L100,50 L0,50 Z" />
+                        </svg>
+
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-11 h-11 rounded-2xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+                                <Coins size={22} strokeWidth={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-400">Live Meal Rate</p>
-                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">Tk {Number(stats.currentMealRate || 0).toFixed(2)}</h3>
+                        <div className="z-10 mt-3">
+                            <p className="text-xs font-bold text-gray-500">Live Meal Rate</p>
+                            <h3 className="text-2xl lg:text-3xl font-black text-slate-900 mt-0.5">Tk {Number(stats.currentMealRate || 0).toFixed(2)}</h3>
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#F0FDF4] text-[#10B981] flex items-center justify-center shadow-2xs">
-                            <IconShoppingBag size={24} stroke={2.2} />
+                    {/* Today's Bazaar */}
+                    <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 p-5 lg:p-6 rounded-3xl border border-emerald-200/40 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                        <svg className="absolute -bottom-1 -right-1 w-32 h-18 pointer-events-none opacity-30 text-emerald-400" viewBox="0 0 100 50" fill="currentColor">
+                            <path d="M0,35 C20,20 50,45 80,25 C90,18 95,20 100,15 L100,50 L0,50 Z" />
+                        </svg>
+
+                        <div className="flex items-center justify-between z-10">
+                            <div className="w-11 h-11 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                                <IconShoppingBag size={22} stroke={2.2} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-400">Today's Bazaar</p>
-                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">Tk {Math.round(stats.todayBazaar)}</h3>
+                        <div className="z-10 mt-3">
+                            <p className="text-xs font-bold text-gray-500">Today's Bazaar</p>
+                            <h3 className="text-2xl lg:text-3xl font-black text-slate-900 mt-0.5">Tk {Math.round(stats.todayBazaar)}</h3>
                         </div>
                     </div>
                 </div>
 
                 {/* Daily Meal Entry Card (Desktop) */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
                     
                     {/* Date Navigation Bar */}
                     <div className="p-6 border-b border-gray-100 flex items-center justify-between gap-4 bg-slate-50/50">
