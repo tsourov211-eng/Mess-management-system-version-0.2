@@ -11,6 +11,7 @@ import {
     IconToolsKitchen2, 
     IconReceipt, 
     IconChartBar,
+    IconChartLine,
     IconSettings,
     IconMenu2, 
     IconX, 
@@ -165,45 +166,136 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const isAdmin = basePath === "admin";
 
-    const getSidebarLinks = () => {
-        if (basePath === "admin") {
-            return [
-                { name: "Dashboard", href: "/admin", icon: IconHome },
-                { name: "Members", href: "/members-list", icon: IconUsers },
-                { name: "Food Management", href: "/meals", icon: IconToolsKitchen2 },
-                { name: "Expenses", href: "/bazaar", icon: IconReceipt },
-                { name: "Reports", href: "/reports", icon: IconChartBar },
-                { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
-                { name: "My Profile", href: `/${basePath}/profile`, icon: IconUser }, 
-                { name: "Settings", href: "/settings", icon: IconSettings },
-            ];
-        }
-        
-        if (basePath === "manager") {
-            return [
-                { name: "Dashboard", href: "/manager", icon: IconHome },
-                { name: "Members", href: "/members-list", icon: IconUsers },
-                { name: "Food Management", href: "/meals", icon: IconToolsKitchen2 },
-                { name: "Expenses", href: "/bazaar", icon: IconReceipt },
-                { name: "Reports", href: "/reports", icon: IconChartBar },
-                { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
-                { name: "My Profile", href: `/${basePath}/profile`, icon: IconUser }, 
-            ];
-        }
-        
-        if (basePath === "member") {
-            return [
-                { name: "Dashboard", href: "/member", icon: IconHome },
-                { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 }, 
-                { name: "Reports", href: "/member/reports", icon: IconChartBar }, 
-                { name: "My Profile", href: `/${basePath}/profile`, icon: IconUser }, 
-            ];
-        }
+    interface SidebarLinkItem {
+        name: string;
+        href: string;
+        icon: any;
+    }
 
-        return [];
+    interface SidebarSection {
+        id: string;
+        title: string;
+        badge: string;
+        badgeClass: string;
+        items: SidebarLinkItem[];
+    }
+
+    const isLinkActive = (href: string) => {
+        if (href === "/admin") {
+            return pathname === "/admin";
+        }
+        if (href === "/member") {
+            return pathname === "/member";
+        }
+        if (href === "/manager") {
+            return pathname === "/manager";
+        }
+        if (href === "/reports") {
+            return (pathname === "/reports" || pathname.startsWith("/reports/")) && !pathname.includes("/member");
+        }
+        if (href === "/member/reports") {
+            return pathname === "/member/reports" || pathname.startsWith("/member/reports/");
+        }
+        if (href === "/profile") {
+            return (
+                pathname === "/profile" || 
+                pathname.startsWith("/profile/") || 
+                pathname === "/admin/profile" || 
+                pathname === "/member/profile" || 
+                pathname === "/manager/profile"
+            );
+        }
+        if (href === "/bazaar") {
+            return pathname === "/bazaar" || pathname.startsWith("/bazaar/") || pathname === "/expenses" || pathname.startsWith("/expenses/");
+        }
+        if (href === "/members-list") {
+            return pathname === "/members-list" || pathname.startsWith("/members-list/") || pathname === "/admin/add-member";
+        }
+        if (href === "/member/my-meals") {
+            return pathname === "/member/my-meals" || pathname.startsWith("/member/my-meals/") || pathname === "/my-meals";
+        }
+        return pathname === href || pathname.startsWith(`${href}/`);
     };
 
-    const sidebarLinks = getSidebarLinks();
+    const getSidebarSections = (): SidebarSection[] => {
+        if (basePath === "admin") {
+            return [
+                {
+                    id: "admin-workspace",
+                    title: "ADMIN WORKSPACE",
+                    badge: "ADMIN",
+                    badgeClass: "bg-[#FFEDE1] text-[#FF6B00]",
+                    items: [
+                        { name: "Admin Dashboard", href: "/admin", icon: IconHome },
+                        { name: "Monthly Expense", href: "/admin/monthly-expense", icon: IconCalendarEvent },
+                        { name: "Members", href: "/members-list", icon: IconUsers },
+                        { name: "Food Management", href: "/meals", icon: IconToolsKitchen2 },
+                        { name: "Expenses", href: "/bazaar", icon: IconReceipt },
+                        { name: "Reports", href: "/reports", icon: IconChartBar },
+                    ],
+                },
+                {
+                    id: "member-account",
+                    title: "MY MEMBER ACCOUNT",
+                    badge: "PERSONAL",
+                    badgeClass: "bg-[#DCFCE7] text-[#16A34A]",
+                    items: [
+                        { name: "Member Dashboard", href: "/member", icon: IconUser },
+                        { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
+                        { name: "My Financial Reports", href: "/member/reports", icon: IconChartLine },
+                        { name: "My Profile", href: "/profile", icon: IconUser },
+                    ],
+                },
+            ];
+        }
+
+        if (basePath === "manager") {
+            return [
+                {
+                    id: "manager-workspace",
+                    title: "MANAGER WORKSPACE",
+                    badge: "MANAGER",
+                    badgeClass: "bg-purple-100 text-purple-700",
+                    items: [
+                        { name: "Manager Dashboard", href: "/manager", icon: IconHome },
+                        { name: "Members", href: "/members-list", icon: IconUsers },
+                        { name: "Food Management", href: "/meals", icon: IconToolsKitchen2 },
+                        { name: "Expenses", href: "/bazaar", icon: IconReceipt },
+                        { name: "Reports", href: "/reports", icon: IconChartBar },
+                    ],
+                },
+                {
+                    id: "member-account",
+                    title: "MY MEMBER ACCOUNT",
+                    badge: "PERSONAL",
+                    badgeClass: "bg-[#DCFCE7] text-[#16A34A]",
+                    items: [
+                        { name: "Member Dashboard", href: "/member", icon: IconUser },
+                        { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
+                        { name: "My Financial Reports", href: "/member/reports", icon: IconChartLine },
+                        { name: "My Profile", href: "/profile", icon: IconUser },
+                    ],
+                },
+            ];
+        }
+
+        return [
+            {
+                id: "member-account",
+                title: "MY MEMBER ACCOUNT",
+                badge: "PERSONAL",
+                badgeClass: "bg-[#DCFCE7] text-[#16A34A]",
+                items: [
+                    { name: "Member Dashboard", href: "/member", icon: IconUser },
+                    { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
+                    { name: "My Financial Reports", href: "/member/reports", icon: IconChartLine },
+                    { name: "My Profile", href: "/profile", icon: IconUser },
+                ],
+            },
+        ];
+    };
+
+    const sidebarSections = getSidebarSections();
 
     const roleTitle = getUserDisplayRole(sessionRole || basePath);
 
@@ -227,7 +319,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* ─── Decorative Background ─── */}
                 <div className="absolute inset-0 bg-[url('/sidebar_bg.png')] bg-no-repeat bg-cover bg-center z-0 pointer-events-none"></div>
 
-                <div className="pt-8 pb-6 flex items-center justify-center relative z-10">
+                <div className="pt-7 pb-5 flex items-center justify-center relative z-10">
                     <Link href={`/${basePath}`} className="flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
                         <Image src="/logo.png" alt="Amader Mess" width={160} height={160} className="w-32 h-auto object-contain drop-shadow-sm" priority />
                     </Link>
@@ -236,33 +328,58 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto scrollbar-hide px-3 py-2 flex flex-col relative z-10">
-                    <nav className="space-y-2">
-                        {sidebarLinks.map((link) => {
-                            const isActive = link.name === "Dashboard" 
-                                ? pathname === link.href 
-                                : pathname === link.href || pathname.startsWith(`${link.href}/`);
+                <div className="flex-1 overflow-y-auto scrollbar-hide px-3 py-1 flex flex-col relative z-10">
+                    <nav className="space-y-4">
+                        {sidebarSections.map((section, sectionIdx) => (
+                            <div key={section.id}>
+                                {sectionIdx > 0 && (
+                                    <div className="my-3.5 mx-1 border-t border-gray-200/80" />
+                                )}
                                 
-                            const Icon = link.icon;
-                            return (
-                                <Link 
-                                    key={link.name} 
-                                    href={link.href}
-                                    className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all font-bold text-[15px] cursor-pointer ${isActive ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20" : "text-gray-600 hover:bg-orange-50 hover:text-orange-600"}`}
-                                >
-                                    <Icon size={26} stroke={isActive ? 2.5 : 2} />
-                                    {link.name}
-                                </Link>
-                            );
-                        })}
+                                <div className="flex items-center justify-between px-3 pt-1 pb-2">
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                                        {section.title}
+                                    </span>
+                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${section.badgeClass}`}>
+                                        {section.badge}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-1 mt-0.5">
+                                    {section.items.map((link) => {
+                                        const isActive = isLinkActive(link.href);
+                                        const Icon = link.icon;
+                                        return (
+                                            <Link 
+                                                key={link.name} 
+                                                href={link.href}
+                                                onClick={() => setIsSidebarOpen(false)}
+                                                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl transition-all font-bold text-[14px] cursor-pointer group ${
+                                                    isActive 
+                                                        ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/25" 
+                                                        : "text-slate-700 hover:bg-orange-50 hover:text-[#FF6B00]"
+                                                }`}
+                                            >
+                                                <Icon 
+                                                    size={22} 
+                                                    stroke={isActive ? 2.4 : 2} 
+                                                    className={isActive ? "text-white" : "text-slate-600 group-hover:text-[#FF6B00] transition-colors"} 
+                                                />
+                                                <span className="truncate">{link.name}</span>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </nav>
 
-                    <div className="text-center mt-auto py-6">
-                        <div className="flex justify-center mb-2 text-[#D98A6C]">
-                           <IconToolsKitchen2 size={36} stroke={1.5} />
+                    <div className="text-center mt-auto pt-6 pb-2">
+                        <div className="flex justify-center mb-1 text-[#D98A6C]">
+                           <IconToolsKitchen2 size={26} stroke={1.5} />
                         </div>
-                        <p className="text-[#c36d4b] text-sm font-extrabold tracking-wide">Good Food</p>
-                        <p className="text-[#d89376] text-xs font-bold mt-0.5">Better Together</p>
+                        <p className="text-[#c36d4b] text-xs font-extrabold tracking-wide">Good Food</p>
+                        <p className="text-[#d89376] text-[11px] font-bold">Better Together</p>
                     </div>
                 </div>
 
@@ -427,7 +544,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         </Link>
                                         {/* 💡 Settings Link */}
                                         <Link 
-                                            href={`/${basePath}`} 
+                                            href="/settings" 
                                             onClick={() => setIsProfileOpen(false)}
                                             className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-gray-600 hover:bg-orange-50 hover:text-orange-600 rounded-xl cursor-pointer transition-colors"
                                         >

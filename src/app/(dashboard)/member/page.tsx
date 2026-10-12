@@ -33,6 +33,8 @@ export default function MemberDashboard() {
     const [totalDeposit, setTotalDeposit] = useState(0);
     const [totalMeals, setTotalMeals] = useState(0);
     const [currentBalance, setCurrentBalance] = useState(0);
+    const [fixedCost, setFixedCost] = useState(0);
+    const [totalCost, setTotalCost] = useState(0);
     const [liveMealRate, setLiveMealRate] = useState(0);
     const [recentMeals, setRecentMeals] = useState<any[]>([]);
     const [notices, setNotices] = useState<any[]>([]);
@@ -91,10 +93,12 @@ export default function MemberDashboard() {
                 const res = await fetch("/api/members/dashboard-data");
                 if (res.ok) {
                     const data = await res.json();
-                    setTotalDeposit(data.stats.totalDeposit);
-                    setTotalMeals(data.stats.totalMeals);
-                    setCurrentBalance(data.stats.currentBalance);
-                    setLiveMealRate(data.stats.liveMealRate);
+                    setTotalDeposit(data.stats.totalDeposit || 0);
+                    setTotalMeals(data.stats.totalMeals || 0);
+                    setCurrentBalance(data.stats.currentBalance ?? 0);
+                    setFixedCost(data.stats.fixedCost || 0);
+                    setTotalCost(data.stats.totalCost || 0);
+                    setLiveMealRate(data.stats.liveMealRate || 0);
                     setRecentMeals(data.recentMeals || []);
                     setNotices(data.notices || []);
                 }
@@ -455,11 +459,17 @@ export default function MemberDashboard() {
             ────────────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
                 
-                {/* 1. "CURRENT BALANCE" HERO CARD */}
-                <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-[#064e3b] via-[#042f2e] to-[#022c22] text-white rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden border border-emerald-800/40 flex flex-col justify-between min-h-[148px] md:min-h-[170px] hover:shadow-2xl transition-shadow">
+                {/* 1. "CURRENT BALANCE / TOTAL DUE" HERO CARD */}
+                <div className={`col-span-2 md:col-span-1 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[148px] md:min-h-[170px] hover:shadow-2xl transition-all ${
+                    currentBalance < 0 
+                        ? "bg-gradient-to-br from-[#881337] via-[#4c0519] to-[#2a040e] border border-rose-800/40 text-white" 
+                        : "bg-gradient-to-br from-[#064e3b] via-[#042f2e] to-[#022c22] border border-emerald-800/40 text-white"
+                }`}>
                     {/* Decorative Geometric Wave Line */}
                     <svg 
-                        className="absolute right-4 bottom-2 w-36 h-20 text-emerald-400/20 pointer-events-none" 
+                        className={`absolute right-4 bottom-2 w-36 h-20 pointer-events-none transition-colors ${
+                            currentBalance < 0 ? "text-rose-400/20" : "text-emerald-400/20"
+                        }`} 
                         viewBox="0 0 100 50" 
                         fill="none" 
                         stroke="currentColor" 
@@ -473,7 +483,9 @@ export default function MemberDashboard() {
                     {/* Top Row: Wallet Icon on Left, Status Badge & Meal Rate on Right */}
                     <div className="flex items-start justify-between relative z-10">
                         {/* Wallet squircle badge */}
-                        <div className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-emerald-300 shadow-inner">
+                        <div className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center shadow-inner ${
+                            currentBalance < 0 ? "text-rose-300" : "text-emerald-300"
+                        }`}>
                             <IconWallet size={24} stroke={2.2} />
                         </div>
 
@@ -489,7 +501,9 @@ export default function MemberDashboard() {
                             </span>
 
                             <div className="mt-2 text-right">
-                                <p className="text-[10px] font-bold text-emerald-200/70 tracking-wide uppercase">Meal Rate</p>
+                                <p className={`text-[10px] font-bold tracking-wide uppercase ${
+                                    currentBalance < 0 ? "text-rose-200/70" : "text-emerald-200/70"
+                                }`}>Meal Rate</p>
                                 <p className="text-sm sm:text-base font-black text-white mt-0.5">
                                     Tk {liveMealRate.toFixed(2)}
                                 </p>
@@ -497,11 +511,29 @@ export default function MemberDashboard() {
                         </div>
                     </div>
 
-                    {/* Bottom Left: Balance Amount */}
+                    {/* Bottom Left: Balance / Due Amount */}
                     <div className="mt-3 relative z-10">
-                        <p className="text-xs font-semibold text-emerald-200/80 tracking-wide">Current Balance</p>
+                        <div className="flex items-center justify-between gap-2">
+                            <p className={`text-xs font-semibold tracking-wide ${
+                                currentBalance < 0 ? "text-rose-200/80" : "text-emerald-200/80"
+                            }`}>
+                                {currentBalance < 0 ? "Total Due (Payable)" : "Current Balance"}
+                            </p>
+                            {fixedCost > 0 && (
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                    currentBalance < 0 
+                                        ? "bg-rose-950/50 text-rose-200 border border-rose-500/30" 
+                                        : "bg-emerald-950/50 text-emerald-200 border border-emerald-500/30"
+                                }`}>
+                                    Overhead: Tk {fixedCost.toLocaleString()}
+                                </span>
+                            )}
+                        </div>
                         <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-0.5">
-                            {isLoadingData ? "..." : `Tk ${Math.abs(currentBalance)}`}
+                            {isLoadingData 
+                                ? "..." 
+                                : `${currentBalance < 0 ? "- Tk " : currentBalance > 0 ? "+ Tk " : "Tk "}${Math.abs(currentBalance).toLocaleString()}`
+                            }
                         </h2>
                     </div>
                 </div>
