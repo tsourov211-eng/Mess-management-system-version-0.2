@@ -13,6 +13,8 @@ import {
     IconCurrencyTaka
 } from "@tabler/icons-react";
 
+import ConfirmModal from "@/components/ConfirmModal";
+
 export default function PaymentsPage() {
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
@@ -21,6 +23,14 @@ export default function PaymentsPage() {
     const [deposits, setDeposits] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [confirmModalState, setConfirmModalState] = useState<{
+        isOpen: boolean;
+        type: "approve" | "reject";
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        onConfirm: () => Promise<void> | void;
+    } | null>(null);
 
     useEffect(() => {
         fetchDeposits();
@@ -41,27 +51,35 @@ export default function PaymentsPage() {
         }
     };
 
-    const handleAction = async (id: string, action: "Approve" | "Reject") => {
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this payment?`)) return;
+    const handleAction = (id: string, action: "Approve" | "Reject") => {
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} Payment`,
+            message: `Are you sure you want to ${action.toLowerCase()} this member payment?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsProcessing(true);
+                try {
+                    const res = await fetch("/api/manager/action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, type: "deposit", action })
+                    });
 
-        setIsProcessing(true);
-        try {
-            const res = await fetch("/api/manager/action", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, type: "deposit", action })
-            });
-
-            if (res.ok) {
-                fetchDeposits();
-            } else {
-                alert(`Failed to ${action.toLowerCase()} payment.`);
+                    if (res.ok) {
+                        setConfirmModalState(null);
+                        fetchDeposits();
+                    } else {
+                        alert(`Failed to ${action.toLowerCase()} payment.`);
+                    }
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    setIsProcessing(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsProcessing(false);
-        }
+        });
     };
 
     return (
@@ -169,6 +187,20 @@ export default function PaymentsPage() {
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* ─── Modern Confirm Modal ─── */}
+            {confirmModalState && (
+                <ConfirmModal 
+                    isOpen={confirmModalState.isOpen}
+                    onClose={() => setConfirmModalState(null)}
+                    onConfirm={confirmModalState.onConfirm}
+                    type={confirmModalState.type}
+                    title={confirmModalState.title}
+                    message={confirmModalState.message}
+                    confirmText={confirmModalState.confirmText}
+                    isLoading={isProcessing}
+                />
             )}
         </div>
     );

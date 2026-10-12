@@ -27,6 +27,7 @@ import {
     IconUser
 } from "@tabler/icons-react";
 import { Coins, Search } from "lucide-react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function ManagerDashboard() {
     const [stats, setStats] = useState({
@@ -48,6 +49,15 @@ export default function ManagerDashboard() {
     const [selectedNotice, setSelectedNotice] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+    const [confirmModalState, setConfirmModalState] = useState<{
+        isOpen: boolean;
+        type: "approve" | "reject" | "danger" | "warning";
+        title: string;
+        message: React.ReactNode;
+        confirmText?: string;
+        onConfirm: () => Promise<void> | void;
+    } | null>(null);
+    const [isConfirmModalLoading, setIsConfirmModalLoading] = useState(false);
 
     const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
         setToast({ message, type });
@@ -182,46 +192,72 @@ export default function ManagerDashboard() {
     };
 
     // Actions for desktop inline queues
-    const handleAction = async (id: string, type: 'deposit' | 'expense' | 'guestMeal', action: 'Approve' | 'Reject') => {
+    const handleAction = (id: string, type: 'deposit' | 'expense' | 'guestMeal', action: 'Approve' | 'Reject') => {
         const label = type === 'guestMeal' ? 'guest meal request' : type;
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this ${label}?`)) return;
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} ${label.charAt(0).toUpperCase() + label.slice(1)}`,
+            message: `Are you sure you want to ${action.toLowerCase()} this ${label}?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const res = await fetch("/api/manager/action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, type, action })
+                    });
 
-        try {
-            const res = await fetch("/api/manager/action", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, type, action })
-            });
-
-            if (res.ok) {
-                fetchDashboardData();
-            } else {
-                alert(`Failed to ${action.toLowerCase()} ${type}.`);
+                    if (res.ok) {
+                        showToast(`✅ ${label.charAt(0).toUpperCase() + label.slice(1)} ${action.toLowerCase()}d successfully!`, "success");
+                        setConfirmModalState(null);
+                        fetchDashboardData();
+                    } else {
+                        showToast(`❌ Failed to ${action.toLowerCase()} ${type}.`, "error");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast(`❌ Error processing ${type}.`, "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-        }
+        });
     };
 
-    const handleScheduleAction = async (id: string, action: 'Approve' | 'Reject') => {
+    const handleScheduleAction = (id: string, action: 'Approve' | 'Reject') => {
         const status = action === 'Approve' ? 'approved' : 'rejected';
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this schedule?`)) return;
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} Bazaar Schedule`,
+            message: `Are you sure you want to ${action.toLowerCase()} this schedule?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const res = await fetch("/api/members/bazaar-schedule", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ scheduleId: id, status })
+                    });
 
-        try {
-            const res = await fetch("/api/members/bazaar-schedule", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ scheduleId: id, status })
-            });
-
-            if (res.ok) {
-                fetchDashboardData();
-            } else {
-                alert(`Failed to ${action.toLowerCase()} schedule.`);
+                    if (res.ok) {
+                        showToast(`✅ Schedule ${status} successfully!`, "success");
+                        setConfirmModalState(null);
+                        fetchDashboardData();
+                    } else {
+                        showToast(`❌ Failed to ${action.toLowerCase()} schedule.`, "error");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("❌ Error processing schedule.", "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-        }
+        });
     };
 
     const handleSelectAllSchedules = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,25 +274,37 @@ export default function ManagerDashboard() {
         );
     };
 
-    const handleApproveSelectedSchedules = async () => {
+    const handleApproveSelectedSchedules = () => {
         if (selectedSchedules.length === 0) return;
-        if (!confirm(`Are you sure you want to approve ${selectedSchedules.length} selected schedule(s)?`)) return;
-        
-        try {
-            const promises = selectedSchedules.map(id => 
-                fetch("/api/members/bazaar-schedule", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ scheduleId: id, status: "approved" })
-                })
-            );
-            await Promise.all(promises);
-            setSelectedSchedules([]);
-            fetchDashboardData();
-        } catch (error) {
-            console.error(error);
-            alert("Failed to approve schedules.");
-        }
+        setConfirmModalState({
+            isOpen: true,
+            type: "approve",
+            title: "Approve Selected Schedules",
+            message: `Are you sure you want to approve ${selectedSchedules.length} selected schedule(s)?`,
+            confirmText: "Approve All",
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const promises = selectedSchedules.map(id => 
+                        fetch("/api/members/bazaar-schedule", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ scheduleId: id, status: "approved" })
+                        })
+                    );
+                    await Promise.all(promises);
+                    setSelectedSchedules([]);
+                    showToast("✅ Selected schedules approved successfully!", "success");
+                    setConfirmModalState(null);
+                    fetchDashboardData();
+                } catch (error) {
+                    console.error(error);
+                    showToast("❌ Failed to approve schedules.", "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
+            }
+        });
     };
 
     return (
@@ -997,6 +1045,38 @@ export default function ManagerDashboard() {
                 </div>
             )}
 
+            {/* ─── Modern Confirm Modal ─── */}
+            {confirmModalState && (
+                <ConfirmModal 
+                    isOpen={confirmModalState.isOpen}
+                    onClose={() => {
+                        if (!isConfirmModalLoading) {
+                            setConfirmModalState(null);
+                        }
+                    }}
+                    onConfirm={confirmModalState.onConfirm}
+                    type={confirmModalState.type}
+                    title={confirmModalState.title}
+                    message={confirmModalState.message}
+                    confirmText={confirmModalState.confirmText}
+                    isLoading={isConfirmModalLoading}
+                />
+            )}
+
+            {/* ─── Floating Toast Notification ─── */}
+            {toast && (
+                <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs sm:text-sm font-bold border transition-all animate-in slide-in-from-top-4 duration-200 ${
+                    toast.type === "success" 
+                        ? "bg-slate-900 text-white border-slate-800" 
+                        : toast.type === "error" 
+                        ? "bg-rose-600 text-white border-rose-700" 
+                        : "bg-indigo-600 text-white border-indigo-700"
+                }`}>
+                    {toast.type === "success" && <IconCheck size={18} className="text-emerald-400" stroke={3} />}
+                    {toast.type === "error" && <IconAlertCircle size={18} className="text-rose-200" stroke={2.5} />}
+                    <span>{toast.message}</span>
+                </div>
+            )}
         </div>
     );
 }

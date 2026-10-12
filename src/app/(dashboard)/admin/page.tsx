@@ -57,6 +57,7 @@ import {
     Calendar
 } from "lucide-react";
 import Link from "next/link";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function AdminDashboardPage() {
     const [users, setUsers] = useState<any[]>([]);
@@ -86,6 +87,15 @@ export default function AdminDashboardPage() {
     const [notices, setNotices] = useState<any[]>([]);
     const [selectedNotice, setSelectedNotice] = useState<any | null>(null);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+    const [confirmModalState, setConfirmModalState] = useState<{
+        isOpen: boolean;
+        type: "approve" | "reject" | "danger" | "warning";
+        title: string;
+        message: React.ReactNode;
+        confirmText?: string;
+        onConfirm: () => Promise<void> | void;
+    } | null>(null);
+    const [isConfirmModalLoading, setIsConfirmModalLoading] = useState(false);
 
     const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
         setToast({ message, type });
@@ -215,52 +225,74 @@ export default function AdminDashboardPage() {
     };
 
     // Actions for operational queues (deposits, expenses, guest meals)
-    const handleQueueAction = async (id: string, type: 'deposit' | 'expense' | 'guestMeal', action: 'Approve' | 'Reject') => {
+    const handleQueueAction = (id: string, type: 'deposit' | 'expense' | 'guestMeal', action: 'Approve' | 'Reject') => {
         const label = type === 'guestMeal' ? 'guest meal request' : type;
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this ${label}?`)) return;
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} ${label.charAt(0).toUpperCase() + label.slice(1)}`,
+            message: `Are you sure you want to ${action.toLowerCase()} this ${label}?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const res = await fetch("/api/manager/action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, type, action })
+                    });
 
-        try {
-            const res = await fetch("/api/manager/action", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, type, action })
-            });
-
-            if (res.ok) {
-                showToast(`${label} ${action.toLowerCase()}d successfully.`, "success");
-                fetchDashboardData();
-                fetchUsers();
-            } else {
-                showToast(`Failed to ${action.toLowerCase()} ${type}.`, "error");
+                    if (res.ok) {
+                        showToast(`✅ ${label.charAt(0).toUpperCase() + label.slice(1)} ${action.toLowerCase()}d successfully.`, "success");
+                        setConfirmModalState(null);
+                        fetchDashboardData();
+                        fetchUsers();
+                    } else {
+                        showToast(`❌ Failed to ${action.toLowerCase()} ${type}.`, "error");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast(`❌ Error processing ${type}.`, "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-            showToast(`Error processing ${type}.`, "error");
-        }
+        });
     };
 
-    const handleScheduleAction = async (id: string, action: 'Approve' | 'Reject') => {
+    const handleScheduleAction = (id: string, action: 'Approve' | 'Reject') => {
         const status = action === 'Approve' ? 'approved' : 'rejected';
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this schedule?`)) return;
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} Bazaar Schedule`,
+            message: `Are you sure you want to ${action.toLowerCase()} this schedule request?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const res = await fetch("/api/members/bazaar-schedule", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ scheduleId: id, status })
+                    });
 
-        try {
-            const res = await fetch("/api/members/bazaar-schedule", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ scheduleId: id, status })
-            });
-
-            if (res.ok) {
-                showToast(`Schedule ${status} successfully.`, "success");
-                fetchDashboardData();
-                fetchUsers();
-            } else {
-                showToast(`Failed to ${action.toLowerCase()} schedule.`, "error");
+                    if (res.ok) {
+                        showToast(`✅ Schedule ${status} successfully.`, "success");
+                        setConfirmModalState(null);
+                        fetchDashboardData();
+                        fetchUsers();
+                    } else {
+                        showToast(`❌ Failed to ${action.toLowerCase()} schedule.`, "error");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("❌ Error processing schedule.", "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-            showToast("Error processing schedule.", "error");
-        }
+        });
     };
 
     const handleSelectAllSchedules = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,27 +309,38 @@ export default function AdminDashboardPage() {
         );
     };
 
-    const handleApproveSelectedSchedules = async () => {
+    const handleApproveSelectedSchedules = () => {
         if (selectedSchedules.length === 0) return;
-        if (!confirm(`Are you sure you want to approve ${selectedSchedules.length} selected schedule(s)?`)) return;
-        
-        try {
-            const promises = selectedSchedules.map(id => 
-                fetch("/api/members/bazaar-schedule", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ scheduleId: id, status: "approved" })
-                })
-            );
-            await Promise.all(promises);
-            setSelectedSchedules([]);
-            showToast("Selected schedules approved successfully.", "success");
-            fetchDashboardData();
-            fetchUsers();
-        } catch (error) {
-            console.error(error);
-            showToast("Failed to approve schedules.", "error");
-        }
+        setConfirmModalState({
+            isOpen: true,
+            type: "approve",
+            title: "Approve Selected Schedules",
+            message: `Are you sure you want to approve ${selectedSchedules.length} selected schedule(s)?`,
+            confirmText: "Approve All",
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const promises = selectedSchedules.map(id => 
+                        fetch("/api/members/bazaar-schedule", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ scheduleId: id, status: "approved" })
+                        })
+                    );
+                    await Promise.all(promises);
+                    setSelectedSchedules([]);
+                    showToast("✅ Selected schedules approved successfully.", "success");
+                    setConfirmModalState(null);
+                    fetchDashboardData();
+                    fetchUsers();
+                } catch (error) {
+                    console.error(error);
+                    showToast("❌ Failed to approve schedules.", "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
+            }
+        });
     };
 
     const fetchMobileDashboardData = async () => {
@@ -337,25 +380,37 @@ export default function AdminDashboardPage() {
     };
 
     // Function to update user role
-    const handleRoleChange = async (userId: string, newRole: string) => {
-        if (!confirm(`Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`)) return;
+    const handleRoleChange = (userId: string, newRole: string) => {
+        setConfirmModalState({
+            isOpen: true,
+            type: "warning",
+            title: "Change Member Role",
+            message: `Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`,
+            confirmText: "Change Role",
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const res = await fetch("/api/admin/users", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId, newRole })
+                    });
 
-        try {
-            const res = await fetch("/api/admin/users", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, newRole })
-            });
-
-            if (res.ok) {
-                alert(`✅ User role updated successfully!`);
-                fetchUsers(); // Refresh data
-            } else {
-                alert("❌ Failed to update role.");
+                    if (res.ok) {
+                        showToast(`✅ User role updated to ${newRole.toUpperCase()}!`, "success");
+                        setConfirmModalState(null);
+                        fetchUsers();
+                    } else {
+                        showToast("❌ Failed to update role.", "error");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("❌ Error updating role.", "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-        }
+        });
     };
 
     const handleEditClick = (user: any) => {
@@ -378,37 +433,83 @@ export default function AdminDashboardPage() {
             });
 
             if (res.ok) {
-                alert(`✅ User updated successfully!`);
+                showToast("✅ User updated successfully!", "success");
                 setIsEditModalOpen(false);
                 fetchUsers();
             } else {
-                alert("❌ Failed to update user.");
+                showToast("❌ Failed to update user.", "error");
             }
         } catch (error) {
             console.error(error);
+            showToast("❌ Network error.", "error");
         }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (!confirm("Are you sure you want to completely DELETE this user? This action cannot be undone and will delete all their financial records.")) return;
-        
-        try {
-            const res = await fetch(`/api/admin/users?userId=${userId}`, {
-                method: "DELETE",
+    const handleDeleteUser = (userId: string) => {
+        setConfirmModalState({
+            isOpen: true,
+            type: "danger",
+            title: "Delete Member",
+            message: "Are you sure you want to completely DELETE this user? This action cannot be undone and will delete all their financial records.",
+            confirmText: "Delete User",
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const res = await fetch(`/api/admin/users?userId=${userId}`, {
+                        method: "DELETE",
+                    });
+                    if (res.ok) {
+                        showToast("✅ User deleted successfully!", "success");
+                        setConfirmModalState(null);
+                        fetchUsers();
+                    } else {
+                        showToast("❌ Failed to delete user.", "error");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("❌ Error deleting user.", "error");
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
+            }
+        });
+    };
+
+    const handleMemberApproval = (user: { id: string; name?: string; email?: string }, action: 'approve' | 'reject') => {
+        const memberName = user.name || "Member";
+        const email = user.email || "";
+
+        if (action === "approve") {
+            setConfirmModalState({
+                isOpen: true,
+                type: "approve",
+                title: "Approve Member Request",
+                message: `Are you sure you want to approve ${memberName} (${email}) to join this mess? They will be granted active member access.`,
+                confirmText: "Approve Member",
+                onConfirm: async () => {
+                    await executeMemberApproval(user.id, "approve", memberName);
+                }
             });
-            if (res.ok) {
-                alert("✅ User deleted successfully!");
-                fetchUsers();
-            } else {
-                alert("❌ Failed to delete user.");
-            }
-        } catch (error) {
-            console.error(error);
+        } else {
+            setConfirmModalState({
+                isOpen: true,
+                type: "reject",
+                title: "Reject Member Request",
+                message: `Are you sure you want to decline ${memberName}'s request to join? This action cannot be undone.`,
+                confirmText: "Reject Request",
+                onConfirm: async () => {
+                    await executeMemberApproval(user.id, "reject", memberName);
+                }
+            });
         }
     };
 
-    const handleMemberApproval = async (userId: string, action: 'approve' | 'reject') => {
-        if (!confirm(`Are you sure you want to ${action} this member?`)) return;
+    const executeMemberApproval = async (userId: string, action: 'approve' | 'reject', memberName: string) => {
+        setIsConfirmModalLoading(true);
+
+        // Optimistic UI update: Remove member from pending list immediately
+        const previousPending = [...pendingMembers];
+        setPendingMembers(prev => prev.filter(u => u.id !== userId));
 
         try {
             const res = await fetch("/api/admin/users/approve", {
@@ -418,13 +519,25 @@ export default function AdminDashboardPage() {
             });
 
             if (res.ok) {
-                alert(`✅ Member ${action}d successfully!`);
+                showToast(
+                    action === "approve"
+                        ? `✅ ${memberName} was approved successfully!`
+                        : `✅ ${memberName}'s request was rejected.`,
+                    "success"
+                );
+                setConfirmModalState(null);
                 fetchUsers();
             } else {
-                alert(`❌ Failed to ${action} member.`);
+                const data = await res.json().catch(() => ({}));
+                setPendingMembers(previousPending);
+                showToast(data.error || `❌ Failed to ${action} member.`, "error");
             }
         } catch (error) {
             console.error(error);
+            setPendingMembers(previousPending);
+            showToast(`❌ Network error while trying to ${action} member.`, "error");
+        } finally {
+            setIsConfirmModalLoading(false);
         }
     };
 
@@ -633,13 +746,13 @@ export default function AdminDashboardPage() {
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                         <button 
-                                            onClick={() => handleMemberApproval(user.id, "approve")}
+                                            onClick={() => handleMemberApproval(user, "approve")}
                                             className="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
                                         >
                                             <Check size={12} strokeWidth={3} /> Approve
                                         </button>
                                         <button 
-                                            onClick={() => handleMemberApproval(user.id, "reject")}
+                                            onClick={() => handleMemberApproval(user, "reject")}
                                             className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
                                         >
                                             <X size={12} strokeWidth={3} /> Reject
@@ -2044,6 +2157,24 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ─── Modern Confirm Modal ─── */}
+            {confirmModalState && (
+                <ConfirmModal 
+                    isOpen={confirmModalState.isOpen}
+                    onClose={() => {
+                        if (!isConfirmModalLoading) {
+                            setConfirmModalState(null);
+                        }
+                    }}
+                    onConfirm={confirmModalState.onConfirm}
+                    type={confirmModalState.type}
+                    title={confirmModalState.title}
+                    message={confirmModalState.message}
+                    confirmText={confirmModalState.confirmText}
+                    isLoading={isConfirmModalLoading}
+                />
             )}
         </div>
     );

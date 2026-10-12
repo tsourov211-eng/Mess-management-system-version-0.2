@@ -13,6 +13,8 @@ import {
     IconCalendar
 } from "@tabler/icons-react";
 
+import ConfirmModal from "@/components/ConfirmModal";
+
 export default function BazaarRequestsPage() {
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
@@ -22,6 +24,14 @@ export default function BazaarRequestsPage() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [confirmModalState, setConfirmModalState] = useState<{
+        isOpen: boolean;
+        type: "approve" | "reject";
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        onConfirm: () => Promise<void> | void;
+    } | null>(null);
 
     useEffect(() => {
         fetchRequests();
@@ -43,28 +53,36 @@ export default function BazaarRequestsPage() {
         }
     };
 
-    const handleAction = async (id: string, action: "Approve" | "Reject") => {
+    const handleAction = (id: string, action: "Approve" | "Reject") => {
         const status = action === "Approve" ? "approved" : "rejected";
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this schedule request?`)) return;
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} Bazaar Schedule`,
+            message: `Are you sure you want to ${action.toLowerCase()} this schedule request?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsProcessing(true);
+                try {
+                    const res = await fetch("/api/members/bazaar-schedule", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ scheduleId: id, status })
+                    });
 
-        setIsProcessing(true);
-        try {
-            const res = await fetch("/api/members/bazaar-schedule", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ scheduleId: id, status })
-            });
-
-            if (res.ok) {
-                fetchRequests();
-            } else {
-                alert(`Failed to ${action.toLowerCase()} schedule.`);
+                    if (res.ok) {
+                        setConfirmModalState(null);
+                        fetchRequests();
+                    } else {
+                        alert(`Failed to ${action.toLowerCase()} schedule.`);
+                    }
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    setIsProcessing(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsProcessing(false);
-        }
+        });
     };
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,27 +99,35 @@ export default function BazaarRequestsPage() {
         );
     };
 
-    const handleApproveSelected = async () => {
+    const handleApproveSelected = () => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`Approve ${selectedIds.length} selected schedule(s)?`)) return;
-
-        setIsProcessing(true);
-        try {
-            const promises = selectedIds.map(id =>
-                fetch("/api/members/bazaar-schedule", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ scheduleId: id, status: "approved" })
-                })
-            );
-            await Promise.all(promises);
-            fetchRequests();
-        } catch (error) {
-            console.error(error);
-            alert("Failed to approve selected schedules.");
-        } finally {
-            setIsProcessing(false);
-        }
+        setConfirmModalState({
+            isOpen: true,
+            type: "approve",
+            title: "Approve Selected Schedules",
+            message: `Are you sure you want to approve ${selectedIds.length} selected schedule(s)?`,
+            confirmText: "Approve All",
+            onConfirm: async () => {
+                setIsProcessing(true);
+                try {
+                    const promises = selectedIds.map(id =>
+                        fetch("/api/members/bazaar-schedule", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ scheduleId: id, status: "approved" })
+                        })
+                    );
+                    await Promise.all(promises);
+                    setConfirmModalState(null);
+                    fetchRequests();
+                } catch (error) {
+                    console.error(error);
+                    alert("Failed to approve selected schedules.");
+                } finally {
+                    setIsProcessing(false);
+                }
+            }
+        });
     };
 
     return (
@@ -249,6 +275,20 @@ export default function BazaarRequestsPage() {
                         );
                     })}
                 </div>
+            )}
+
+            {/* ─── Modern Confirm Modal ─── */}
+            {confirmModalState && (
+                <ConfirmModal 
+                    isOpen={confirmModalState.isOpen}
+                    onClose={() => setConfirmModalState(null)}
+                    onConfirm={confirmModalState.onConfirm}
+                    type={confirmModalState.type}
+                    title={confirmModalState.title}
+                    message={confirmModalState.message}
+                    confirmText={confirmModalState.confirmText}
+                    isLoading={isProcessing}
+                />
             )}
         </div>
     );

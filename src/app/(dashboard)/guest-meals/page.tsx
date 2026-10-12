@@ -13,6 +13,8 @@ import {
     IconToolsKitchen2
 } from "@tabler/icons-react";
 
+import ConfirmModal from "@/components/ConfirmModal";
+
 export default function GuestMealsPage() {
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
@@ -21,6 +23,14 @@ export default function GuestMealsPage() {
     const [guestMeals, setGuestMeals] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [confirmModalState, setConfirmModalState] = useState<{
+        isOpen: boolean;
+        type: "approve" | "reject";
+        title: string;
+        message: React.ReactNode;
+        confirmText: string;
+        onConfirm: () => Promise<void> | void;
+    } | null>(null);
 
     useEffect(() => {
         fetchGuestMeals();
@@ -41,27 +51,35 @@ export default function GuestMealsPage() {
         }
     };
 
-    const handleAction = async (id: string, action: "Approve" | "Reject") => {
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this guest meal request?`)) return;
+    const handleAction = (id: string, action: "Approve" | "Reject") => {
+        setConfirmModalState({
+            isOpen: true,
+            type: action === "Approve" ? "approve" : "reject",
+            title: `${action} Guest Meal`,
+            message: `Are you sure you want to ${action.toLowerCase()} this guest meal request?`,
+            confirmText: action,
+            onConfirm: async () => {
+                setIsProcessing(true);
+                try {
+                    const res = await fetch("/api/manager/action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, type: "guestMeal", action })
+                    });
 
-        setIsProcessing(true);
-        try {
-            const res = await fetch("/api/manager/action", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, type: "guestMeal", action })
-            });
-
-            if (res.ok) {
-                fetchGuestMeals();
-            } else {
-                alert(`Failed to ${action.toLowerCase()} guest meal request.`);
+                    if (res.ok) {
+                        setConfirmModalState(null);
+                        fetchGuestMeals();
+                    } else {
+                        alert(`Failed to ${action.toLowerCase()} guest meal request.`);
+                    }
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    setIsProcessing(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsProcessing(false);
-        }
+        });
     };
 
     return (
@@ -174,6 +192,20 @@ export default function GuestMealsPage() {
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* ─── Modern Confirm Modal ─── */}
+            {confirmModalState && (
+                <ConfirmModal 
+                    isOpen={confirmModalState.isOpen}
+                    onClose={() => setConfirmModalState(null)}
+                    onConfirm={confirmModalState.onConfirm}
+                    type={confirmModalState.type}
+                    title={confirmModalState.title}
+                    message={confirmModalState.message}
+                    confirmText={confirmModalState.confirmText}
+                    isLoading={isProcessing}
+                />
             )}
         </div>
     );
