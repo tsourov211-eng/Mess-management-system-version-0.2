@@ -42,14 +42,62 @@ export async function POST(req: Request) {
     const newStatus = action === "Approve" ? "Approved" : "Rejected";
 
     if (type === "deposit") {
-      await prisma.deposit.update({
+      const deposit = await prisma.deposit.findUnique({
         where: { id },
-        data: { status: newStatus },
+      });
+      if (!deposit) {
+        return NextResponse.json({ success: false, error: "Deposit not found" }, { status: 404 });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.deposit.update({
+          where: { id },
+          data: { status: newStatus },
+        });
+
+        const depositTitle = action === "Approve" ? "Deposit Approved" : "Deposit Rejected";
+        const depositDesc = action === "Approve"
+          ? `Your deposit of ৳${deposit.amount.toFixed(2)} (${deposit.category || "Meal Fund"}) has been approved.`
+          : `Your deposit of ৳${deposit.amount.toFixed(2)} (${deposit.category || "Meal Fund"}) has been rejected.`;
+
+        await tx.notice.create({
+          data: {
+            userId: deposit.userId,
+            title: depositTitle,
+            description: depositDesc,
+            type: "payment",
+            isActive: true,
+          },
+        });
       });
     } else if (type === "expense") {
-      await prisma.expense.update({
+      const expense = await prisma.expense.findUnique({
         where: { id },
-        data: { status: newStatus },
+      });
+      if (!expense) {
+        return NextResponse.json({ success: false, error: "Expense not found" }, { status: 404 });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.expense.update({
+          where: { id },
+          data: { status: newStatus },
+        });
+
+        const expTitle = action === "Approve" ? "Expense Approved" : "Expense Rejected";
+        const expDesc = action === "Approve"
+          ? `Your expense of ৳${expense.amount.toFixed(2)} (${expense.description || "Bazaar"}) has been approved.`
+          : `Your expense of ৳${expense.amount.toFixed(2)} (${expense.description || "Bazaar"}) has been rejected.`;
+
+        await tx.notice.create({
+          data: {
+            userId: expense.userId,
+            title: expTitle,
+            description: expDesc,
+            type: "bazaar",
+            isActive: true,
+          },
+        });
       });
     } else if (type === "guestMeal") {
       const guestReq = await prisma.guestMealRequest.findUnique({
@@ -122,7 +170,7 @@ export async function POST(req: Request) {
           });
         }
 
-        // 3. Create a notification notice for the member
+        // 3. Create a personal notification notice for the requesting member
         const dateFormatted = reqDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         const requestUnits = calculateGuestMealUnits(guestReq.guests, guestReq.mealType);
         const noticeTitle = action === "Approve" ? "Guest Meal Approved" : "Guest Meal Rejected";
@@ -132,9 +180,10 @@ export async function POST(req: Request) {
 
         await tx.notice.create({
           data: {
+            userId: guestReq.userId,
             title: noticeTitle,
             description: noticeDesc,
-            type: action === "Approve" ? "info" : "warning",
+            type: "guest_meal",
             isActive: true,
           },
         });

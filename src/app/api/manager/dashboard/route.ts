@@ -11,7 +11,8 @@ import {
   round2,
   ensureTodayBazaarNotice,
   ensureTodayMealLogs,
-  calculateConsumedMeals
+  calculateConsumedMeals,
+  reconcileLegacyNotices
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -32,6 +33,9 @@ export async function GET(req: Request) {
 
     // Ensure midnight / today notice is synchronized
     await ensureTodayBazaarNotice(prisma);
+
+    // Reconcile any legacy notices that were created without userId
+    await reconcileLegacyNotices(prisma);
 
     // Ensure today's meal logs are populated
     await ensureTodayMealLogs(prisma);
@@ -54,7 +58,7 @@ export async function GET(req: Request) {
 
     // Parallelize all 13 independent queries for maximum responsiveness
     const [
-      notices,
+      dbNotices,
       pendingDeposits,
       pendingExpenses,
       pendingBazaarSchedules,
@@ -68,14 +72,18 @@ export async function GET(req: Request) {
       mealDepositAgg,
       expenseAgg,
     ] = await Promise.all([
-      // 1. Notices for manager
+      // 1. Notices for manager / admin (only global notices OR personal notices for this admin/manager)
       prisma.notice.findMany({
         where: {
           isActive: true,
           id: { notIn: user.clearedNotices || [] },
+          OR: [
+            { userId: user.id },
+            { userId: null },
+          ],
         },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 15,
       }),
       // 2. Pending payment requests (Deposit)
       prisma.deposit.findMany({
@@ -181,9 +189,24 @@ export async function GET(req: Request) {
       totalFoodExpenses: totalExpensesAllTime,
     });
 
+    // Filter notices: Only global announcements OR personal notifications specifically for this user
+    const filteredNotices = dbNotices.filter((n) => {
+      const isPersonal =
+        n.userId != null ||
+        n.type === "guest_meal" ||
+        n.type === "payment" ||
+        n.title?.toLowerCase().includes("guest meal") ||
+        n.description?.toLowerCase().includes("your request for");
+
+      if (isPersonal) {
+        return n.userId === user.id;
+      }
+      return true;
+    });
+
     return NextResponse.json(
       {
-        notices,
+        notices: filteredNotices,
         pendingDeposits,
         pendingExpenses,
         pendingBazaarSchedules,

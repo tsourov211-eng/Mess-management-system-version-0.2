@@ -1269,6 +1269,8 @@ export default function MemberDashboard() {
                     ) : (
                         notices.slice(0, 5).map((notice, index) => {
                             const isGuestMeal = notice.type === "guest_meal";
+                            const isPayment = notice.type === "payment";
+                            const isBazaar = notice.type === "bazaar";
                             const nDate = notice.createdAt 
                                 ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
                                 : formattedDate;
@@ -1284,6 +1286,14 @@ export default function MemberDashboard() {
                                         {isGuestMeal ? (
                                             <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
                                                 <IconUsers size={18} stroke={2.2} />
+                                            </div>
+                                        ) : isPayment ? (
+                                            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                                                <IconCreditCard size={18} stroke={2.2} />
+                                            </div>
+                                        ) : isBazaar ? (
+                                            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0">
+                                                <IconShoppingCart size={18} stroke={2.2} />
                                             </div>
                                         ) : (
                                             <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">

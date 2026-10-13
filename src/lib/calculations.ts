@@ -427,6 +427,70 @@ export async function updateBazaarNoticeStatus(
   }
 }
 
+/**
+ * Reconciles legacy notices that were created without a userId:
+ * - Finds active notices with title containing "Guest Meal" or type "guest_meal" where userId is null
+ * - Tries to associate them with the matching GuestMealRequest by date/guest count
+ * - If matched, updates notice with the proper userId and type = "guest_meal"
+ * - If not matched, marks notice as inactive so it doesn't pollute the global notice board
+ */
+export async function reconcileLegacyNotices(prismaClient: any) {
+  try {
+    const orphanedGuestNotices = await prismaClient.notice.findMany({
+      where: {
+        userId: null,
+        OR: [
+          { title: { contains: "Guest Meal" } },
+          { type: "guest_meal" },
+          { description: { contains: "guest" } },
+        ],
+      },
+    });
+
+    if (!orphanedGuestNotices || orphanedGuestNotices.length === 0) return;
+
+    const allGuestRequests = await prismaClient.guestMealRequest.findMany({
+      where: { status: { in: ["Approved", "Rejected"] } },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    });
+
+    for (const notice of orphanedGuestNotices) {
+      let matchedRequest = null;
+      for (const req of allGuestRequests) {
+        const d = new Date(req.date);
+        const dStr1 = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const dStr2 = d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+        if (
+          notice.description?.includes(dStr1) || 
+          notice.description?.includes(dStr2) ||
+          notice.description?.includes(`${req.guests} guest`)
+        ) {
+          matchedRequest = req;
+          break;
+        }
+      }
+
+      if (matchedRequest) {
+        await prismaClient.notice.update({
+          where: { id: notice.id },
+          data: {
+            userId: matchedRequest.userId,
+            type: "guest_meal",
+          },
+        });
+      } else {
+        await prismaClient.notice.update({
+          where: { id: notice.id },
+          data: { isActive: false },
+        });
+      }
+    }
+  } catch (err) {
+    console.error("reconcileLegacyNotices error:", err);
+  }
+}
+
 export interface MealLogItem {
   date: Date | string;
   breakfast?: number | null;

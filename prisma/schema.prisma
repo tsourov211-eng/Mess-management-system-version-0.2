@@ -72,6 +72,7 @@ model User {
   expenses      Expense[]
   bazaarDates   BazaarSchedule[]
   guestMeals    GuestMealRequest[]
+  notices       Notice[]
 }
 
 // 2. Table for saving daily meals
@@ -142,11 +143,16 @@ model BazaarSchedule {
 // 6. Notice board table
 model Notice {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId
   title       String
   description String
   type        String   @default("info") 
   isActive    Boolean  @default(true) 
   createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
 }
 
 // 7. Guest meal request table

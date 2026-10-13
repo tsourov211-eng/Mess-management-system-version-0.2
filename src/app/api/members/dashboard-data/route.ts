@@ -14,7 +14,8 @@ import {
   ensureTodayMealLogs,
   calculateConsumedMeals,
   getDhakaTodayStartAndEnd,
-  syncUserGuestMeals
+  syncUserGuestMeals,
+  reconcileLegacyNotices
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -34,6 +35,9 @@ export async function GET(req: Request) {
 
     // Ensure today's bazaar duty announcement notice is created / updated
     await ensureTodayBazaarNotice(prisma);
+
+    // Reconcile any legacy notices that were created without userId
+    await reconcileLegacyNotices(prisma);
 
     // Ensure today's meal logs exist for all active mess members
     await ensureTodayMealLogs(prisma);
@@ -139,14 +143,18 @@ export async function GET(req: Request) {
         orderBy: { date: "desc" },
         take: 7,
       }),
-      // 11. Notice board
+      // 11. Notice board (only global notices OR personal notices for this user)
       prisma.notice.findMany({
         where: { 
           isActive: true,
-          id: { notIn: user.clearedNotices || [] }
+          id: { notIn: user.clearedNotices || [] },
+          OR: [
+            { userId: user.id },
+            { userId: null },
+          ],
         },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 15,
       }),
       // 12. User guest meal requests
       prisma.guestMealRequest.findMany({
@@ -227,23 +235,49 @@ export async function GET(req: Request) {
       fixedCost: fixedCostPerMember,
     });
 
-    // Format notices & guest meal notices
-    const guestNotices = userGuestRequests.map((g) => {
-      const gDate = new Date(g.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-      const statusTitle = g.status === "Approved" 
-        ? "Your guest meal request approved." 
-        : (g.status === "Rejected" ? "Your guest meal request rejected." : "Your guest meal request pending.");
-      return {
-        id: `guest_${g.id}`,
-        title: statusTitle,
-        description: `${g.guests} guest meal${g.guests > 1 ? "s" : ""} on ${gDate} (${g.mealType}).`,
-        type: "guest_meal",
-        status: g.status,
-        createdAt: g.updatedAt || g.createdAt,
-      };
+    // Filter notices: Only global announcements OR personal notifications specifically for this user
+    const filteredDbNotices = dbNotices.filter((n) => {
+      const isPersonal =
+        n.userId != null ||
+        n.type === "guest_meal" ||
+        n.type === "payment" ||
+        n.title?.toLowerCase().includes("guest meal") ||
+        n.description?.toLowerCase().includes("your request for");
+
+      if (isPersonal) {
+        return n.userId === user.id;
+      }
+      return true;
     });
 
-    const notices = [...dbNotices, ...guestNotices].sort((a, b) => 
+    // Format notices & guest meal notices (avoid duplicates if real notice exists)
+    const guestNotices = userGuestRequests
+      .filter((g) => {
+        const dateObj = new Date(g.date);
+        const dStr1 = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const dStr2 = dateObj.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+        const hasDbNotice = filteredDbNotices.some((n) =>
+          n.type === "guest_meal" &&
+          (n.description?.includes(dStr1) || n.description?.includes(dStr2))
+        );
+        return !hasDbNotice;
+      })
+      .map((g) => {
+        const gDate = new Date(g.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+        const statusTitle = g.status === "Approved" 
+          ? "Your guest meal request approved." 
+          : (g.status === "Rejected" ? "Your guest meal request rejected." : "Your guest meal request pending.");
+        return {
+          id: `guest_${g.id}`,
+          title: statusTitle,
+          description: `${g.guests} guest meal${g.guests > 1 ? "s" : ""} on ${gDate} (${g.mealType}).`,
+          type: "guest_meal",
+          status: g.status,
+          createdAt: g.updatedAt || g.createdAt,
+        };
+      });
+
+    const notices = [...filteredDbNotices, ...guestNotices].sort((a, b) => 
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
 

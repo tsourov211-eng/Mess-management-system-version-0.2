@@ -39,11 +39,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Notice dismissed successfully" });
     }
 
-    // Dismiss all active notices and guest meal request notifications
+    // Dismiss all active notices and guest meal request notifications for this user
     const notices = await prisma.notice.findMany({
       where: { 
         isActive: true,
-        id: { notIn: user.clearedNotices || [] }
+        id: { notIn: user.clearedNotices || [] },
+        OR: [
+          { userId: user.id },
+          { userId: null },
+        ],
       },
       select: { id: true }
     });
