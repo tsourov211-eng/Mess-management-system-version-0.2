@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMonthDateRange } from "@/lib/calculations";
+import { getMonthDateRange, ensureTodayBazaarNotice, updateBazaarNoticeStatus } from "@/lib/calculations";
 
 // 1. GET request to fetch user's and mess bazaar schedule
 export async function GET(req: Request) {
@@ -19,6 +19,9 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    // Ensure midnight / today notice is synchronized
+    await ensureTodayBazaarNotice(prisma);
 
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month"); // 1-12
@@ -158,7 +161,7 @@ export async function POST(req: Request) {
   }
 }
 
-// 3. PATCH request for manager to approve or reject bazaar schedule
+// 3. PATCH request to approve, reject, or mark bazaar schedule as done
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -170,8 +173,8 @@ export async function PATCH(req: Request) {
       where: { email: session.user.email },
     });
 
-    if (!user || (user.role !== "manager" && user.role !== "admin")) {
-      return NextResponse.json({ error: "Only managers or admins can approve schedules" }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const body = await req.json();
@@ -181,10 +184,35 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Invalid scheduleId or status" }, { status: 400 });
     }
 
+    const targetSchedule = await prisma.bazaarSchedule.findUnique({
+      where: { id: scheduleId },
+      include: { user: { select: { id: true, name: true } } },
+    });
+
+    if (!targetSchedule) {
+      return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+    }
+
+    const isManagerOrAdmin = user.role === "manager" || user.role === "admin";
+    const isAssignedMember = targetSchedule.userId === user.id;
+
+    // RBAC: Members can mark their own duty as done (or re-approve), managers/admins can set any status
+    if (!isManagerOrAdmin) {
+      if (!isAssignedMember) {
+        return NextResponse.json({ error: "You can only update your own bazaar schedule" }, { status: 403 });
+      }
+      if (status !== "done" && status !== "approved") {
+        return NextResponse.json({ error: "Members can only mark their schedule as done or approved" }, { status: 403 });
+      }
+    }
+
     const updated = await prisma.bazaarSchedule.update({
       where: { id: scheduleId },
       data: { status },
     });
+
+    // Synchronize today's announcement notice status
+    await updateBazaarNoticeStatus(prisma, targetSchedule, status);
 
     return NextResponse.json(
       { message: `Schedule updated to ${status}`, schedule: updated },

@@ -96,33 +96,33 @@ export default function MemberDashboard() {
     ];
 
     // ─── Fetch Member Dashboard Data ───
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                const res = await fetch("/api/members/dashboard-data");
-                if (res.ok) {
-                    const data = await res.json();
-                    setTotalDeposit(data.stats.totalDeposit || 0);
-                    setUserMealDeposit(data.stats.userMealDeposit || 0);
-                    setUserOverheadDeposit(data.stats.userOverheadDeposit || 0);
-                    setMealFund(data.stats.mealFund ?? 0);
-                    setMessFund(data.stats.messFund ?? 0);
-                    setMonthlyOverheadConfig(data.monthlyOverheadConfig || null);
-                    setTotalMeals(data.stats.totalMeals || 0);
-                    setCurrentBalance(data.stats.currentBalance ?? 0);
-                    setFixedCost(data.stats.fixedCost || 0);
-                    setTotalCost(data.stats.totalCost || 0);
-                    setLiveMealRate(data.stats.liveMealRate || 0);
-                    setRecentMeals(data.recentMeals || []);
-                    setNotices(data.notices || []);
-                }
-            } catch (error) {
-                console.error("Error fetching dashboard data:", error);
-            } finally {
-                setIsLoadingData(false);
+    const fetchDashboardData = async () => {
+        try {
+            const res = await fetch("/api/members/dashboard-data");
+            if (res.ok) {
+                const data = await res.json();
+                setTotalDeposit(data.stats.totalDeposit || 0);
+                setUserMealDeposit(data.stats.userMealDeposit || 0);
+                setUserOverheadDeposit(data.stats.userOverheadDeposit || 0);
+                setMealFund(data.stats.mealFund ?? 0);
+                setMessFund(data.stats.messFund ?? 0);
+                setMonthlyOverheadConfig(data.monthlyOverheadConfig || null);
+                setTotalMeals(data.stats.totalMeals || 0);
+                setCurrentBalance(data.stats.currentBalance ?? 0);
+                setFixedCost(data.stats.fixedCost || 0);
+                setTotalCost(data.stats.totalCost || 0);
+                setLiveMealRate(data.stats.liveMealRate || 0);
+                setRecentMeals(data.recentMeals || []);
+                setNotices(data.notices || []);
             }
-        };
+        } catch (error) {
+            console.error("Error fetching dashboard data:", error);
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
 
+    useEffect(() => {
         if (status === "authenticated") {
             fetchDashboardData();
         }
@@ -274,17 +274,20 @@ export default function MemberDashboard() {
         const bookedByName = approvedByOther?.user?.name || "Someone";
 
         const sched = mySchedule || messSchedule;
-        const dayDate = new Date(modalYear, modalMonth, day);
         const todayZero = new Date();
         todayZero.setHours(0, 0, 0, 0);
+        const cellDate = new Date(modalYear, modalMonth, day);
+        cellDate.setHours(0, 0, 0, 0);
 
-        const isPast = dayDate.getTime() < todayZero.getTime();
-        const isCompleted = sched ? (sched.status === "done" || (isPast && sched.status === "approved")) : false;
-        const isUpcoming = sched ? !isCompleted : false;
+        const isToday = cellDate.getTime() === todayZero.getTime();
+        const isPast = cellDate.getTime() < todayZero.getTime();
+        const isCompleted = sched?.status === "done";
+        const isUpcoming = sched ? (!isCompleted && !isPast) : false;
 
         return {
             key,
             isSelected,
+            isToday,
             isPast,
             isBookedByOther,
             bookedByName,
@@ -293,6 +296,62 @@ export default function MemberDashboard() {
             isScheduled: !!sched,
             status: sched?.status,
         };
+    };
+
+    // ─── Today's Date & Duty Calculation (Asia/Dhaka & local) ───
+    const todayParts = (() => {
+        const now = new Date();
+        return {
+            year: now.getFullYear(),
+            month: now.getMonth(),
+            day: now.getDate()
+        };
+    })();
+
+    const todayDutySchedule = bazarSchedules.find((s: any) => {
+        const d = new Date(s.date);
+        return (
+            d.getUTCFullYear() === todayParts.year &&
+            d.getUTCMonth() === todayParts.month &&
+            d.getUTCDate() === todayParts.day
+        );
+    });
+
+    const [isUpdatingBazarStatus, setIsUpdatingBazarStatus] = useState(false);
+
+    // ─── Toggle Done Bazaar Handler ───
+    const handleToggleDoneBazaar = async (scheduleId: string, newStatus: "done" | "approved") => {
+        setIsUpdatingBazarStatus(true);
+        try {
+            const res = await fetch("/api/members/bazaar-schedule", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scheduleId, status: newStatus }),
+            });
+            if (res.ok) {
+                setBazarSchedules((prev) =>
+                    prev.map((s) => (s.id === scheduleId ? { ...s, status: newStatus } : s))
+                );
+                setMessSchedules((prev) =>
+                    prev.map((s) => (s.id === scheduleId ? { ...s, status: newStatus } : s))
+                );
+                showToast(
+                    newStatus === "done" 
+                        ? "🎉 Bazaar marked as done! Great job!" 
+                        : "Bazaar status updated to approved.", 
+                    "success"
+                );
+                fetchBazarSchedules(activeMonth, activeYear);
+                fetchDashboardData();
+            } else {
+                const errData = await res.json();
+                showToast(errData.error || "Failed to update bazaar status", "error");
+            }
+        } catch (err) {
+            showToast("Error updating bazaar status", "error");
+        } finally {
+            setIsUpdatingBazarStatus(false);
+        }
     };
 
     // ─── Submit Bazaar Expense ───
@@ -315,6 +374,14 @@ export default function MemberDashboard() {
                 showToast("Bazaar expense submitted successfully to manager!", "success");
                 setExpenseAmount("");
                 setExpenseDetails("");
+
+                // Also auto-complete today's bazaar duty if not marked done yet
+                if (todayDutySchedule && todayDutySchedule.status !== "done") {
+                    await handleToggleDoneBazaar(todayDutySchedule.id, "done");
+                } else {
+                    fetchBazarSchedules(activeMonth, activeYear);
+                    fetchDashboardData();
+                }
             } else {
                 showToast("Failed to submit expense.", "error");
             }
@@ -843,31 +910,74 @@ export default function MemberDashboard() {
                                         const dayStr = String(d.getUTCDate()).padStart(2, "0");
                                         const monthStr = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase();
                                         
-                                        const todayZero = new Date();
-                                        todayZero.setHours(0, 0, 0, 0);
-                                        const isPast = d.getTime() < todayZero.getTime();
-                                        const isDone = s.status === "done" || (isPast && s.status === "approved");
-                                        const isUpcoming = s.status === "approved" && !isPast;
+                                        const now = new Date();
+                                        const schedYear = d.getUTCFullYear();
+                                        const schedMonth = d.getUTCMonth();
+                                        const schedDay = d.getUTCDate();
+
+                                        const isToday = schedYear === now.getFullYear() && 
+                                                        schedMonth === now.getMonth() && 
+                                                        schedDay === now.getDate();
+                                        
+                                        const schedVal = Date.UTC(schedYear, schedMonth, schedDay);
+                                        const todayVal = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+                                        const isPast = schedVal < todayVal;
+                                        const isFuture = schedVal > todayVal;
+
+                                        const isDone = s.status === "done";
+                                        const isApproved = s.status === "approved";
                                         const isPending = s.status === "pending";
 
                                         return (
                                             <div 
                                                 key={s.id} 
-                                                className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl border min-w-[62px] shrink-0 ${
+                                                className={`flex flex-col items-center justify-center py-2 px-2.5 rounded-xl border min-w-[70px] shrink-0 transition-all ${
                                                     isDone 
-                                                        ? "border-emerald-200 bg-emerald-50 text-emerald-900" 
-                                                        : isUpcoming 
-                                                        ? "border-orange-200 bg-orange-50 text-orange-900" 
-                                                        : "border-amber-200 bg-amber-50 text-amber-900"
+                                                        ? "border-emerald-300 bg-emerald-50/90 text-emerald-900 shadow-2xs" 
+                                                        : isToday
+                                                        ? "border-orange-400 bg-gradient-to-b from-orange-50 to-amber-50 text-orange-950 shadow-md ring-2 ring-orange-400/40"
+                                                        : isPending
+                                                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                                                        : isPast
+                                                        ? "border-slate-200 bg-slate-50 text-slate-700 opacity-80"
+                                                        : "border-orange-200 bg-orange-50/80 text-orange-900"
                                                 }`}
                                             >
                                                 <span className="text-[9px] font-bold text-slate-500 uppercase">{monthStr}</span>
                                                 <span className="text-lg font-black text-slate-900 leading-none my-1">{dayStr}</span>
-                                                <span className={`text-[8px] font-black uppercase px-1 py-0.2 rounded ${
-                                                    isDone ? "text-emerald-700 bg-emerald-100" : isUpcoming ? "text-orange-700 bg-orange-100" : "text-amber-700 bg-amber-100"
+                                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide ${
+                                                    isDone 
+                                                        ? "text-emerald-700 bg-emerald-100 border border-emerald-200" 
+                                                        : isToday 
+                                                        ? "text-white bg-gradient-to-r from-orange-500 to-amber-500 shadow-2xs animate-pulse font-extrabold" 
+                                                        : isPending 
+                                                        ? "text-amber-700 bg-amber-100" 
+                                                        : isPast
+                                                        ? "text-slate-600 bg-slate-200"
+                                                        : "text-orange-700 bg-orange-100"
                                                 }`}>
-                                                    {isDone ? "Done" : isUpcoming ? "Upcoming" : "Pending"}
+                                                    {isDone ? "Done" : isToday ? "Today" : isPending ? "Pending" : isPast ? "Past" : "Upcoming"}
                                                 </span>
+
+                                                {/* Done Bazar Option Button on Card */}
+                                                {isToday && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleToggleDoneBazaar(s.id, isDone ? "approved" : "done");
+                                                        }}
+                                                        disabled={isUpdatingBazarStatus}
+                                                        className={`mt-1.5 w-full py-0.5 px-1 rounded-md text-[8px] font-black transition-all cursor-pointer flex items-center justify-center gap-0.5 shadow-2xs ${
+                                                            isDone
+                                                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                                : "bg-orange-500 hover:bg-orange-600 text-white animate-pulse"
+                                                        }`}
+                                                        title={isDone ? "Click to revert if needed" : "Click to mark bazaar as completed"}
+                                                    >
+                                                        {isDone ? "✓ Done" : "Done Bazar"}
+                                                    </button>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -914,6 +1024,35 @@ export default function MemberDashboard() {
                                         + Submit Payment
                                     </button>
                                 </div>
+
+                                {todayDutySchedule && (
+                                    <div className={`mb-2.5 px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 text-[11px] ${
+                                        todayDutySchedule.status === "done"
+                                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                            : "bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 text-orange-950 shadow-2xs"
+                                    }`}>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="text-sm">{todayDutySchedule.status === "done" ? "✅" : "🛒"}</span>
+                                            <div className="min-w-0">
+                                                <span className="font-extrabold truncate block">
+                                                    {todayDutySchedule.status === "done" ? "Bazaar Done Today" : "Today is your Bazaar Day"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleToggleDoneBazaar(todayDutySchedule.id, todayDutySchedule.status === "done" ? "approved" : "done")}
+                                            disabled={isUpdatingBazarStatus}
+                                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer transition-all shrink-0 ${
+                                                todayDutySchedule.status === "done"
+                                                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                                    : "bg-orange-500 text-white hover:bg-orange-600 shadow-xs animate-pulse"
+                                            }`}
+                                        >
+                                            {todayDutySchedule.status === "done" ? "✓ Done" : "Done Bazar"}
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className="space-y-2">
                                     <div>

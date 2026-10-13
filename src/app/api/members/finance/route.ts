@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FinanceSubmissionSchema } from "@/lib/validations";
+import { getDhakaTodayStartAndEnd, updateBazaarNoticeStatus } from "@/lib/calculations";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { sanitizeInput, safeErrorResponse } from "@/lib/security";
 
@@ -71,6 +72,30 @@ export async function POST(req: Request) {
           date: transactionDate,
         },
       });
+
+      // If user had an approved bazaar schedule on this date, automatically mark as done
+      try {
+        const { todayStart, todayEnd } = getDhakaTodayStartAndEnd(transactionDate);
+        const existingSched = await prisma.bazaarSchedule.findFirst({
+          where: {
+            userId: user.id,
+            date: { gte: todayStart, lt: todayEnd },
+            status: "approved",
+          },
+          include: { user: { select: { id: true, name: true } } },
+        });
+
+        if (existingSched) {
+          await prisma.bazaarSchedule.update({
+            where: { id: existingSched.id },
+            data: { status: "done" },
+          });
+          await updateBazaarNoticeStatus(prisma, existingSched, "done");
+        }
+      } catch (schedErr) {
+        console.error("Error auto-completing bazaar schedule in finance route:", schedErr);
+      }
+
       return NextResponse.json(
         { success: true, message: "Expense submitted for approval", data: newExpense },
         { status: 201 }

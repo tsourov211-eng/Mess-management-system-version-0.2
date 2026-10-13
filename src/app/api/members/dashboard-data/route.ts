@@ -9,7 +9,8 @@ import {
   getMonthDateRange,
   calculateFunds,
   round1,
-  round2
+  round2,
+  ensureTodayBazaarNotice
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -26,6 +27,9 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    // Ensure today's bazaar duty announcement notice is created / updated
+    await ensureTodayBazaarNotice(prisma);
 
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get("month");

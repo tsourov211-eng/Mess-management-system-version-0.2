@@ -441,16 +441,19 @@ export default function ManagerDashboard() {
                         <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-white/10 text-orange-400 flex items-center justify-center border border-white/10 shrink-0">
                             <IconShoppingCart size={20} stroke={2.2} />
                         </div>
-                        <div className="bg-[#00B050] text-white text-[10px] md:text-xs font-bold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full flex items-center gap-1 shadow-sm shrink-0">
+                        <div className={`${(stats as any).marketDutyStatus === "done" ? "bg-emerald-600" : "bg-[#00B050]"} text-white text-[10px] md:text-xs font-bold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full flex items-center gap-1 shadow-sm shrink-0`}>
                             <IconCheck size={12} stroke={3} />
-                            <span>Assigned</span>
+                            <span>{(stats as any).marketDutyStatus === "done" ? "Done" : "Assigned"}</span>
                         </div>
                     </div>
 
                     <div className="z-10 mt-2">
                         <p className="text-xs text-gray-400 font-medium">Market Duty</p>
-                        <p className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5 tracking-tight truncate" title={stats.marketDuty || "Unassigned"}>
-                            {stats.marketDuty || "Unassigned"}
+                        <p className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5 tracking-tight truncate flex items-center gap-1.5" title={stats.marketDuty || "Unassigned"}>
+                            <span>{stats.marketDuty || "Unassigned"}</span>
+                            {(stats as any).marketDutyStatus === "done" && (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">Done ✅</span>
+                            )}
                         </p>
                     </div>
 

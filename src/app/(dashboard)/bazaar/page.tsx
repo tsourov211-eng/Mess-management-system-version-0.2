@@ -43,6 +43,7 @@ export default function BazaarManagementPage() {
 
     const [todayAssigned, setTodayAssigned] = useState<any>(null);
     const [todayScheduleStatus, setTodayScheduleStatus] = useState<string | null>(null);
+    const [todayScheduleId, setTodayScheduleId] = useState<string | null>(null);
     const [schedules, setSchedules] = useState<any[]>([]);
     const [expenses, setExpenses] = useState<any[]>([]);
     const [todayTotal, setTodayTotal] = useState(0);
@@ -81,6 +82,7 @@ export default function BazaarManagementPage() {
                 const data = await res.json();
                 setTodayAssigned(data.todayAssigned);
                 setTodayScheduleStatus(data.todayScheduleStatus);
+                setTodayScheduleId(data.todayScheduleId || null);
                 setSchedules(data.schedules || []);
                 setExpenses(data.todayExpenses || []);
                 setTodayTotal(data.todayTotal || 0);
@@ -203,14 +205,36 @@ export default function BazaarManagementPage() {
         }
     };
 
+    const handleToggleDoneBazaar = async (newStatus: "done" | "approved") => {
+        if (!todayScheduleId) return;
+        setIsSubmitting(true);
+        try {
+            const res = await fetch("/api/members/bazaar-schedule", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scheduleId: todayScheduleId, status: newStatus }),
+            });
+            if (res.ok) {
+                setTodayScheduleStatus(newStatus);
+                fetchBazaarData();
+            } else {
+                alert("Failed to update schedule status");
+            }
+        } catch (error) {
+            console.error("Error toggling bazaar done:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const assignedName = todayAssigned?.name || "None Assigned";
     const assignedInitial = assignedName ? assignedName.charAt(0).toUpperCase() : "T";
 
-    // Check if the current user is assigned for today AND the schedule is approved
+    // Check if the current user is assigned for today AND the schedule is approved or done
     const isTodayShopper = 
         currentUserEmail && 
         todayAssigned?.email === currentUserEmail && 
-        todayScheduleStatus === "approved";
+        (todayScheduleStatus === "approved" || todayScheduleStatus === "done");
 
     // Total meal count for the day across breakfast, lunch, dinner & guests
     // Note: Breakfast counts as 0.5 meals, Lunch as 1.0 meal, Dinner as 1.0 meal
@@ -554,6 +578,7 @@ export default function BazaarManagementPage() {
                             const d = new Date(item.date);
                             const dateFormatted = isNaN(d.getTime()) ? "Oct 12" : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                             const timingLabel = item.mockTiming || (idx === 0 ? "Tomorrow" : "Next");
+                            const isDone = (item.status || "").toLowerCase() === "done";
                             const isApproved = (item.status || "").toLowerCase() === "approved";
                             const uInitial = item.user?.name ? item.user.name.charAt(0).toUpperCase() : "T";
 
@@ -569,7 +594,11 @@ export default function BazaarManagementPage() {
                                     </div>
 
                                     <div className="flex justify-center">
-                                        {isApproved ? (
+                                        {isDone ? (
+                                            <span className="bg-[#DCFCE7]/90 text-[#16A34A] border border-emerald-200/60 text-[11px] font-bold px-3 py-0.5 rounded-full">
+                                                Done ✓
+                                            </span>
+                                        ) : isApproved ? (
                                             <span className="bg-[#DCFCE7]/90 text-[#16A34A] border border-emerald-200/60 text-[11px] font-bold px-3 py-0.5 rounded-full">
                                                 Approved
                                             </span>
@@ -896,12 +925,23 @@ export default function BazaarManagementPage() {
                 {isTodayShopper && (
                     <div className="order-2 lg:order-2 lg:col-span-2">
                         <div className="bg-white rounded-3xl border border-orange-100 shadow-sm overflow-hidden relative">
-                            <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500"></div>
+                            <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                                todayScheduleStatus === "done" ? "bg-emerald-500" : "bg-orange-500"
+                            }`}></div>
                             <div className="p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 pl-8">
                                 
                                 {/* Who is assigned */}
                                 <div>
-                                    <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">Today's Responsibility</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Today's Responsibility</p>
+                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                            todayScheduleStatus === "done"
+                                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                                : "bg-orange-100 text-orange-800 border border-orange-200"
+                                        }`}>
+                                            {todayScheduleStatus === "done" ? "Done ✅" : "Today 🛒"}
+                                        </span>
+                                    </div>
                                     <div className="flex items-center gap-3 mt-2">
                                         <div className="w-12 h-12 rounded-full bg-[#1e293b] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
                                             {assignedInitial}
@@ -913,9 +953,9 @@ export default function BazaarManagementPage() {
                                     </div>
                                 </div>
 
-                                {/* Cost Input for the assigned member */}
+                                {/* Actions & Cost Input for the assigned member */}
                                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                                    <div className="relative w-full sm:w-48">
+                                    <div className="relative w-full sm:w-44">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-extrabold text-gray-400">Tk </span>
                                         <input 
                                             type="number" 
@@ -928,10 +968,24 @@ export default function BazaarManagementPage() {
                                     <button 
                                         onClick={handleSubmitExpense}
                                         disabled={isSubmitting}
-                                        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#FF6B00] hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50"
+                                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#FF6B00] hover:bg-orange-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50"
                                     >
-                                        <IconCheck className="w-5 h-5" stroke={3} />
-                                        {isSubmitting ? "Submitting..." : "Submit"}
+                                        <IconCheck className="w-4 h-4" stroke={3} />
+                                        <span>{isSubmitting ? "Submitting..." : "Submit"}</span>
+                                    </button>
+
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleToggleDoneBazaar(todayScheduleStatus === "done" ? "approved" : "done")}
+                                        disabled={isSubmitting}
+                                        className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-extrabold text-xs transition-all cursor-pointer border ${
+                                            todayScheduleStatus === "done"
+                                                ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                                : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-md shadow-emerald-600/20"
+                                        }`}
+                                    >
+                                        <IconCheck className="w-4 h-4" stroke={3} />
+                                        <span>{todayScheduleStatus === "done" ? "✓ Done" : "Done Bazar"}</span>
                                     </button>
                                 </div>
                             </div>
@@ -973,7 +1027,11 @@ export default function BazaarManagementPage() {
                                             <p className="text-xs font-medium text-gray-500 truncate">{dateFormatted}</p>
                                         </div>
                                         <div className="flex justify-center min-w-[65px]">
-                                            {item.status === "pending" ? (
+                                            {item.status === "done" ? (
+                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">
+                                                    Done ✓
+                                                </span>
+                                            ) : item.status === "pending" ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleApproveSchedule(item.id)}

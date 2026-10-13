@@ -8,7 +8,8 @@ import {
   getDhakaTodayStartAndEnd,
   calculateFunds,
   round1,
-  round2 
+  round2,
+  ensureTodayBazaarNotice
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -26,6 +27,9 @@ export async function GET(req: Request) {
     if (!user || (user.role !== "admin" && user.role !== "manager")) {
       return NextResponse.json({ success: false, error: "Forbidden: Manager access required" }, { status: 403 });
     }
+
+    // Ensure midnight / today notice is synchronized
+    await ensureTodayBazaarNotice(prisma);
 
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get("month");
@@ -181,6 +185,7 @@ export async function GET(req: Request) {
           currentMealRate,
           liveMealRate: currentMealRate,
           marketDuty,
+          marketDutyStatus: todayDuty?.status || "pending",
           mealFund: funds.mealFund,
           messFund: funds.messFund,
           totalFund: funds.totalFund,

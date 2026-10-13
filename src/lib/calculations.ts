@@ -298,3 +298,131 @@ export function formatMonthKey(dateOrYear: Date | number, maybeMonth?: number): 
   const d = new Date();
   return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/**
+ * Automatically creates or synchronizes today's Bazaar Duty announcement notice at midnight (12:00 AM) or on first load of the day.
+ * Ensures every member, manager, and admin receives an active notice of whose bazaar duty it is today.
+ * When bazaar is completed, updates the notice to indicate completion.
+ */
+export async function ensureTodayBazaarNotice(prismaClient: any) {
+  try {
+    const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
+    const dhaka = getDhakaDate();
+
+    // 1. Fetch all approved or done bazaar schedules for today
+    const todaySchedules = await prismaClient.bazaarSchedule.findMany({
+      where: {
+        date: { gte: todayStart, lt: todayEnd },
+        status: { in: ["approved", "done"] },
+      },
+      include: {
+        user: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    if (!todaySchedules || todaySchedules.length === 0) {
+      return { count: 0 };
+    }
+
+    const dateFormatted = `${dhaka.day} ${MONTH_NAMES[dhaka.month - 1]} ${dhaka.year}`;
+
+    for (const sched of todaySchedules) {
+      const memberName = sched.user?.name || "Member";
+      const schedTag = `<!--bazaar-schedule-${sched.id}-->`;
+      const isDone = sched.status === "done";
+
+      const expectedTitle = isDone
+        ? `Today's Bazaar Completed: ${memberName}`
+        : `Today's Bazaar Duty: ${memberName}`;
+
+      const expectedDesc = isDone
+        ? `✅ Bazaar shopping completed by ${memberName} for today (${dateFormatted}). ${schedTag}`
+        : `Reminder: Today (${dateFormatted}) is ${memberName}'s scheduled bazaar duty. Please complete shopping and submit bazaar expenses. ${schedTag}`;
+
+      // Check if a notice for this schedule already exists
+      const existingNotice = await prismaClient.notice.findFirst({
+        where: {
+          description: { contains: sched.id },
+        },
+      });
+
+      if (!existingNotice) {
+        await prismaClient.notice.create({
+          data: {
+            title: expectedTitle,
+            description: expectedDesc,
+            type: "bazaar",
+            isActive: true,
+          },
+        });
+      } else if (existingNotice.title !== expectedTitle) {
+        await prismaClient.notice.update({
+          where: { id: existingNotice.id },
+          data: {
+            title: expectedTitle,
+            description: expectedDesc,
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    return { count: todaySchedules.length };
+  } catch (error) {
+    console.error("ensureTodayBazaarNotice error:", error);
+    return { error };
+  }
+}
+
+/**
+ * Updates or creates the notice when a bazaar schedule status is changed (e.g. marked "done" or reverted to "approved").
+ */
+export async function updateBazaarNoticeStatus(
+  prismaClient: any,
+  schedule: { id: string; userId: string; user?: { name?: string | null } },
+  newStatus: string
+) {
+  try {
+    const dhaka = getDhakaDate();
+    const dateFormatted = `${dhaka.day} ${MONTH_NAMES[dhaka.month - 1]} ${dhaka.year}`;
+    const memberName = schedule.user?.name || "Member";
+    const schedTag = `<!--bazaar-schedule-${schedule.id}-->`;
+    const isDone = newStatus === "done";
+
+    const expectedTitle = isDone
+      ? `Today's Bazaar Completed: ${memberName}`
+      : `Today's Bazaar Duty: ${memberName}`;
+
+    const expectedDesc = isDone
+      ? `✅ Bazaar shopping completed by ${memberName} for today (${dateFormatted}). ${schedTag}`
+      : `Reminder: Today (${dateFormatted}) is ${memberName}'s scheduled bazaar duty. Please complete shopping and submit bazaar expenses. ${schedTag}`;
+
+    const existingNotice = await prismaClient.notice.findFirst({
+      where: {
+        description: { contains: schedule.id },
+      },
+    });
+
+    if (existingNotice) {
+      await prismaClient.notice.update({
+        where: { id: existingNotice.id },
+        data: {
+          title: expectedTitle,
+          description: expectedDesc,
+          isActive: true,
+        },
+      });
+    } else {
+      await prismaClient.notice.create({
+        data: {
+          title: expectedTitle,
+          description: expectedDesc,
+          type: "bazaar",
+          isActive: true,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("updateBazaarNoticeStatus error:", error);
+  }
+}

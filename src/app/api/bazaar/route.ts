@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { BazaarExpenseSchema } from "@/lib/validations";
-import { getDhakaTodayStartAndEnd } from "@/lib/calculations";
+import { getDhakaTodayStartAndEnd, ensureTodayBazaarNotice, updateBazaarNoticeStatus } from "@/lib/calculations";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { sanitizeInput, safeErrorResponse } from "@/lib/security";
 
@@ -13,6 +13,9 @@ export async function GET() {
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Ensure midnight / today notice is synchronized
+    await ensureTodayBazaarNotice(prisma);
 
     // Dhaka-aware Today's date filter
     const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
@@ -144,6 +147,7 @@ export async function GET() {
       {
         todayAssigned: todaySchedule?.user || null,
         todayScheduleStatus: todaySchedule?.status || null,
+        todayScheduleId: todaySchedule?.id || null,
         schedules: upcomingSchedules,
         todayExpenses,
         todayTotal,
@@ -240,6 +244,29 @@ export async function POST(req: Request) {
         date: expenseDate,
       },
     });
+
+    // If there is an approved bazaar schedule on this date for this user, mark it as done
+    try {
+      const { todayStart, todayEnd } = getDhakaTodayStartAndEnd(expenseDate);
+      const existingSched = await prisma.bazaarSchedule.findFirst({
+        where: {
+          userId: targetUserId,
+          date: { gte: todayStart, lt: todayEnd },
+          status: "approved",
+        },
+        include: { user: { select: { id: true, name: true } } },
+      });
+
+      if (existingSched) {
+        await prisma.bazaarSchedule.update({
+          where: { id: existingSched.id },
+          data: { status: "done" },
+        });
+        await updateBazaarNoticeStatus(prisma, existingSched, "done");
+      }
+    } catch (schedErr) {
+      console.error("Error auto-completing bazaar schedule on expense submit:", schedErr);
+    }
 
     return NextResponse.json(
       { success: true, message: "Bazaar expense submitted successfully!", expense: newExpense },
