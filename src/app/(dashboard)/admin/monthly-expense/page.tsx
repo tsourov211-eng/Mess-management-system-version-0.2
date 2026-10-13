@@ -67,12 +67,22 @@ export default function MonthlyExpenseSetup() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+    const [message, setMessage] = useState<{type: 'success' | 'error' | 'info', text: string} | null>(null);
+    const [lastBeforeReset, setLastBeforeReset] = useState<{
+        seatRent: number | string;
+        electricityGas: number | string;
+        internet: number | string;
+        maid: number | string;
+        additional: number | string;
+        mealCharge: number | string;
+    } | null>(null);
 
     // Fetch existing configuration if available
     useEffect(() => {
         const fetchConfig = async () => {
             setIsLoading(true);
+            setLastBeforeReset(null);
+            setMessage(null);
             try {
                 const res = await fetch(`/api/admin/monthly-expense?month=${encodeURIComponent(month)}`);
                 if (res.ok) {
@@ -113,14 +123,45 @@ export default function MonthlyExpenseSetup() {
         fetchConfig();
     }, [month]);
 
-    const handleReset = (clearMessage = true) => {
-        setSeatRent(savedConfig.seatRent);
-        setElectricityGas(savedConfig.electricityGas);
-        setInternet(savedConfig.internet);
-        setMaid(savedConfig.maid);
-        setAdditional(savedConfig.additional);
-        setMealCharge(savedConfig.mealCharge);
-        if (clearMessage) setMessage(null);
+    const handleReset = () => {
+        // Save current values so admin can undo if reset was clicked accidentally
+        setLastBeforeReset({
+            seatRent,
+            electricityGas,
+            internet,
+            maid,
+            additional,
+            mealCharge,
+        });
+
+        // Reset all overhead fields to 0
+        setSeatRent(0);
+        setElectricityGas(0);
+        setInternet(0);
+        setMaid(0);
+        setAdditional(0);
+        setMealCharge(0);
+
+        setMessage({
+            type: 'success',
+            text: `All monthly expense fields for ${month} have been reset to ৳0. Click 'Save Monthly Expense' to apply.`
+        });
+    };
+
+    const handleUndoReset = () => {
+        if (lastBeforeReset) {
+            setSeatRent(lastBeforeReset.seatRent);
+            setElectricityGas(lastBeforeReset.electricityGas);
+            setInternet(lastBeforeReset.internet);
+            setMaid(lastBeforeReset.maid);
+            setAdditional(lastBeforeReset.additional);
+            setMealCharge(lastBeforeReset.mealCharge);
+            setLastBeforeReset(null);
+            setMessage({
+                type: 'info',
+                text: `Restored previous expense values for ${month}.`
+            });
+        }
     };
 
     const handleSave = async () => {
@@ -152,6 +193,7 @@ export default function MonthlyExpenseSetup() {
                     mealCharge: Number(mealCharge) || 0,
                 };
                 setSavedConfig(updated);
+                setLastBeforeReset(null);
                 setMessage({ type: 'success', text: "Monthly expense successfully saved!" });
             } else {
                 setMessage({ type: 'error', text: data.error || "Failed to save expense." });
@@ -205,10 +247,25 @@ export default function MonthlyExpenseSetup() {
                     <div className={`p-3.5 rounded-2xl border font-bold text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-200 ${
                         message.type === 'success' 
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                            : message.type === 'info'
+                            ? 'bg-blue-50 border-blue-200 text-blue-800'
                             : 'bg-rose-50 border-rose-200 text-rose-800'
                     }`}>
-                        <span>{message.text}</span>
-                        <button onClick={() => setMessage(null)} className="text-xs font-black underline ml-2 cursor-pointer">Dismiss</button>
+                        <div className="flex-1 pr-2">
+                            <span>{message.text}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {lastBeforeReset && (
+                                <button 
+                                    type="button"
+                                    onClick={handleUndoReset} 
+                                    className="text-[11px] font-black px-2 py-0.5 bg-white border border-emerald-200 rounded-md hover:bg-emerald-100/50 transition-colors cursor-pointer text-emerald-800"
+                                >
+                                    Undo
+                                </button>
+                            )}
+                            <button type="button" onClick={() => setMessage(null)} className="text-xs font-black underline cursor-pointer">Dismiss</button>
+                        </div>
                     </div>
                 )}
 
@@ -254,6 +311,7 @@ export default function MonthlyExpenseSetup() {
                                 type="number"
                                 value={seatRent === "" ? "" : seatRent}
                                 onChange={(e) => setSeatRent(e.target.value)}
+                                onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent font-black text-sm text-slate-900 outline-none placeholder-slate-400"
@@ -279,6 +337,7 @@ export default function MonthlyExpenseSetup() {
                                 type="number"
                                 value={electricityGas === "" ? "" : electricityGas}
                                 onChange={(e) => setElectricityGas(e.target.value)}
+                                onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent font-black text-sm text-slate-900 outline-none placeholder-slate-400"
@@ -304,6 +363,7 @@ export default function MonthlyExpenseSetup() {
                                 type="number"
                                 value={internet === "" ? "" : internet}
                                 onChange={(e) => setInternet(e.target.value)}
+                                onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent font-black text-sm text-slate-900 outline-none placeholder-slate-400"
@@ -329,6 +389,7 @@ export default function MonthlyExpenseSetup() {
                                 type="number"
                                 value={maid === "" ? "" : maid}
                                 onChange={(e) => setMaid(e.target.value)}
+                                onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent font-black text-sm text-slate-900 outline-none placeholder-slate-400"
@@ -354,6 +415,7 @@ export default function MonthlyExpenseSetup() {
                                 type="number"
                                 value={additional === "" ? "" : additional}
                                 onChange={(e) => setAdditional(e.target.value)}
+                                onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent font-black text-sm text-slate-900 outline-none placeholder-slate-400"
@@ -379,6 +441,7 @@ export default function MonthlyExpenseSetup() {
                                 type="number"
                                 value={mealCharge === "" ? "" : mealCharge}
                                 onChange={(e) => setMealCharge(e.target.value)}
+                                onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent font-black text-sm text-slate-900 outline-none placeholder-slate-400"
@@ -534,8 +597,34 @@ export default function MonthlyExpenseSetup() {
                 </div>
 
                 {message && (
-                    <div className={`p-4 rounded-xl border font-bold text-sm ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                        {message.text}
+                    <div className={`p-4 rounded-xl border font-bold text-sm flex items-center justify-between gap-4 animate-in fade-in duration-200 ${
+                        message.type === 'success' 
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                            : message.type === 'info'
+                            ? 'bg-blue-50 border-blue-200 text-blue-800'
+                            : 'bg-red-50 border-red-200 text-red-700'
+                    }`}>
+                        <div className="flex items-center gap-2">
+                            <span>{message.text}</span>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            {lastBeforeReset && (
+                                <button
+                                    type="button"
+                                    onClick={handleUndoReset}
+                                    className="text-xs font-black px-3 py-1 bg-white border border-emerald-300 rounded-lg hover:bg-emerald-100/50 transition-colors cursor-pointer text-emerald-800 shadow-2xs"
+                                >
+                                    Undo Reset
+                                </button>
+                            )}
+                            <button 
+                                type="button"
+                                onClick={() => setMessage(null)} 
+                                className="text-xs font-black underline cursor-pointer opacity-70 hover:opacity-100"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -565,10 +654,12 @@ export default function MonthlyExpenseSetup() {
 
                         <div className="p-5 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end gap-3">
                             <button 
-                                onClick={() => handleReset()}
-                                className="px-5 py-2.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer"
+                                type="button"
+                                onClick={handleReset}
+                                className="px-5 py-2.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer flex items-center gap-2 active:scale-95"
                             >
-                                Reset
+                                <RotateCcw size={15} strokeWidth={2.5} className="text-gray-500" />
+                                <span>Reset</span>
                             </button>
                             <button 
                                 onClick={handleSave}
@@ -639,6 +730,11 @@ function DesktopInputField({ icon: Icon, color, title, desc, value, setValue }: 
                     type="number"
                     value={value === "" ? "" : value}
                     onChange={(e) => setValue(e.target.value)}
+                    onFocus={(e) => {
+                        if (e.target.value === "0") {
+                            e.target.select();
+                        }
+                    }}
                     placeholder="0"
                     min="0"
                     className="w-full pr-8 pl-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-black shadow-sm text-right focus:bg-white"
