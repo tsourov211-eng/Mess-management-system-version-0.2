@@ -7,7 +7,12 @@ import {
   calculateMealRate, 
   calculateFixedCostPerMember, 
   calculateMemberSummary, 
-  formatMonthKey 
+  formatMonthKey,
+  getMonthDateRange,
+  getDhakaTodayStartAndEnd,
+  calculateFunds,
+  round1,
+  round2
 } from "@/lib/calculations";
 import { hashPassword, sanitizeInput, safeErrorResponse } from "@/lib/security";
 import { AdminUpdateUserSchema, AdminCreateUserSchema } from "@/lib/validations";
@@ -24,157 +29,140 @@ export async function GET(req: Request) {
     const monthParam = searchParams.get("month");
     const yearParam = searchParams.get("year");
 
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
+    // Dynamic month calculation with UTC date boundaries & key resolution
+    const { 
+      year: targetYear, 
+      month: targetMonth, 
+      dateFilter, 
+      allMonthKeys, 
+      monthName 
+    } = getMonthDateRange(yearParam, monthParam);
 
-    if (monthParam && yearParam) {
-      const year = parseInt(yearParam);
-      const month = parseInt(monthParam); // 1 to 12
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 1);
-    } else {
-      // Default to current month
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    }
-
-    const dateFilter = {
-      gte: startDate,
-      lt: endDate,
-    };
-
-    // 1. Fetch total mess food expenses (Approved expenses) for the active month
-    const expenseAggThisMonth = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { 
-        status: "Approved",
-        date: dateFilter,
-      },
-    });
-    const totalFoodCostThisMonth = expenseAggThisMonth._sum.amount || 0;
-
-    // All-time approved food expenses
-    const expenseAggAllTime = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { status: "Approved" },
-    });
-    const totalFoodCostAllTime = expenseAggAllTime._sum.amount || 0;
-
-    // 2. Total mess meals for the active month
-    const monthMeals = await prisma.mealLog.findMany({
-      where: { date: dateFilter },
-    });
-    const totalMessMealsThisMonth = monthMeals.reduce(
-      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
-      0
-    );
-
-    // 3. Exact live meal rate for the active month with 0.00 fallback
-    const liveMealRate = calculateMealRate(totalFoodCostThisMonth, totalMessMealsThisMonth);
-
-    // 4. Monthly fixed overhead config for the active month
-    const monthKey = formatMonthKey(startDate);
-    const isoMonthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
-      where: {
-        OR: [
-          { month: monthKey },
-          { month: isoMonthKey }
-        ]
-      },
-    });
-    const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
-
-    // 5. Total deposited money (all-time & this month)
-    const depositAggThisMonth = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: { status: "Approved", date: dateFilter },
-    });
-    const totalDepositsThisMonth = depositAggThisMonth._sum.amount || 0;
-
-    const depositAggAllTime = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: { status: "Approved" },
-    });
-    // 6. Separate Funds:
-    // Meal Fund: Approved deposits for "Meal Fund" - Approved food expenses (all-time)
-    const mealDepositAggAllTime = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "Approved",
-        OR: [
-          { category: "Meal Fund" },
-          { category: null },
-          { category: "" },
-        ],
-      },
-    });
-    const totalMealDepositsAllTime = mealDepositAggAllTime._sum.amount || 0;
-    const mealFund = Math.round((totalMealDepositsAllTime - totalFoodCostAllTime) * 100) / 100;
-
-    // Mess Fund: Approved deposits for Overhead Expenses (Seat Rent, Utilities, WiFi, Maid, Additional)
-    const overheadDepositAggAllTime = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "Approved",
-        NOT: [
-          { category: "Meal Fund" },
-        ],
-      },
-    });
-    const messFund = Math.round((overheadDepositAggAllTime._sum.amount || 0) * 100) / 100;
-    const totalFund = Math.round((mealFund + messFund) * 100) / 100;
-
-    // 7. Today's stats calculation
-    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
-
-    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
-    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    // Dhaka-aware Today's date filter
+    const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
     const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
-    const todayMeals = await prisma.mealLog.findMany({
-      where: { date: todayDateFilter },
-    });
-    const totalMealsToday = todayMeals.reduce(
-      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+    // Parallelize all 10 independent database queries for maximum performance
+    const [
+      expenseAggThisMonth,
+      expenseAggAllTime,
+      monthMeals,
+      monthlyExpenseConfig,
+      depositAggThisMonth,
+      depositAggAllTime,
+      mealDepositAggAllTime,
+      todayMeals,
+      todayExpenses,
+      users,
+    ] = await Promise.all([
+      // 1. Approved food expenses this month
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved", date: dateFilter },
+      }),
+      // 2. Approved food expenses all-time
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved" },
+      }),
+      // 3. All mess meals for the active month
+      prisma.mealLog.findMany({
+        where: { date: dateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // 4. Monthly fixed overhead config
+      prisma.monthlyExpense.findFirst({
+        where: { month: { in: allMonthKeys } },
+      }),
+      // 5. Total approved deposits this month
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved", date: dateFilter },
+      }),
+      // 6. Total approved deposits all-time
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved" },
+      }),
+      // 7. Approved meal fund deposits all-time
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: "Approved",
+          OR: [
+            { category: "Meal Fund" },
+            { category: null },
+            { category: "" },
+          ],
+        },
+      }),
+      // 8. Today's meals
+      prisma.mealLog.findMany({
+        where: { date: todayDateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // 9. Today's approved bazaar expenses
+      prisma.expense.findMany({
+        where: { date: todayDateFilter, status: "Approved" },
+        select: { amount: true },
+      }),
+      // 10. All users with active month approved deposits and meal logs
+      prisma.user.findMany({
+        orderBy: { role: "asc" },
+        include: {
+          deposits: {
+            where: { status: "Approved", date: dateFilter },
+            select: { amount: true, category: true },
+          },
+          meals: {
+            where: { date: dateFilter },
+            select: { breakfast: true, lunch: true, dinner: true, guest: true },
+          },
+        },
+      }),
+    ]);
+
+    // Financial aggregation
+    const totalFoodCostThisMonth = expenseAggThisMonth._sum.amount || 0;
+    const totalFoodCostAllTime = expenseAggAllTime._sum.amount || 0;
+    const totalDepositsThisMonth = depositAggThisMonth._sum.amount || 0;
+    const totalDepositsAllTime = depositAggAllTime._sum.amount || 0;
+    const totalMealDepositsAllTime = mealDepositAggAllTime._sum.amount || 0;
+
+    // Total mess meals for the month
+    const totalMessMealsThisMonth = monthMeals.reduce(
+      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
       0
     );
 
-    const todayExpenses = await prisma.expense.findMany({
-      where: { date: todayDateFilter, status: "Approved" },
-    });
-    const totalBazaarToday = todayExpenses.reduce((acc, e) => acc + e.amount, 0);
+    // Live meal rate
+    const liveMealRate = calculateMealRate(totalFoodCostThisMonth, totalMessMealsThisMonth);
 
-    // 8. Fetch all users along with their active month approved deposits and meal logs
-    const users = await prisma.user.findMany({
-      orderBy: { role: "asc" },
-      include: {
-        deposits: { 
-          where: { 
-            status: "Approved",
-            date: dateFilter,
-          } 
-        },
-        meals: {
-          where: {
-            date: dateFilter,
-          }
-        },
-      },
-    });
-    
-    // Calculate approved users count
-    const approvedUsersCount = users.filter(u => ["member", "manager", "admin"].includes(u.role)).length;
+    // Fixed overhead per member
+    const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 
-    // 9. Calculate each user's financial summary using calculation engine
+    // Segregated Funds calculation (eliminates null-category double-counting)
+    const funds = calculateFunds({
+      totalApprovedDeposits: totalDepositsAllTime,
+      totalMealDeposits: totalMealDepositsAllTime,
+      totalFoodExpenses: totalFoodCostAllTime,
+    });
+
+    // Today's stats
+    const totalMealsToday = todayMeals.reduce(
+      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
+      0
+    );
+    const totalBazaarToday = todayExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+
+    // Filter approved users count
+    const approvedUsersCount = users.filter((u) => ["member", "manager", "admin"].includes(u.role)).length;
+
+    // Calculate each user's financial summary
     const formattedUsers = users.map((u) => {
       const userDeposit = u.deposits.reduce((acc, d) => acc + d.amount, 0);
       const userMeals = u.meals.reduce(
-        (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+        (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
         0
       );
 
@@ -207,28 +195,37 @@ export async function GET(req: Request) {
       };
     });
 
-    const totalDue = formattedUsers
-      .filter((u) => u.balance < 0)
-      .reduce((acc, u) => acc + Math.abs(u.balance), 0);
-    const dueMembersCount = formattedUsers.filter((u) => u.balance < 0).length;
+    // Dues only apply to approved active members (never pending users)
+    const dueMembers = formattedUsers.filter(
+      (u) => u.status !== "Pending" && u.balance < 0
+    );
+    const totalDue = round2(
+      dueMembers.reduce((acc, u) => acc + Math.abs(u.balance), 0)
+    );
+    const dueMembersCount = dueMembers.length;
 
     return NextResponse.json(
       {
         users: formattedUsers,
         stats: {
           totalMembers: approvedUsersCount,
-          totalFoodCost: Math.round(totalFoodCostThisMonth * 100) / 100,
-          mealFund,
-          messFund: Math.round(messFund * 100) / 100,
-          totalFund,
-          totalMessMeals: Math.round(totalMessMealsThisMonth * 10) / 10,
-          liveMealRate: liveMealRate,
+          totalFoodCost: round2(totalFoodCostThisMonth),
+          mealFund: funds.mealFund,
+          messFund: funds.messFund,
+          totalFund: funds.totalFund,
+          totalMessMeals: round1(totalMessMealsThisMonth),
+          liveMealRate,
           fixedCostPerMember,
-          totalDepositsThisMonth: Math.round(totalDepositsThisMonth * 100) / 100,
+          totalDepositsThisMonth: round2(totalDepositsThisMonth),
           totalBazaarToday: Math.round(totalBazaarToday),
-          totalMealsToday: Math.round(totalMealsToday * 10) / 10,
-          totalDue: Math.round(totalDue * 100) / 100,
+          totalMealsToday: round1(totalMealsToday),
+          totalDue,
           dueMembersCount,
+          period: {
+            month: targetMonth,
+            year: targetYear,
+            monthName,
+          },
         },
       },
       { status: 200 }

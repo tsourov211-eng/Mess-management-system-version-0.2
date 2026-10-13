@@ -5,12 +5,21 @@
  * 1. Total Meals = Breakfast + Lunch + Dinner + Guest Meals
  * 2. Total Bazar = Sum of approved food / market expenses
  * 3. Live Meal Rate = Total Bazar / Total Meals (0.00 if Total Meals is 0)
- * 4. Fixed Cost Per Member = Sum of monthly non-bazar overheads (Seat Rent, Utilities, Gas, Wifi, Maid, Additional)
+ * 4. Fixed Cost Per Member = Sum of monthly non-bazar overheads (Seat Rent, Utilities, Gas, Wifi, Maid, Additional, Meal Charge)
  * 5. Member Total Cost = (Member Meals * Meal Rate) + Member Fixed Cost
  * 6. Member Net Balance = Member Total Deposits - Member Total Cost
- *    - Positive (> 0): Member is in surplus (Refund due from mess fund) -> Green
+ *    - Positive (>= 0): Member is in surplus (Refund / credit in mess fund) -> Green
  *    - Negative (< 0): Member is in deficit (Due payable to mess) -> Red
+ * 7. Fund Segregation:
+ *    - Meal Fund = Approved Meal Deposits - Approved Bazar Food Expenses
+ *    - Mess Fund = Approved Overhead Deposits (Seat Rent, Bills, WiFi, Maid, etc.)
+ *    - Total Fund = Meal Fund + Mess Fund (Strictly equals total cash-in-hand)
  */
+
+export const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+] as const;
 
 export interface MonthlyExpenseConfig {
   seatRent?: number;
@@ -36,14 +45,135 @@ export interface MemberFinancialSummary {
 }
 
 /**
+ * Utility to round floats safely to prevent IEEE-754 precision drift (e.g. 0.1 + 0.2).
+ */
+export function round2(num: number): number {
+  return Math.round((Number(num) || 0) * 100) / 100;
+}
+
+export function round1(num: number): number {
+  return Math.round((Number(num) || 0) * 10) / 10;
+}
+
+/**
+ * Extracts year, month (1-12), day, hour, and minute in Bangladesh standard time (Asia/Dhaka).
+ * Crucial for hosting on UTC platforms like Vercel to prevent midnight date flips.
+ */
+export function getDhakaDate(baseDate: Date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dhaka",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hourCycle: "h23",
+    }).formatToParts(baseDate);
+
+    const year = parseInt(parts.find((p) => p.type === "year")?.value || `${baseDate.getFullYear()}`, 10);
+    const month = parseInt(parts.find((p) => p.type === "month")?.value || `${baseDate.getMonth() + 1}`, 10);
+    const day = parseInt(parts.find((p) => p.type === "day")?.value || `${baseDate.getDate()}`, 10);
+    const hour = parseInt(parts.find((p) => p.type === "hour")?.value || `${baseDate.getHours()}`, 10);
+    const minute = parseInt(parts.find((p) => p.type === "minute")?.value || `${baseDate.getMinutes()}`, 10);
+
+    return { year, month, day, hour, minute };
+  } catch {
+    return {
+      year: baseDate.getFullYear(),
+      month: baseDate.getMonth() + 1,
+      day: baseDate.getDate(),
+      hour: baseDate.getHours(),
+      minute: baseDate.getMinutes(),
+    };
+  }
+}
+
+/**
+ * Calculates start and end timestamps for "Today" spanning both UTC midnight and Dhaka local midnight.
+ * This guarantees that meals logged at UTC 00:00 and expenses logged during the Dhaka day are both captured.
+ */
+export function getDhakaTodayStartAndEnd(baseDate: Date = new Date()) {
+  const dhaka = getDhakaDate(baseDate);
+  const now = baseDate;
+
+  const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  
+  const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+
+  const dhakaUtcToday = new Date(Date.UTC(dhaka.year, dhaka.month - 1, dhaka.day, 0, 0, 0, 0));
+  const dhakaUtcTomorrow = new Date(Date.UTC(dhaka.year, dhaka.month - 1, dhaka.day + 1, 0, 0, 0, 0));
+
+  const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime(), dhakaUtcToday.getTime()));
+  const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime(), dhakaUtcTomorrow.getTime()));
+
+  return { todayStart, todayEnd, dhaka };
+}
+
+/**
+ * Computes exact month UTC range, month keys, and metadata for dynamic queries.
+ */
+export function getMonthDateRange(
+  yearParam?: number | string | null,
+  monthParam?: number | string | null
+) {
+  const dhakaNow = getDhakaDate();
+  
+  let targetYear = yearParam ? parseInt(String(yearParam), 10) : dhakaNow.year;
+  let targetMonth = monthParam ? parseInt(String(monthParam), 10) : dhakaNow.month;
+
+  if (isNaN(targetYear) || targetYear < 2000 || targetYear > 2100) {
+    targetYear = dhakaNow.year;
+  }
+  if (isNaN(targetMonth) || targetMonth < 1 || targetMonth > 12) {
+    targetMonth = dhakaNow.month;
+  }
+
+  // Exact UTC boundaries for standard MongoDB filtering
+  const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0, 0));
+  const endDate = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
+
+  const monthIndex = targetMonth - 1;
+  const monthName = MONTH_NAMES[monthIndex];
+  const shortMonthName = monthName.slice(0, 3);
+  const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+
+  // Multi-format keys to reliably match MonthlyExpense entries
+  const monthKey = `${monthName} ${targetYear}`;
+  const isoMonthKey = `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
+  const shortMonthKey = `${shortMonthName} ${targetYear}`;
+
+  const allMonthKeys = [
+    monthKey,
+    isoMonthKey,
+    shortMonthKey,
+    `${targetYear}-${targetMonth}`,
+  ];
+
+  return {
+    year: targetYear,
+    month: targetMonth,
+    startDate,
+    endDate,
+    dateFilter: { gte: startDate, lt: endDate },
+    monthName,
+    monthKey,
+    isoMonthKey,
+    allMonthKeys,
+    daysInMonth,
+  };
+}
+
+/**
  * Calculates the exact live meal rate with division-by-zero protection.
  */
 export function calculateMealRate(totalBazar: number, totalMeals: number): number {
   if (totalMeals <= 0 || totalBazar <= 0) {
     return 0;
   }
-  const rate = totalBazar / totalMeals;
-  return Math.round(rate * 100) / 100;
+  return round2(totalBazar / totalMeals);
 }
 
 /**
@@ -59,15 +189,44 @@ export function calculateFixedCostPerMember(config?: MonthlyExpenseConfig | null
     (Number(config.additional) || 0) +
     (Number(config.mealCharge) || 0);
 
-  return Math.round(total * 100) / 100;
+  return round2(total);
+}
+
+/**
+ * Computes strictly segregated and balanced mess funds:
+ * - Meal Fund = Approved Meal Deposits - Approved Food Expenses
+ * - Mess Fund = Approved Overhead Deposits (Total Approved Deposits - Meal Deposits)
+ * - Total Fund = Meal Fund + Mess Fund (Cash in Hand)
+ */
+export function calculateFunds(params: {
+  totalApprovedDeposits: number;
+  totalMealDeposits: number;
+  totalFoodExpenses: number;
+}) {
+  const totalApproved = round2(params.totalApprovedDeposits);
+  const totalMealDeps = round2(params.totalMealDeposits);
+  const totalFoodExps = round2(params.totalFoodExpenses);
+
+  const mealFund = round2(totalMealDeps - totalFoodExps);
+  const messFund = round2(Math.max(0, totalApproved - totalMealDeps));
+  const totalFund = round2(mealFund + messFund);
+
+  return {
+    mealFund,
+    messFund,
+    totalFund,
+    totalMealDeposits: totalMealDeps,
+    totalOverheadDeposits: messFund,
+    totalFoodExpenses: totalFoodExps,
+  };
 }
 
 /**
  * Calculates a member's complete financial summary.
  * In an active/ongoing month, live balance reflects real money present right now:
- * Member Live Balance = Member Deposits - (Member Meals * Live Meal Rate) - Actual Incurred Shared Costs
- * Unpaid projected overhead configurations (e.g. seat rent, maid budget) are preserved for breakdown display
- * but NOT deducted from live cash-in-hand balances.
+ * Member Live Balance = Member Deposits - (Member Meals * Live Meal Rate) - Incurred/Allocated Overheads
+ * 
+ * Pending members are never charged overheads or meal costs.
  */
 export function calculateMemberSummary(params: {
   userId: string;
@@ -90,10 +249,12 @@ export function calculateMemberSummary(params: {
     actualSharedCost = 0 
   } = params;
 
-  const mealCost = Math.round((totalMeals * mealRate) * 100) / 100;
-  const sharedOverhead = actualSharedCost > 0 ? actualSharedCost : fixedCost;
-  const totalCost = Math.round((mealCost + sharedOverhead) * 100) / 100;
-  const balance = Math.round((totalDeposit - totalCost) * 100) / 100;
+  const isPending = role === "pending";
+
+  const effectiveFixedCost = isPending ? 0 : round2(actualSharedCost > 0 ? actualSharedCost : fixedCost);
+  const mealCost = isPending ? 0 : round2(totalMeals * mealRate);
+  const totalCost = round2(mealCost + effectiveFixedCost);
+  const balance = round2(totalDeposit - totalCost);
   const isPositive = balance >= 0;
 
   const prefix = isPositive ? "+" : "-";
@@ -106,10 +267,10 @@ export function calculateMemberSummary(params: {
     userId,
     name,
     role,
-    totalDeposit: Math.round(totalDeposit * 100) / 100,
-    totalMeals: Math.round(totalMeals * 10) / 10,
+    totalDeposit: round2(totalDeposit),
+    totalMeals: round1(totalMeals),
     mealCost,
-    fixedCost,
+    fixedCost: effectiveFixedCost,
     totalCost,
     balance,
     isPositive,
@@ -118,8 +279,22 @@ export function calculateMemberSummary(params: {
 }
 
 /**
- * Formats a month & year Date into the string key used by MonthlyExpense table (e.g. "October 2026").
+ * Formats a month & year Date or numeric month/year into the string key used by MonthlyExpense table.
+ * Backwards compatible with both formatMonthKey(date) and formatMonthKey(year, month).
  */
-export function formatMonthKey(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+export function formatMonthKey(dateOrYear: Date | number, maybeMonth?: number): string {
+  if (typeof dateOrYear === "number" && typeof maybeMonth === "number") {
+    const monthIndex = Math.max(0, Math.min(11, maybeMonth - 1));
+    return `${MONTH_NAMES[monthIndex]} ${dateOrYear}`;
+  }
+  
+  if (dateOrYear instanceof Date) {
+    // Read UTC month & year to avoid any timezone day-shift
+    const m = dateOrYear.getUTCMonth();
+    const y = dateOrYear.getUTCFullYear();
+    return `${MONTH_NAMES[m]} ${y}`;
+  }
+
+  const d = new Date();
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }

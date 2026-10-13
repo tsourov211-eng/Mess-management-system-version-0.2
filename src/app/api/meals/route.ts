@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { calculateMealRate } from "@/lib/calculations";
+import { calculateMealRate, getDhakaTodayStartAndEnd, getMonthDateRange, round1 } from "@/lib/calculations";
 import { SaveMealsSchema } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { safeErrorResponse } from "@/lib/security";
@@ -24,31 +24,67 @@ export async function GET(req: Request) {
     const nextDate = new Date(targetDate);
     nextDate.setDate(nextDate.getDate() + 1);
 
-    // Fetch all active members
-    const users = await prisma.user.findMany({
-      where: { role: { not: "pending" } },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        role: true,
-        defaultBreakfast: true,
-        defaultLunch: true,
-        defaultDinner: true,
-      },
-    });
+    // Dhaka-aware Today's date filter
+    const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
+    const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
-    // Fetch meal logs for that specific day
-    const mealLogs = await prisma.mealLog.findMany({
-      where: {
-        date: {
-          gte: targetDate,
-          lt: nextDate,
+    // Month date filter
+    const { dateFilter: monthDateFilter } = getMonthDateRange();
+
+    // Fetch active members, daily logs, today stats, and month stats in parallel
+    const [
+      users,
+      mealLogs,
+      todayMeals,
+      todayExpenses,
+      monthExpenses,
+      monthMeals,
+    ] = await Promise.all([
+      // Fetch all active members
+      prisma.user.findMany({
+        where: { role: { not: "pending" } },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          role: true,
+          defaultBreakfast: true,
+          defaultLunch: true,
+          defaultDinner: true,
         },
-      },
-    });
+      }),
+      // Fetch meal logs for that specific day
+      prisma.mealLog.findMany({
+        where: {
+          date: {
+            gte: targetDate,
+            lt: nextDate,
+          },
+        },
+      }),
+      // Today meals
+      prisma.mealLog.findMany({
+        where: { date: todayDateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // Today bazaar expenses
+      prisma.expense.findMany({
+        where: { date: todayDateFilter, status: "Approved" },
+        select: { amount: true },
+      }),
+      // Month food expenses
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved", date: monthDateFilter },
+      }),
+      // Month meals
+      prisma.mealLog.findMany({
+        where: { date: monthDateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+    ]);
 
     const mealMap = new Map();
     mealLogs.forEach((log) => {
@@ -70,44 +106,15 @@ export async function GET(req: Request) {
       };
     });
 
-    // Today's quick status calculation
-    const now = new Date();
-    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
-
-    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
-    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
-    const todayDateFilter = { gte: todayStart, lt: todayEnd };
-
-    const todayMeals = await prisma.mealLog.findMany({
-      where: { date: todayDateFilter },
-    });
     const totalMealsToday = todayMeals.reduce(
-      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
       0
     );
 
-    const todayExpenses = await prisma.expense.findMany({
-      where: { date: todayDateFilter, status: "Approved" },
-    });
-    const todayBazaar = todayExpenses.reduce((acc, e) => acc + e.amount, 0);
+    const todayBazaar = todayExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
 
-    // Month-specific live meal rate calculation
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const dateFilter = { gte: startOfMonth, lt: endOfMonth };
-
-    const monthExpenses = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { status: "Approved", date: dateFilter },
-    });
-    const monthMeals = await prisma.mealLog.findMany({
-      where: { date: dateFilter },
-    });
     const totalMonthMeals = monthMeals.reduce(
-      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
       0
     );
     const liveMealRate = calculateMealRate(monthExpenses._sum.amount || 0, totalMonthMeals);

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { safeErrorResponse, sanitizeInput } from "@/lib/security";
+import { getDhakaDate, getMonthDateRange } from "@/lib/calculations";
 
 function getDhakaHour(): number {
   try {
@@ -37,23 +38,62 @@ export async function GET(req: Request) {
     const month = searchParams.get("month");
     const year = searchParams.get("year");
 
-    // Determine today's meal status
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfterTomorrow = new Date(tomorrow);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+    // Determine today and tomorrow strictly in Dhaka time
+    const dhaka = getDhakaDate();
+    const today = new Date(Date.UTC(dhaka.year, dhaka.month - 1, dhaka.day, 0, 0, 0, 0));
+    const tomorrow = new Date(Date.UTC(dhaka.year, dhaka.month - 1, dhaka.day + 1, 0, 0, 0, 0));
+    const dayAfterTomorrow = new Date(Date.UTC(dhaka.year, dhaka.month - 1, dhaka.day + 2, 0, 0, 0, 0));
 
-    const todaysMeal = await prisma.mealLog.findFirst({
-      where: {
-        userId: user.id, // Strictly scoped to session (Anti-IDOR)
-        date: { gte: today, lt: tomorrow },
-      },
-    });
+    // Dynamic month boundaries for monthly meal history
+    const { dateFilter: monthDateFilter } = getMonthDateRange(year, month);
+
+    // Run all 5 independent queries in parallel
+    const [
+      todaysMeal,
+      tomorrowsMeal,
+      tomorrowsGuestReqs,
+      monthlyMeals,
+      guestRequests,
+    ] = await Promise.all([
+      // 1. Today's meal log
+      prisma.mealLog.findFirst({
+        where: {
+          userId: user.id,
+          date: { gte: today, lt: tomorrow },
+        },
+      }),
+      // 2. Tomorrow's meal log
+      prisma.mealLog.findFirst({
+        where: {
+          userId: user.id,
+          date: { gte: tomorrow, lt: dayAfterTomorrow },
+        },
+      }),
+      // 3. Tomorrow's guest requests
+      prisma.guestMealRequest.findMany({
+        where: {
+          userId: user.id,
+          date: { gte: tomorrow, lt: dayAfterTomorrow },
+          status: { in: ["Approved", "Pending"] },
+        },
+      }),
+      // 4. Monthly meal history
+      prisma.mealLog.findMany({
+        where: {
+          userId: user.id,
+          date: monthDateFilter,
+        },
+        orderBy: { date: "desc" },
+      }),
+      // 5. User guest requests
+      prisma.guestMealRequest.findMany({
+        where: { userId: user.id },
+        orderBy: { date: "desc" },
+      }),
+    ]);
 
     const isManagerOrAdmin = user.role === "manager" || user.role === "admin";
-    const currentHour = getDhakaHour();
+    const currentHour = dhaka.hour;
 
     const defaultB = user.defaultBreakfast ?? 0.5;
     const defaultL = user.defaultLunch ?? 1.0;
@@ -90,22 +130,6 @@ export async function GET(req: Request) {
       isManagerOrAdmin,
     };
 
-    // Determine tomorrow's meal plan (saved or default)
-    const tomorrowsMeal = await prisma.mealLog.findFirst({
-      where: {
-        userId: user.id,
-        date: { gte: tomorrow, lt: dayAfterTomorrow },
-      },
-    });
-
-    // Check if user previously selected / requested guest meals for tomorrow
-    const tomorrowsGuestReqs = await prisma.guestMealRequest.findMany({
-      where: {
-        userId: user.id,
-        date: { gte: tomorrow, lt: dayAfterTomorrow },
-        status: { in: ["Approved", "Pending"] },
-      },
-    });
     const tomorrowGuestCountFromReqs = tomorrowsGuestReqs.reduce((sum, r) => sum + (r.guests || 0), 0);
     const resolvedTomorrowGuests = Math.max(tomorrowsMeal?.guest || 0, tomorrowGuestCountFromReqs);
 
@@ -115,26 +139,6 @@ export async function GET(req: Request) {
       dinner: tomorrowsMeal ? tomorrowsMeal.dinner : defaultD,
       guest: resolvedTomorrowGuests,
     };
-
-    // Fetch monthly meal history
-    const currentYear = year ? parseInt(year) : new Date().getFullYear();
-    const currentMonth = month ? parseInt(month) - 1 : new Date().getMonth();
-    const startOfMonth = new Date(Date.UTC(currentYear, currentMonth, 1));
-    const endOfMonth = new Date(Date.UTC(currentYear, currentMonth + 1, 0, 23, 59, 59, 999));
-
-    const monthlyMeals = await prisma.mealLog.findMany({
-      where: {
-        userId: user.id,
-        date: { gte: startOfMonth, lte: endOfMonth },
-      },
-      orderBy: { date: "desc" },
-    });
-
-    // Fetch user's previous guest meal requests
-    const guestRequests = await prisma.guestMealRequest.findMany({
-      where: { userId: user.id },
-      orderBy: { date: "desc" },
-    });
 
     return NextResponse.json(
       { success: true, todayStatus, todayCounts, todayTotal, cutoffs, tomorrowPlan, guestRequests, monthlyMeals },

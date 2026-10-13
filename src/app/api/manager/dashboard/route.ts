@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateMealRate } from "@/lib/calculations";
+import { 
+  calculateMealRate, 
+  getMonthDateRange, 
+  getDhakaTodayStartAndEnd,
+  calculateFunds,
+  round1,
+  round2 
+} from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -20,133 +27,146 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Forbidden: Manager access required" }, { status: 403 });
     }
 
-    // Notices for manager
-    const notices = await prisma.notice.findMany({
-      where: {
-        isActive: true,
-        id: { notIn: user.clearedNotices || [] },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+    const { searchParams } = new URL(req.url);
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
 
-    // 1. Pending payment requests (Deposit)
-    const pendingDeposits = await prisma.deposit.findMany({
-      where: { status: "Pending" },
-      include: { user: { select: { name: true, image: true } } },
-      orderBy: { date: "desc" },
-    });
+    // Dynamic month date filter
+    const { 
+      year: targetYear, 
+      month: targetMonth, 
+      dateFilter, 
+      monthName 
+    } = getMonthDateRange(yearParam, monthParam);
 
-    // 2. Pending bazaar expenses (Expense)
-    const pendingExpenses = await prisma.expense.findMany({
-      where: { status: "Pending" },
-      include: { user: { select: { name: true, image: true } } },
-      orderBy: { date: "desc" },
-    });
-
-    // 2.5 Pending bazaar schedules
-    const pendingBazaarSchedules = await prisma.bazaarSchedule.findMany({
-      where: { status: "pending" },
-      include: { user: { select: { name: true, image: true } } },
-      orderBy: { date: "asc" },
-    });
-
-    // 2.7 Pending guest meal requests
-    const pendingGuestMeals = await prisma.guestMealRequest.findMany({
-      where: { status: "Pending" },
-      include: { user: { select: { id: true, name: true, image: true, email: true } } },
-      orderBy: { date: "asc" },
-    });
-
-    // 3. Total meals today
-    const now = new Date();
-    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
-
-    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
-    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    // Dhaka-aware Today's date filter
+    const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
     const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
-    const todayMeals = await prisma.mealLog.findMany({
-      where: { date: todayDateFilter },
-    });
+    // Parallelize all 13 independent queries for maximum responsiveness
+    const [
+      notices,
+      pendingDeposits,
+      pendingExpenses,
+      pendingBazaarSchedules,
+      pendingGuestMeals,
+      todayMeals,
+      todayExpenses,
+      monthExpenses,
+      monthMeals,
+      todayDuty,
+      allDepositsAgg,
+      mealDepositAgg,
+      expenseAgg,
+    ] = await Promise.all([
+      // 1. Notices for manager
+      prisma.notice.findMany({
+        where: {
+          isActive: true,
+          id: { notIn: user.clearedNotices || [] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      // 2. Pending payment requests (Deposit)
+      prisma.deposit.findMany({
+        where: { status: "Pending" },
+        include: { user: { select: { name: true, image: true } } },
+        orderBy: { date: "desc" },
+      }),
+      // 3. Pending bazaar expenses (Expense)
+      prisma.expense.findMany({
+        where: { status: "Pending" },
+        include: { user: { select: { name: true, image: true } } },
+        orderBy: { date: "desc" },
+      }),
+      // 4. Pending bazaar schedules
+      prisma.bazaarSchedule.findMany({
+        where: { status: "pending" },
+        include: { user: { select: { name: true, image: true } } },
+        orderBy: { date: "asc" },
+      }),
+      // 5. Pending guest meal requests
+      prisma.guestMealRequest.findMany({
+        where: { status: "Pending" },
+        include: { user: { select: { id: true, name: true, image: true, email: true } } },
+        orderBy: { date: "asc" },
+      }),
+      // 6. Today meals
+      prisma.mealLog.findMany({
+        where: { date: todayDateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // 7. Today bazaar expenses (Approved)
+      prisma.expense.findMany({
+        where: { date: todayDateFilter, status: "Approved" },
+        select: { amount: true },
+      }),
+      // 8. Month expenses (Approved)
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved", date: dateFilter },
+      }),
+      // 9. Month meals
+      prisma.mealLog.findMany({
+        where: { date: dateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // 10. Market Duty for today
+      prisma.bazaarSchedule.findFirst({
+        where: { date: todayDateFilter },
+        include: { user: { select: { name: true } } },
+      }),
+      // 11. All approved deposits (all-time)
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved" },
+      }),
+      // 12. Approved meal fund deposits (all-time)
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: "Approved",
+          OR: [
+            { category: "Meal Fund" },
+            { category: null },
+            { category: "" },
+          ],
+        },
+      }),
+      // 13. Approved expenses (all-time)
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { status: "Approved" },
+      }),
+    ]);
+
+    // Today calculations
     const totalMealsToday = todayMeals.reduce(
-      (acc, meal) =>
-        acc + meal.breakfast + meal.lunch + meal.dinner + meal.guest,
+      (acc, meal) => acc + (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0),
       0
     );
+    const totalBazaarToday = todayExpenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
 
-    // 4. Today's bazaar expenses (which are Approved)
-    const todayExpenses = await prisma.expense.findMany({
-      where: { date: todayDateFilter, status: "Approved" },
-    });
-    const totalBazaarToday = todayExpenses.reduce(
-      (acc, exp) => acc + exp.amount,
-      0
-    );
-
-    // 5. Month-specific live meal rate calculation
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const dateFilter = { gte: startOfMonth, lt: endOfMonth };
-
-    const monthExpenses = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { status: "Approved", date: dateFilter },
-    });
-    const monthMeals = await prisma.mealLog.findMany({
-      where: { date: dateFilter },
-    });
+    // Month calculations
     const totalMonthMeals = monthMeals.reduce(
-      (acc, m) => acc + m.breakfast + m.lunch + m.dinner + m.guest,
+      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
       0
     );
     const currentMealRate = calculateMealRate(monthExpenses._sum.amount || 0, totalMonthMeals);
 
-    // 6. Market Duty for today
-    const todayDuty = await prisma.bazaarSchedule.findFirst({
-      where: { date: todayDateFilter },
-      include: { user: { select: { name: true } } },
-    });
+    // Market Duty
     const marketDuty = todayDuty?.user?.name || "Unassigned";
 
-    // 7. Separate Funds:
-    // Meal Fund: Total Meal Deposits Collected - Total Actual Food Expenses Paid (Approved)
-    const mealDepositAgg = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "Approved",
-        OR: [
-          { category: "Meal Fund" },
-          { category: null },
-          { category: "" },
-        ],
-      },
-    });
+    // Strict Segregated Funds
+    const totalApprovedDeposits = allDepositsAgg._sum.amount || 0;
     const totalMealDeposits = mealDepositAgg._sum.amount || 0;
-
-    const expenseAgg = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { status: "Approved" },
+    const totalExpensesAllTime = expenseAgg._sum.amount || 0;
+    const funds = calculateFunds({
+      totalApprovedDeposits,
+      totalMealDeposits,
+      totalFoodExpenses: totalExpensesAllTime,
     });
-    const totalExpenses = expenseAgg._sum.amount || 0;
-
-    const mealFund = Math.round((totalMealDeposits - totalExpenses) * 100) / 100;
-
-    // Mess Fund: Total Overhead Deposits Collected (Seat Rent, Utilities, WiFi, Maid, Additional)
-    const overheadDepositAgg = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "Approved",
-        NOT: [
-          { category: "Meal Fund" },
-        ],
-      },
-    });
-    const messFund = Math.round((overheadDepositAgg._sum.amount || 0) * 100) / 100;
-    const totalFund = Math.round((mealFund + messFund) * 100) / 100;
 
     return NextResponse.json(
       {
@@ -156,14 +176,19 @@ export async function GET() {
         pendingBazaarSchedules,
         pendingGuestMeals,
         stats: {
-          totalMealsToday: Math.round(totalMealsToday * 10) / 10,
+          totalMealsToday: round1(totalMealsToday),
           totalBazaarToday: Math.round(totalBazaarToday),
           currentMealRate,
           liveMealRate: currentMealRate,
           marketDuty,
-          mealFund,
-          messFund,
-          totalFund,
+          mealFund: funds.mealFund,
+          messFund: funds.messFund,
+          totalFund: funds.totalFund,
+          period: {
+            month: targetMonth,
+            year: targetYear,
+            monthName,
+          },
         },
       },
       { status: 200 }

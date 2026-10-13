@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateMealRate, calculateFixedCostPerMember, formatMonthKey } from "@/lib/calculations";
+import { calculateMealRate, calculateFixedCostPerMember, formatMonthKey, getMonthDateRange } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
 export async function GET(req: Request) {
@@ -29,78 +29,75 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const now = new Date();
-    const targetMonth = searchParams.get("month") ? parseInt(searchParams.get("month")!) : now.getMonth() + 1;
-    const targetYear = searchParams.get("year") ? parseInt(searchParams.get("year")!) : now.getFullYear();
+    const { 
+      year: targetYear, 
+      month: targetMonth, 
+      dateFilter, 
+      allMonthKeys, 
+      monthName,
+      monthKey,
+      daysInMonth 
+    } = getMonthDateRange(searchParams.get("year"), searchParams.get("month"));
 
-    if (isNaN(targetMonth) || targetMonth < 1 || targetMonth > 12 || isNaN(targetYear)) {
-      return NextResponse.json({ error: "Invalid month or year" }, { status: 400 });
-    }
+    // Parallelize all 6 queries for maximum responsiveness
+    const [
+      userMealLogs,
+      userDeposits,
+      userExpenses,
+      messExpensesAgg,
+      allMessMealLogs,
+      monthlyExpenseConfig,
+    ] = await Promise.all([
+      // 1. Fetch User's Daily Meals for the month
+      prisma.mealLog.findMany({
+        where: {
+          userId: user.id,
+          date: dateFilter,
+        },
+        orderBy: { date: "asc" },
+      }),
+      // 2. Fetch User's Deposits for the month
+      prisma.deposit.findMany({
+        where: {
+          userId: user.id,
+          date: dateFilter,
+        },
+        orderBy: { date: "asc" },
+      }),
+      // 3. Fetch User's Bazaar Expenses for the month
+      prisma.expense.findMany({
+        where: {
+          userId: user.id,
+          date: dateFilter,
+        },
+        orderBy: { date: "asc" },
+      }),
+      // 4. Mess-wide totals for Live Meal Rate calculation
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: "Approved",
+          date: dateFilter,
+        },
+      }),
+      // 5. Mess meal logs for the month
+      prisma.mealLog.findMany({
+        where: { date: dateFilter },
+        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // 6. Fixed Overhead per member
+      prisma.monthlyExpense.findFirst({
+        where: { month: { in: allMonthKeys } },
+      }),
+    ]);
 
-    const startOfMonth = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0, 0));
-    const endOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
-    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-    const dateFilter = { gte: startOfMonth, lt: endOfMonth };
-
-    // 1. Fetch User's Daily Meals for the month
-    const userMealLogs = await prisma.mealLog.findMany({
-      where: {
-        userId: user.id,
-        date: dateFilter,
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // 2. Fetch User's Deposits for the month
-    const userDeposits = await prisma.deposit.findMany({
-      where: {
-        userId: user.id,
-        date: dateFilter,
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // 3. Fetch User's Bazaar Expenses for the month
-    const userExpenses = await prisma.expense.findMany({
-      where: {
-        userId: user.id,
-        date: dateFilter,
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // 4. Mess-wide totals for Live Meal Rate calculation
-    const messExpensesAgg = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "Approved",
-        date: dateFilter,
-      },
-    });
     const totalMessExpense = messExpensesAgg._sum.amount || 0;
-
-    const allMessMealLogs = await prisma.mealLog.findMany({
-      where: { date: dateFilter },
-      select: { breakfast: true, lunch: true, dinner: true, guest: true },
-    });
     const totalMessMeals = allMessMealLogs.reduce(
       (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
       0
     );
 
     const liveMealRate = calculateMealRate(totalMessExpense, totalMessMeals);
-
-    // 5. Fixed Overhead per member
-    const monthKey = formatMonthKey(startOfMonth);
-    const isoMonthKey = `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
-      where: {
-        OR: [
-          { month: monthKey },
-          { month: isoMonthKey }
-        ]
-      },
-    });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 
     // 6. Member Totals
@@ -181,8 +178,6 @@ export async function GET(req: Request) {
         })),
       });
     }
-
-    const monthName = new Date(targetYear, targetMonth - 1, 1).toLocaleDateString("en-US", { month: "long" });
 
     return NextResponse.json({
       success: true,

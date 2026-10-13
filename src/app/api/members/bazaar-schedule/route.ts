@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getMonthDateRange } from "@/lib/calculations";
 
 // 1. GET request to fetch user's and mess bazaar schedule
 export async function GET(req: Request) {
@@ -23,32 +24,29 @@ export async function GET(req: Request) {
     const month = searchParams.get("month"); // 1-12
     const year = searchParams.get("year");   // e.g. 2026
 
-    const now = new Date();
-    const currentYear = year ? parseInt(year) : now.getFullYear();
-    const currentMonth = month ? parseInt(month) - 1 : now.getMonth();
+    const { dateFilter } = getMonthDateRange(year, month);
 
-    const startOfMonth = new Date(Date.UTC(currentYear, currentMonth, 1));
-    const endOfMonth = new Date(Date.UTC(currentYear, currentMonth + 1, 0, 23, 59, 59, 999));
-
-    // User's own bazaar schedule
-    const mySchedules = await prisma.bazaarSchedule.findMany({
-      where: {
-        userId: user.id,
-        date: { gte: startOfMonth, lte: endOfMonth },
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // All mess members' bazaar schedule (to see others' dates on calendar)
-    const allSchedules = await prisma.bazaarSchedule.findMany({
-      where: {
-        date: { gte: startOfMonth, lte: endOfMonth },
-      },
-      include: {
-        user: { select: { id: true, name: true } },
-      },
-      orderBy: { date: "asc" },
-    });
+    // Fetch user schedules and mess-wide schedules in parallel
+    const [mySchedules, allSchedules] = await Promise.all([
+      // User's own bazaar schedule
+      prisma.bazaarSchedule.findMany({
+        where: {
+          userId: user.id,
+          date: dateFilter,
+        },
+        orderBy: { date: "asc" },
+      }),
+      // All mess members' bazaar schedule (to see others' dates on calendar)
+      prisma.bazaarSchedule.findMany({
+        where: {
+          date: dateFilter,
+        },
+        include: {
+          user: { select: { id: true, name: true } },
+        },
+        orderBy: { date: "asc" },
+      }),
+    ]);
 
     return NextResponse.json(
       { mySchedules, allSchedules },

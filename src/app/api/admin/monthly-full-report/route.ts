@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateMealRate, calculateFixedCostPerMember, calculateMemberSummary, formatMonthKey } from "@/lib/calculations";
+import { calculateMealRate, calculateFixedCostPerMember, calculateMemberSummary, formatMonthKey, getMonthDateRange } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
 export async function GET(req: Request) {
@@ -37,76 +37,65 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const now = new Date();
-    const targetMonth = searchParams.get("month") ? parseInt(searchParams.get("month")!) : now.getMonth() + 1;
-    const targetYear = searchParams.get("year") ? parseInt(searchParams.get("year")!) : now.getFullYear();
+    const { 
+      year: targetYear, 
+      month: targetMonth, 
+      dateFilter, 
+      allMonthKeys, 
+      monthName,
+      daysInMonth 
+    } = getMonthDateRange(searchParams.get("year"), searchParams.get("month"));
 
-    if (isNaN(targetMonth) || targetMonth < 1 || targetMonth > 12 || isNaN(targetYear)) {
-      return NextResponse.json({ error: "Invalid month or year" }, { status: 400 });
-    }
+    // Parallelize all 5 database queries for maximum performance
+    const [
+      members,
+      allMealLogs,
+      allExpenses,
+      allDeposits,
+      monthlyExpenseConfig,
+    ] = await Promise.all([
+      // 1. Fetch All Active Members
+      prisma.user.findMany({
+        where: {
+          role: { not: "pending" },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          messName: true,
+        },
+        orderBy: { name: "asc" },
+      }),
+      // 2. Fetch All MealLogs for the Month
+      prisma.mealLog.findMany({
+        where: { date: dateFilter },
+        orderBy: { date: "asc" },
+      }),
+      // 3. Fetch All Expenses (Bazaar) for the Month
+      prisma.expense.findMany({
+        where: { date: dateFilter },
+        include: {
+          user: { select: { name: true, phone: true } },
+        },
+        orderBy: { date: "asc" },
+      }),
+      // 4. Fetch All Deposits for the Month
+      prisma.deposit.findMany({
+        where: { date: dateFilter },
+        include: {
+          user: { select: { name: true, phone: true } },
+        },
+        orderBy: { date: "asc" },
+      }),
+      // 5. Fixed Overhead Config
+      prisma.monthlyExpense.findFirst({
+        where: { month: { in: allMonthKeys } },
+      }),
+    ]);
 
-    const startOfMonth = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0, 0));
-    const endOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
-    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-    const dateFilter = { gte: startOfMonth, lt: endOfMonth };
-
-    const monthNames = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ];
-    const monthName = monthNames[targetMonth - 1];
-
-    // 1. Fetch All Active Members
-    const members = await prisma.user.findMany({
-      where: {
-        role: { not: "pending" },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        messName: true,
-      },
-      orderBy: { name: "asc" },
-    });
-
-    // 2. Fetch All MealLogs for the Month (single query)
-    const allMealLogs = await prisma.mealLog.findMany({
-      where: { date: dateFilter },
-      orderBy: { date: "asc" },
-    });
-
-    // 3. Fetch All Expenses (Bazaar) for the Month (single query)
-    const allExpenses = await prisma.expense.findMany({
-      where: { date: dateFilter },
-      include: {
-        user: { select: { name: true, phone: true } },
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // 4. Fetch All Deposits for the Month (single query)
-    const allDeposits = await prisma.deposit.findMany({
-      where: { date: dateFilter },
-      include: {
-        user: { select: { name: true, phone: true } },
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // 5. Fixed Overhead Config
-    const monthKey = formatMonthKey(startOfMonth);
-    const isoMonthKey = `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
-      where: {
-        OR: [
-          { month: monthKey },
-          { month: isoMonthKey }
-        ]
-      },
-    });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 
     // 6. Global Mess Calculations

@@ -90,6 +90,7 @@ model MealLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([userId, date]) // One log per user per day
+  @@index([date])
 }
 
 // 3. User deposited money table (Deposit)
@@ -104,6 +105,10 @@ model Deposit {
   date      DateTime @default(now())
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, date])
+  @@index([userId, date])
+  @@index([category, status])
 }
 
 // 4. Mess expense table (Expense / Bazar)
@@ -115,7 +120,10 @@ model Expense {
   status      String   @default("Pending") 
   date        DateTime @default(now())
   
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) 
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, date])
+  @@index([userId, date])
 }
 
 // 5. Bazar request date
@@ -126,6 +134,9 @@ model BazaarSchedule {
   status    String   @default("pending") 
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([userId, date])
 }
 
 // 6. Notice board table
@@ -153,6 +164,9 @@ model GuestMealRequest {
   updatedAt   DateTime? @updatedAt
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, date])
+  @@index([userId, date])
 }
 
 // 8. Monthly expense configuration table

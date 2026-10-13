@@ -6,19 +6,21 @@ import {
   calculateMealRate, 
   calculateFixedCostPerMember, 
   calculateMemberSummary, 
-  formatMonthKey 
+  getMonthDateRange,
+  round1,
+  round2
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    // Check if user is logged in and is admin or manager
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
+      select: { role: true },
     });
     
     if (!user) {
@@ -29,113 +31,104 @@ export async function GET(req: Request) {
     const monthParam = searchParams.get("month");
     const yearParam = searchParams.get("year");
 
-    let startDate: Date;
-    let endDate: Date;
+    // Dynamic month calculations
+    const { 
+      year: targetYear, 
+      month: targetMonth, 
+      dateFilter, 
+      allMonthKeys, 
+      monthName 
+    } = getMonthDateRange(yearParam, monthParam);
 
-    if (monthParam && yearParam) {
-      const year = parseInt(yearParam);
-      const month = parseInt(monthParam); // 1 to 12
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 1);
-    } else {
-      // Default to current month if no params provided
-      const now = new Date();
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    }
+    // Parallel bulk queries: eliminate N+1 query loop completely
+    const [
+      expenseAgg,
+      allMeals,
+      monthlyExpenseConfig,
+      members,
+      allMonthDeposits,
+      allMonthExpenses,
+    ] = await Promise.all([
+      // 1. Mess bazaar food expenses this month
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { 
+          status: "Approved",
+          date: dateFilter
+        },
+      }),
+      // 2. All meal logs this month
+      prisma.mealLog.findMany({
+        where: { date: dateFilter },
+        select: { userId: true, breakfast: true, lunch: true, dinner: true, guest: true },
+      }),
+      // 3. Monthly overhead config
+      prisma.monthlyExpense.findFirst({
+        where: { month: { in: allMonthKeys } },
+      }),
+      // 4. All active mess members
+      prisma.user.findMany({
+        where: { 
+          role: { not: "pending" }
+        },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+        },
+      }),
+      // 5. All approved deposits for the month (single bulk query)
+      prisma.deposit.findMany({
+        where: {
+          status: "Approved",
+          date: dateFilter,
+        },
+        select: { userId: true, amount: true, category: true },
+      }),
+      // 6. All approved bazaar expenses for the month (single bulk query)
+      prisma.expense.findMany({
+        where: {
+          status: "Approved",
+          date: dateFilter,
+        },
+        select: { userId: true, amount: true },
+      }),
+    ]);
 
-    // Date filter for prisma
-    const dateFilter = {
-      gte: startDate,
-      lt: endDate,
-    };
-
-    // 1. Fetch total mess expense (Bazaar) for the month
-    const expenseAgg = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { 
-        status: "Approved",
-        date: dateFilter
-      },
-    });
     const totalBazaarCost = expenseAgg._sum.amount || 0;
-
-    // 2. Fetch total mess meals for the month
-    const allMeals = await prisma.mealLog.findMany({
-      where: { date: dateFilter }
-    });
     const totalMealsConsumed = allMeals.reduce(
-      (acc, meal) => acc + meal.breakfast + meal.lunch + meal.dinner + meal.guest,
+      (acc, meal) => acc + (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0),
       0
     );
 
-    // 3. Calculate Live Meal Rate for the month (0.00 fallback if 0 meals)
     const liveMealRate = calculateMealRate(totalBazaarCost, totalMealsConsumed);
-
-    // 4. Fetch Monthly Expense (Fixed Overheads) for the month
-    const monthKey = formatMonthKey(startDate);
-    const isoMonthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
-    const monthlyExpenseConfig = await prisma.monthlyExpense.findFirst({
-      where: {
-        OR: [
-          { month: monthKey },
-          { month: isoMonthKey }
-        ]
-      },
-    });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 
-    // 5. Fetch all active members
-    const members = await prisma.user.findMany({
-      where: { 
-        role: { not: "pending" }
-      },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-      }
-    });
+    // In-memory indexing for O(1) lookups per member
+    const depositsByUser = new Map<string, number>();
+    for (const dep of allMonthDeposits) {
+      depositsByUser.set(dep.userId, (depositsByUser.get(dep.userId) || 0) + dep.amount);
+    }
+
+    const expensesByUser = new Map<string, number>();
+    for (const exp of allMonthExpenses) {
+      expensesByUser.set(exp.userId, (expensesByUser.get(exp.userId) || 0) + exp.amount);
+    }
+
+    const mealsByUser = new Map<string, number>();
+    for (const m of allMeals) {
+      const count = (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0);
+      mealsByUser.set(m.userId, (mealsByUser.get(m.userId) || 0) + count);
+    }
 
     let globalTotalDeposit = 0;
 
-    // Calculate individual stats for the month
-    const memberReports = await Promise.all(members.map(async (member) => {
-      // User's deposit for the month
-      const userDepositAgg = await prisma.deposit.aggregate({
-        _sum: { amount: true },
-        where: {
-          userId: member.id,
-          status: "Approved",
-          date: dateFilter
-        }
-      });
-      const depositAmount = userDepositAgg._sum.amount || 0;
+    // Calculate individual stats for each member in memory
+    const memberReports = members.map((member) => {
+      const depositAmount = depositsByUser.get(member.id) || 0;
+      const bazaarAmount = expensesByUser.get(member.id) || 0;
+      const mealsConsumed = mealsByUser.get(member.id) || 0;
 
-      // User's bazaar/expense for the month
-      const userExpenseAgg = await prisma.expense.aggregate({
-        _sum: { amount: true },
-        where: {
-          userId: member.id,
-          status: "Approved",
-          date: dateFilter
-        }
-      });
-      const bazaarAmount = userExpenseAgg._sum.amount || 0;
-
-      // User's meals for the month
-      const userMealsLog = await prisma.mealLog.findMany({
-        where: {
-          userId: member.id,
-          date: dateFilter
-        }
-      });
-      const mealsConsumed = userMealsLog.reduce(
-        (acc, meal) => acc + meal.breakfast + meal.lunch + meal.dinner + meal.guest,
-        0
-      );
-
-      // Financial Summary using calculation engine (live balance based on actual incurred expenses)
       const summary = calculateMemberSummary({
         userId: member.id,
         name: member.name || "Unnamed",
@@ -153,9 +146,9 @@ export async function GET(req: Request) {
         id: member.id,
         name: member.name || "Unnamed",
         role: member.role,
-        bazaarAmount: Math.round(bazaarAmount * 100) / 100,
-        depositAmount: Math.round(depositAmount * 100) / 100,
-        mealsConsumed: Math.round(mealsConsumed * 10) / 10,
+        bazaarAmount: round2(bazaarAmount),
+        depositAmount: round2(depositAmount),
+        mealsConsumed: round1(mealsConsumed),
         mealCost: summary.mealCost,
         fixedCost: summary.fixedCost,
         totalCost: summary.totalCost,
@@ -163,21 +156,13 @@ export async function GET(req: Request) {
         isPositive: summary.isPositive,
         balanceFormatted: summary.balanceFormatted,
       };
-    }));
-
-    // Check all-inclusive approved deposits in active month
-    const monthDepositAgg = await prisma.deposit.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "Approved",
-        date: dateFilter,
-      },
     });
-    const totalMonthDeposits = monthDepositAgg._sum.amount || 0;
-    const finalTotalDeposit = Math.max(globalTotalDeposit, totalMonthDeposits);
 
-    // Current Balance (Cash in Hand) = Total Cash Deposits Collected - Total Actual Expenses Paid
-    const currentCashBalance = Math.round((finalTotalDeposit - totalBazaarCost) * 100) / 100;
+    // Total cash deposits collected across all members
+    const finalTotalDeposit = round2(globalTotalDeposit);
+
+    // Current Cash Balance (Cash in Hand) = Total Cash Deposits - Total Actual Bazaar Paid
+    const currentCashBalance = round2(finalTotalDeposit - totalBazaarCost);
 
     // Sort member reports by name
     memberReports.sort((a, b) => a.name.localeCompare(b.name));
@@ -185,18 +170,19 @@ export async function GET(req: Request) {
     return NextResponse.json({
       stats: {
         totalMembers: members.length,
-        totalBazaarCost: Math.round(totalBazaarCost * 100) / 100,
-        totalDeposit: Math.round(finalTotalDeposit * 100) / 100,
-        totalMealsConsumed: Math.round(totalMealsConsumed * 10) / 10,
+        totalBazaarCost: round2(totalBazaarCost),
+        totalDeposit: finalTotalDeposit,
+        totalMealsConsumed: round1(totalMealsConsumed),
         fixedCostPerMember,
         currentBalance: currentCashBalance,
         liveMealRate,
       },
       memberReports,
       period: {
-        month: monthParam ? parseInt(monthParam) : new Date().getMonth() + 1,
-        year: yearParam ? parseInt(yearParam) : new Date().getFullYear(),
-      }
+        month: targetMonth,
+        year: targetYear,
+        monthName,
+      },
     });
 
   } catch (error) {

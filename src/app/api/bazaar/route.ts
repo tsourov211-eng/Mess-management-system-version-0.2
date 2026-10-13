@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { BazaarExpenseSchema } from "@/lib/validations";
+import { getDhakaTodayStartAndEnd } from "@/lib/calculations";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { sanitizeInput, safeErrorResponse } from "@/lib/security";
 
@@ -13,25 +14,57 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const now = new Date();
-    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const localTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const utcTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
-
-    const todayStart = new Date(Math.min(localToday.getTime(), utcToday.getTime()));
-    const todayEnd = new Date(Math.max(localTomorrow.getTime(), utcTomorrow.getTime()));
+    // Dhaka-aware Today's date filter
+    const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
     const todayDateFilter = { gte: todayStart, lt: todayEnd };
 
-    // 1. Whose responsibility is it today
-    let todaySchedule = await prisma.bazaarSchedule.findFirst({
-      where: {
-        date: todayDateFilter,
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true } },
-      },
-    });
+    // Parallelize all 5 database queries for maximum speed
+    const [
+      dbTodaySchedule,
+      upcomingSchedules,
+      todayExpenses,
+      todayMealLogs,
+      todayApprovedGuestMeals,
+    ] = await Promise.all([
+      // 1. Whose responsibility is it today
+      prisma.bazaarSchedule.findFirst({
+        where: { date: todayDateFilter },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+      }),
+      // 2. Upcoming bazaar schedule
+      prisma.bazaarSchedule.findMany({
+        where: { date: { gte: todayEnd } },
+        orderBy: { date: "asc" },
+        take: 5,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      // 3. Today's bazaar expense
+      prisma.expense.findMany({
+        where: { date: todayDateFilter },
+        include: {
+          user: { select: { name: true } },
+        },
+      }),
+      // 4. Today's cooking meal logs
+      prisma.mealLog.findMany({
+        where: { date: todayDateFilter },
+        include: { user: { select: { name: true } } },
+      }),
+      // 5. Approved guest meals for today
+      prisma.guestMealRequest.findMany({
+        where: {
+          date: todayDateFilter,
+          status: "Approved",
+        },
+        include: { user: { select: { name: true } } },
+      }),
+    ]);
+
+    let todaySchedule = dbTodaySchedule;
 
     // If there is no schedule today, fallback to the first active user or manager's name
     if (!todaySchedule) {
@@ -51,46 +84,9 @@ export async function GET() {
       }
     }
 
-    // 2. Upcoming bazaar schedule
-    const upcomingSchedules = await prisma.bazaarSchedule.findMany({
-      where: {
-        date: { gte: todayEnd },
-      },
-      orderBy: { date: "asc" },
-      take: 5,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
-    });
-
-    // 3. Today's bazaar expense
-    const todayExpenses = await prisma.expense.findMany({
-      where: {
-        date: todayDateFilter,
-      },
-      include: {
-        user: { select: { name: true } },
-      },
-    });
-
     const todayTotal = todayExpenses
       .filter((e) => e.status !== "Rejected")
-      .reduce((acc, e) => acc + e.amount, 0);
-
-    // 4. Today's Cooking Headcount Calculation ("Accurate Market Count")
-    const todayMealLogs = await prisma.mealLog.findMany({
-      where: { date: todayDateFilter },
-      include: { user: { select: { name: true } } },
-    });
-
-    // Fetch APPROVED guest meals only for today (strictly exclude pending and rejected)
-    const todayApprovedGuestMeals = await prisma.guestMealRequest.findMany({
-      where: {
-        date: todayDateFilter,
-        status: "Approved",
-      },
-      include: { user: { select: { name: true } } },
-    });
+      .reduce((acc, e) => acc + (e.amount || 0), 0);
 
     const breakfastMembers = todayMealLogs.filter((m) => (m.breakfast || 0) > 0).length;
     const lunchMembers = todayMealLogs.filter((m) => (m.lunch || 0) > 0).length;
