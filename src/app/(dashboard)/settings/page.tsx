@@ -21,7 +21,9 @@ import {
     IconLogout,
     IconMail,
     IconPhone,
-    IconMapPin
+    IconMapPin,
+    IconEye,
+    IconEyeOff
 } from "@tabler/icons-react";
 import { getUserDisplayRole, getRoleBadgeStyle } from "@/lib/user";
 
@@ -71,6 +73,9 @@ function SettingsContent() {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Notification Preferences Tab States
     const [notifications, setNotifications] = useState({
@@ -724,35 +729,68 @@ function SettingsContent() {
                                 <div className="space-y-5">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-900 mb-2 ml-1">Current Password</label>
-                                        <input
-                                            type="password"
-                                            value={currentPassword}
-                                            onChange={(e) => setCurrentPassword(e.target.value)}
-                                            placeholder="Enter your current password"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-bold"
-                                        />
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type={showCurrentPassword ? "text" : "password"}
+                                                value={currentPassword}
+                                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                                placeholder="Enter your current password"
+                                                className="w-full pl-4 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-bold"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg cursor-pointer flex items-center justify-center"
+                                                title={showCurrentPassword ? "Hide password" : "Show password"}
+                                                aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showCurrentPassword ? <IconEyeOff size={18} stroke={2} /> : <IconEye size={18} stroke={2} />}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-900 mb-2 ml-1">New Password</label>
-                                            <input
-                                                type="password"
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                                placeholder="At least 6 characters"
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-bold"
-                                            />
+                                            <div className="relative flex items-center">
+                                                <input
+                                                    type={showNewPassword ? "text" : "password"}
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                    placeholder="At least 6 characters"
+                                                    className="w-full pl-4 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-bold"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                                    className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg cursor-pointer flex items-center justify-center"
+                                                    title={showNewPassword ? "Hide password" : "Show password"}
+                                                    aria-label={showNewPassword ? "Hide password" : "Show password"}
+                                                >
+                                                    {showNewPassword ? <IconEyeOff size={18} stroke={2} /> : <IconEye size={18} stroke={2} />}
+                                                </button>
+                                            </div>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-900 mb-2 ml-1">Confirm New Password</label>
-                                            <input
-                                                type="password"
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                                placeholder="Re-type new password"
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-bold"
-                                            />
+                                            <div className="relative flex items-center">
+                                                <input
+                                                    type={showConfirmPassword ? "text" : "password"}
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    placeholder="Re-type new password"
+                                                    className="w-full pl-4 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm text-gray-900 font-bold"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg cursor-pointer flex items-center justify-center"
+                                                    title={showConfirmPassword ? "Hide password" : "Show password"}
+                                                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                                >
+                                                    {showConfirmPassword ? <IconEyeOff size={18} stroke={2} /> : <IconEye size={18} stroke={2} />}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     
