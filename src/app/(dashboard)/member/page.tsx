@@ -76,6 +76,7 @@ export default function MemberDashboard() {
     // ─── Payment / Deposit Modal State ───
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [paymentCategory, setPaymentCategory] = useState<string>("Meal Fund");
+    const [selectedOverheads, setSelectedOverheads] = useState<string[]>(["Seat Rent"]);
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentMethod, setPaymentMethod] = useState<"Cash" | "bKash" | "Nagad" | "Bank">("Cash");
     const [paymentNote, setPaymentNote] = useState("");
@@ -324,6 +325,57 @@ export default function MemberDashboard() {
         }
     };
 
+    const overheadOptions = [
+        { id: "Seat Rent", label: "Seat Rent", icon: "🛏️", rate: monthlyOverheadConfig?.seatRent || 0 },
+        { id: "Electricity + Gas", label: "Electricity + Gas", icon: "⚡", rate: monthlyOverheadConfig?.electricityGas || 0 },
+        { id: "Internet", label: "Internet / WiFi", icon: "📶", rate: monthlyOverheadConfig?.internet || 0 },
+        { id: "Maid Charge", label: "Maid Charge", icon: "🧹", rate: monthlyOverheadConfig?.maid || 0 },
+        { id: "Additional", label: "Additional", icon: "📦", rate: monthlyOverheadConfig?.additional || 0 },
+    ];
+
+    const calculateOverheadsTotal = (selectedIds: string[]) => {
+        return selectedIds.reduce((sum, id) => {
+            const item = overheadOptions.find((o) => o.id === id);
+            return sum + (item?.rate || 0);
+        }, 0);
+    };
+
+    const handleToggleOverhead = (ohId: string) => {
+        const updated = selectedOverheads.includes(ohId)
+            ? selectedOverheads.filter((id) => id !== ohId)
+            : [...selectedOverheads, ohId];
+        
+        setSelectedOverheads(updated);
+        const total = calculateOverheadsTotal(updated);
+        setPaymentAmount(total > 0 ? String(total) : "");
+    };
+
+    const handleSelectAllOverheads = () => {
+        const allIds = overheadOptions.map((o) => o.id);
+        setSelectedOverheads(allIds);
+        const total = calculateOverheadsTotal(allIds);
+        setPaymentAmount(total > 0 ? String(total) : "");
+    };
+
+    const handleClearAllOverheads = () => {
+        setSelectedOverheads([]);
+        setPaymentAmount("");
+    };
+
+    const handleSwitchToOverhead = () => {
+        setPaymentCategory("Overhead");
+        const active = selectedOverheads.length > 0 ? selectedOverheads : ["Seat Rent"];
+        setSelectedOverheads(active);
+        const total = calculateOverheadsTotal(active);
+        if (total > 0) {
+            setPaymentAmount(String(total));
+        }
+    };
+
+    const handleSwitchToMealFund = () => {
+        setPaymentCategory("Meal Fund");
+    };
+
     // ─── Submit Payment / Deposit ───
     const handlePaymentSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -333,6 +385,15 @@ export default function MemberDashboard() {
             return;
         }
 
+        if (paymentCategory !== "Meal Fund" && selectedOverheads.length === 0) {
+            showToast("Please select at least one overhead expense.", "error");
+            return;
+        }
+
+        const categoryToSubmit = paymentCategory === "Meal Fund" 
+            ? "Meal Fund" 
+            : selectedOverheads.join(", ");
+
         setIsSubmittingPayment(true);
         try {
             const res = await fetch("/api/members/finance", {
@@ -341,7 +402,7 @@ export default function MemberDashboard() {
                 body: JSON.stringify({
                     type: "payment",
                     amount: amountVal,
-                    category: paymentCategory,
+                    category: categoryToSubmit,
                     method: paymentMethod,
                     note: paymentNote.trim() || undefined,
                 }),
@@ -349,10 +410,11 @@ export default function MemberDashboard() {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast(`Payment request for ${paymentCategory} submitted for manager approval!`, "success");
+                showToast(`Payment request for ${categoryToSubmit} submitted for manager approval!`, "success");
                 setPaymentAmount("");
                 setPaymentNote("");
                 setPaymentCategory("Meal Fund");
+                setSelectedOverheads(["Seat Rent"]);
                 setPaymentMethod("Cash");
                 setIsPaymentModalOpen(false);
             } else {
@@ -1329,7 +1391,7 @@ export default function MemberDashboard() {
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => setPaymentCategory("Meal Fund")}
+                                        onClick={handleSwitchToMealFund}
                                         className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                                             paymentCategory === "Meal Fund"
                                                 ? "bg-emerald-50/90 border-emerald-500 text-emerald-950 shadow-xs ring-1 ring-emerald-500/20"
@@ -1356,11 +1418,7 @@ export default function MemberDashboard() {
 
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            if (paymentCategory === "Meal Fund") {
-                                                setPaymentCategory("Seat Rent");
-                                            }
-                                        }}
+                                        onClick={handleSwitchToOverhead}
                                         className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                                             paymentCategory !== "Meal Fund"
                                                 ? "bg-purple-50/90 border-purple-500 text-purple-950 shadow-xs ring-1 ring-purple-500/20"
@@ -1386,85 +1444,107 @@ export default function MemberDashboard() {
                                     </button>
                                 </div>
 
-                                {/* Individual Overhead Options (If Overhead Tab Active) */}
+                                {/* Individual Overhead Options (Multiple Selection) */}
                                 {paymentCategory !== "Meal Fund" && (
-                                    <div className="mt-2.5 p-3 rounded-2xl bg-purple-50/50 border border-purple-100/90 space-y-2">
+                                    <div className="mt-2.5 p-3 sm:p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100/90 space-y-2.5">
+                                        {/* Header with Multi-Select notice and action buttons */}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-bold text-purple-900 uppercase tracking-wide">
-                                                Select Overhead Expense:
-                                            </span>
-                                            <span className="text-[10px] text-purple-700 font-medium">
-                                                Pay full or partial amount
-                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] font-black text-purple-900 uppercase tracking-wide">
+                                                    Select Overhead Expenses:
+                                                </span>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-200/80 text-purple-900">
+                                                    {selectedOverheads.length} selected
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[11px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSelectAllOverheads}
+                                                    className="font-bold text-purple-700 hover:text-purple-950 hover:underline px-1 cursor-pointer transition-colors"
+                                                >
+                                                    Select All
+                                                </button>
+                                                <span className="text-purple-300">•</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearAllOverheads}
+                                                    className="font-bold text-purple-700 hover:text-purple-950 hover:underline px-1 cursor-pointer transition-colors"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                                            {[
-                                                { id: "Seat Rent", label: "Seat Rent", icon: "🛏️", rate: monthlyOverheadConfig?.seatRent },
-                                                { id: "Electricity + Gas", label: "Electricity + Gas", icon: "⚡", rate: monthlyOverheadConfig?.electricityGas },
-                                                { id: "Internet", label: "Internet / WiFi", icon: "📶", rate: monthlyOverheadConfig?.internet },
-                                                { id: "Maid Charge", label: "Maid Charge", icon: "🧹", rate: monthlyOverheadConfig?.maid },
-                                                { id: "Additional", label: "Additional", icon: "📦", rate: monthlyOverheadConfig?.additional },
-                                            ].map((oh) => {
-                                                const isSelected = paymentCategory === oh.id;
+                                        {/* Multi-Select Cards Grid */}
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            {overheadOptions.map((oh) => {
+                                                const isSelected = selectedOverheads.includes(oh.id);
                                                 return (
                                                     <button
                                                         key={oh.id}
                                                         type="button"
-                                                        onClick={() => {
-                                                            setPaymentCategory(oh.id);
-                                                            if (oh.rate && oh.rate > 0 && !paymentAmount) {
-                                                                setPaymentAmount(String(oh.rate));
-                                                            }
-                                                        }}
-                                                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                                        onClick={() => handleToggleOverhead(oh.id)}
+                                                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between relative select-none ${
                                                             isSelected
-                                                                ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                                                                : "bg-white text-slate-800 border-purple-100 hover:border-purple-300 hover:bg-purple-50/30"
+                                                                ? "bg-purple-600 text-white border-purple-600 shadow-sm ring-1 ring-purple-500/30"
+                                                                : "bg-white text-slate-800 border-purple-100 hover:border-purple-300 hover:bg-purple-50/40"
                                                         }`}
                                                     >
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-sm">{oh.icon}</span>
-                                                            <span className="text-[11px] font-black truncate">{oh.label}</span>
+                                                        <div className="flex items-center justify-between gap-1">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <span className="text-sm shrink-0">{oh.icon}</span>
+                                                                <span className="text-[11px] font-black truncate">{oh.label}</span>
+                                                            </div>
+                                                            {/* Checkbox indicator */}
+                                                            <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-black transition-colors ${
+                                                                isSelected 
+                                                                    ? "bg-white text-purple-700 shadow-2xs" 
+                                                                    : "border border-slate-300 bg-slate-50 text-transparent"
+                                                            }`}>
+                                                                ✓
+                                                            </div>
                                                         </div>
-                                                        {oh.rate !== undefined && oh.rate > 0 && (
-                                                            <span className={`text-[9px] font-bold mt-1 ${
+
+                                                        <div className="mt-2 flex items-center justify-between">
+                                                            <span className={`text-[10px] font-bold ${
                                                                 isSelected ? "text-purple-100" : "text-purple-600"
                                                             }`}>
-                                                                Rate: ৳{oh.rate.toLocaleString()}
+                                                                Rate: ৳{(oh.rate || 0).toLocaleString()}
                                                             </span>
-                                                        )}
+                                                            <span className={`text-[8px] font-black uppercase px-1 py-0.2 rounded ${
+                                                                isSelected ? "bg-purple-500 text-white" : "bg-purple-50 text-purple-700"
+                                                            }`}>
+                                                                {isSelected ? "Selected" : "+ Add"}
+                                                            </span>
+                                                        </div>
                                                     </button>
                                                 );
                                             })}
                                         </div>
 
-                                        {/* Helper quick-fill button for configured overhead rate */}
+                                        {/* Auto-Calculated Sum Status Bar */}
                                         {(() => {
-                                            const currentConfigRate = 
-                                                paymentCategory === "Seat Rent" ? monthlyOverheadConfig?.seatRent :
-                                                paymentCategory === "Electricity + Gas" ? monthlyOverheadConfig?.electricityGas :
-                                                paymentCategory === "Internet" ? monthlyOverheadConfig?.internet :
-                                                paymentCategory === "Maid Charge" ? monthlyOverheadConfig?.maid :
-                                                paymentCategory === "Additional" ? monthlyOverheadConfig?.additional : 0;
-                                            
-                                            if (currentConfigRate && currentConfigRate > 0) {
-                                                return (
-                                                    <div className="pt-1 flex items-center justify-between text-[11px]">
-                                                        <span className="text-purple-800 font-semibold">
-                                                            This month's rate for {paymentCategory}: <strong>৳{currentConfigRate.toLocaleString()}</strong>
+                                            const totalCalculated = calculateOverheadsTotal(selectedOverheads);
+                                            return (
+                                                <div className="pt-2 border-t border-purple-200/60 flex items-center justify-between flex-wrap gap-2 text-xs">
+                                                    <div className="flex items-center gap-1.5 text-purple-900 font-bold text-[11px]">
+                                                        <span>Auto-calculated rate:</span>
+                                                        <span className="text-xs sm:text-sm font-black text-purple-950 bg-white px-2 py-0.5 rounded-lg border border-purple-200">
+                                                            ৳{totalCalculated.toLocaleString()}
                                                         </span>
+                                                    </div>
+                                                    {totalCalculated > 0 && paymentAmount !== String(totalCalculated) && (
                                                         <button
                                                             type="button"
-                                                            onClick={() => setPaymentAmount(String(currentConfigRate))}
-                                                            className="text-[10px] font-black text-purple-700 bg-white border border-purple-200 px-2 py-0.5 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer"
+                                                            onClick={() => setPaymentAmount(String(totalCalculated))}
+                                                            className="text-[10px] font-black text-purple-700 bg-white border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                                                         >
-                                                            ⚡ Fill ৳{currentConfigRate.toLocaleString()}
+                                                            <span>⚡ Auto-fill ৳{totalCalculated.toLocaleString()}</span>
                                                         </button>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
+                                                    )}
+                                                </div>
+                                            );
                                         })()}
                                     </div>
                                 )}
@@ -1476,19 +1556,26 @@ export default function MemberDashboard() {
                                     ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
                                     : "bg-purple-50/70 border-purple-200 text-purple-900"
                             }`}>
-                                <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 font-bold ${
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold text-base ${
                                     paymentCategory === "Meal Fund" ? "bg-emerald-200 text-emerald-800" : "bg-purple-200 text-purple-800"
                                 }`}>
                                     {paymentCategory === "Meal Fund" ? "🍲" : "🏢"}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="font-extrabold text-[11px] leading-tight">
-                                        Target: {paymentCategory === "Meal Fund" ? "Mess Meal Fund" : "Mess Fund (Overhead)"}
+                                    <p className="font-extrabold text-[11px] leading-tight flex items-center gap-1.5">
+                                        <span>Target: {paymentCategory === "Meal Fund" ? "Mess Meal Fund" : "Mess Fund (Overhead)"}</span>
+                                        {paymentCategory !== "Meal Fund" && selectedOverheads.length > 0 && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-200/80 text-purple-900">
+                                                {selectedOverheads.length} item{selectedOverheads.length > 1 ? "s" : ""}
+                                            </span>
+                                        )}
                                     </p>
                                     <p className="text-[10px] opacity-85 leading-tight mt-0.5">
                                         {paymentCategory === "Meal Fund" 
                                             ? "Funds everyday bazaar items and groceries for all meals."
-                                            : `Paying for "${paymentCategory}". You can pay any partial or full amount, and it will be added to the Mess Fund.`
+                                            : selectedOverheads.length > 0 
+                                            ? `Paying for: ${selectedOverheads.join(", ")}. It will be added to the Mess Fund.`
+                                            : "No overhead selected. Please select one or more overhead expenses above."
                                         }
                                     </p>
                                 </div>
@@ -1585,14 +1672,20 @@ export default function MemberDashboard() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={isSubmittingPayment || !paymentAmount}
+                                    disabled={isSubmittingPayment || !paymentAmount || (paymentCategory !== "Meal Fund" && selectedOverheads.length === 0)}
                                     className="flex-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 disabled:opacity-50 text-white text-xs font-extrabold shadow-md shadow-orange-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                                 >
                                     <IconSend size={15} stroke={2.5} />
-                                    <span>
+                                    <span className="truncate">
                                         {isSubmittingPayment 
                                             ? "Submitting..." 
-                                            : `Pay ৳${paymentAmount ? Number(paymentAmount).toLocaleString() : "0"} (${paymentCategory})`
+                                            : `Pay ৳${paymentAmount ? Number(paymentAmount).toLocaleString() : "0"} (${
+                                                paymentCategory === "Meal Fund" 
+                                                    ? "Meal Fund" 
+                                                    : selectedOverheads.length > 0 
+                                                    ? `${selectedOverheads.length} Overhead${selectedOverheads.length > 1 ? "s" : ""}` 
+                                                    : "No selection"
+                                            })`
                                         }
                                     </span>
                                 </button>
