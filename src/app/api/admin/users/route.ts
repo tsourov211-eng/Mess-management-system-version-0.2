@@ -97,10 +97,34 @@ export async function GET(req: Request) {
       _sum: { amount: true },
       where: { status: "Approved" },
     });
-    const totalDepositsAllTime = depositAggAllTime._sum.amount || 0;
+    // 6. Separate Funds:
+    // Meal Fund: Approved deposits for "Meal Fund" - Approved food expenses (all-time)
+    const mealDepositAggAllTime = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: "Approved",
+        OR: [
+          { category: "Meal Fund" },
+          { category: null },
+          { category: "" },
+        ],
+      },
+    });
+    const totalMealDepositsAllTime = mealDepositAggAllTime._sum.amount || 0;
+    const mealFund = Math.round((totalMealDepositsAllTime - totalFoodCostAllTime) * 100) / 100;
 
-    // 6. Mess fund (All-time deposits - All-time expenses)
-    const messFund = totalDepositsAllTime - totalFoodCostAllTime;
+    // Mess Fund: Approved deposits for Overhead Expenses (Seat Rent, Utilities, WiFi, Maid, Additional)
+    const overheadDepositAggAllTime = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: "Approved",
+        NOT: [
+          { category: "Meal Fund" },
+        ],
+      },
+    });
+    const messFund = Math.round((overheadDepositAggAllTime._sum.amount || 0) * 100) / 100;
+    const totalFund = Math.round((mealFund + messFund) * 100) / 100;
 
     // 7. Today's stats calculation
     const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -194,7 +218,9 @@ export async function GET(req: Request) {
         stats: {
           totalMembers: approvedUsersCount,
           totalFoodCost: Math.round(totalFoodCostThisMonth * 100) / 100,
+          mealFund,
           messFund: Math.round(messFund * 100) / 100,
+          totalFund,
           totalMessMeals: Math.round(totalMessMealsThisMonth * 10) / 10,
           liveMealRate: liveMealRate,
           fixedCostPerMember,

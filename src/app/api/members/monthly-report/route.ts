@@ -171,6 +171,7 @@ export async function GET(req: Request) {
           status: dep.status,
           method: dep.method,
           note: dep.note,
+          category: dep.category || "Meal Fund",
         })),
         bazaarAmount: dayApprovedExpenseTotal,
         bazaars: dayExpenses.map((exp) => ({

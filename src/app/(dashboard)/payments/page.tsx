@@ -153,6 +153,26 @@ export default function PaymentsPage() {
                                 </div>
                             </div>
 
+                            {/* Category Badge & Note */}
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1 border shadow-2xs ${
+                                    (item.category === "Meal Fund" || !item.category)
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+                                        : "bg-purple-50 text-purple-700 border-purple-200/80"
+                                }`}>
+                                    <span>{(item.category === "Meal Fund" || !item.category) ? "🍲" : "🏢"}</span>
+                                    <span>{item.category || "Meal Fund"}</span>
+                                    <span className="text-[9px] opacity-75 font-semibold">
+                                        ({(item.category === "Meal Fund" || !item.category) ? "Meal Fund" : "Mess Fund"})
+                                    </span>
+                                </span>
+                                {item.note && (
+                                    <span className="text-[11px] text-gray-500 font-medium truncate max-w-[180px]" title={item.note}>
+                                        "{item.note}"
+                                    </span>
+                                )}
+                            </div>
+
                             {/* Details Row */}
                             <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div className="flex items-center gap-1.5 font-bold text-slate-700 bg-gray-50/80 px-3 py-2 rounded-xl border border-gray-100">

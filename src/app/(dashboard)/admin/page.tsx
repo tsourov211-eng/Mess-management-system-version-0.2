@@ -62,7 +62,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 export default function AdminDashboardPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [pendingMembers, setPendingMembers] = useState<any[]>([]);
-    const [stats, setStats] = useState({ totalFoodCost: 0, messFund: 0, totalMembers: 0, totalMessMeals: 0, liveMealRate: 0 });
+    const [stats, setStats] = useState({ totalFoodCost: 0, mealFund: 0, messFund: 0, totalFund: 0, totalMembers: 0, totalMessMeals: 0, liveMealRate: 0 });
     const [isLoading, setIsLoading] = useState(true);
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -564,10 +564,56 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Stats Grid (Desktop - Ported Mobile Design System) ─── */}
-            <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-6 order-none">
+            {/* ─── Stats Grid (Desktop - Separated Meal & Mess Funds) ─── */}
+            <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 order-none">
                 
-                {/* Food Cost Card */}
+                {/* 1. Meal Fund Card */}
+                <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 rounded-3xl p-5 lg:p-6 border border-emerald-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                            <Coins size={22} strokeWidth={2.2} />
+                        </div>
+                        <svg className="w-16 h-8 text-emerald-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M 4,12 C 14,8 24,20 38,14 C 48,10 56,22 66,18" />
+                        </svg>
+                    </div>
+                    <div className="my-auto py-2">
+                        <p className="text-xs font-bold text-gray-500 leading-tight">Meal Fund</p>
+                        <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
+                            Tk {(stats.mealFund ?? 0).toLocaleString()}
+                        </h3>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                        <span className="bg-emerald-100/90 text-emerald-800 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
+                            Food Reserve
+                        </span>
+                    </div>
+                </div>
+
+                {/* 2. Mess Fund Card */}
+                <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 rounded-3xl p-5 lg:p-6 border border-purple-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div className="w-11 h-11 rounded-2xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+                            <Coins size={22} strokeWidth={2.2} />
+                        </div>
+                        <svg className="w-16 h-8 text-purple-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M 4,22 C 16,20 26,8 38,14 C 50,20 58,10 66,6" />
+                        </svg>
+                    </div>
+                    <div className="my-auto py-2">
+                        <p className="text-xs font-bold text-gray-500 leading-tight">Mess Fund</p>
+                        <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
+                            Tk {(stats.messFund ?? 0).toLocaleString()}
+                        </h3>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                        <span className="bg-purple-100/90 text-purple-800 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
+                            Overhead Reserve
+                        </span>
+                    </div>
+                </div>
+
+                {/* 3. Food Cost Card */}
                 <div className="bg-gradient-to-b from-[#FFF5ED] via-[#FFEADB] to-[#FED7AA]/50 rounded-3xl p-5 lg:p-6 border border-orange-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                         <div className="w-11 h-11 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
@@ -584,22 +630,19 @@ export default function AdminDashboardPage() {
                         </h3>
                     </div>
                     <div className="flex items-center justify-between pt-1">
-                        <span className="bg-orange-100/90 text-[#FF6B00] text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
-                            <ArrowUpRight size={13} strokeWidth={3} /> +12%
-                        </span>
-                        <span className="text-xs font-bold text-orange-600/80 bg-orange-50/70 px-2 py-0.5 rounded-md">
+                        <span className="text-xs font-bold text-orange-600/90 bg-orange-50/80 px-2 py-0.5 rounded-md">
                             Meal Rate: ৳ {stats.liveMealRate || 0}
                         </span>
                     </div>
                 </div>
 
-                {/* Today's Bazaar Card */}
-                <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 rounded-3xl p-5 lg:p-6 border border-emerald-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
+                {/* 4. Today's Bazaar Card */}
+                <div className="bg-gradient-to-b from-sky-50 via-blue-50 to-indigo-50/50 rounded-3xl p-5 lg:p-6 border border-blue-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
-                        <div className="w-11 h-11 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                        <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 shrink-0">
                             <ShoppingCart size={22} strokeWidth={2.2} />
                         </div>
-                        <svg className="w-16 h-8 text-emerald-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <svg className="w-16 h-8 text-blue-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                             <path d="M 4,12 C 14,8 24,20 38,14 C 48,10 56,22 66,18" />
                         </svg>
                     </div>
@@ -609,32 +652,9 @@ export default function AdminDashboardPage() {
                             Tk {todayBazaarTotal.toLocaleString()}
                         </h3>
                     </div>
-                    <div>
-                        <span className="bg-emerald-100/90 text-emerald-700 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
-                            <ArrowDownRight size={13} strokeWidth={3} /> -8%
-                        </span>
-                    </div>
-                </div>
-
-                {/* Mess Fund Card */}
-                <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 rounded-3xl p-5 lg:p-6 border border-purple-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="w-11 h-11 rounded-2xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
-                            <Coins size={22} strokeWidth={2.2} />
-                        </div>
-                        <svg className="w-16 h-8 text-purple-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                            <path d="M 4,22 C 16,20 26,8 38,14 C 50,20 58,10 66,6" />
-                        </svg>
-                    </div>
-                    <div className="my-auto py-2">
-                        <p className="text-xs font-bold text-gray-500 leading-tight">Mess Fund</p>
-                        <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {(stats.messFund ?? 0).toLocaleString()}
-                        </h3>
-                    </div>
-                    <div>
-                        <span className="bg-purple-100/90 text-purple-700 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
-                            <ArrowUpRight size={13} strokeWidth={3} /> +5%
+                    <div className="flex items-center justify-between pt-1">
+                        <span className="bg-blue-100/90 text-blue-700 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 w-fit shadow-2xs">
+                            Today Market
                         </span>
                     </div>
                 </div>
@@ -1361,75 +1381,90 @@ export default function AdminDashboardPage() {
                     </div>
                 </div>
 
-                {/* 2. 3 Key Metrics Cards */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                {/* 2. 4 Key Metrics Cards (Separated Meal & Mess Funds) */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                     
-                    {/* Food Cost Card */}
-                    <div className="bg-gradient-to-b from-[#FFF5ED] via-[#FFEADB] to-[#FED7AA]/50 rounded-[28px] p-3 sm:p-3.5 border border-orange-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                    {/* Meal Fund Card */}
+                    <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 rounded-[24px] p-3 sm:p-3.5 border border-emerald-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[135px]">
                         <div className="flex items-center justify-between">
-                            <div className="w-9 h-9 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
-                                <Receipt size={18} strokeWidth={2.2} />
+                            <div className="w-8 h-8 rounded-xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                                <Coins size={16} strokeWidth={2.2} />
                             </div>
-                            <svg className="w-12 sm:w-14 h-7 text-orange-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                <path d="M 4,22 C 16,22 24,10 36,16 C 48,22 56,8 66,6" />
-                            </svg>
+                            <span className="text-[9px] font-black uppercase tracking-tight bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                                Food
+                            </span>
                         </div>
                         <div className="my-auto py-1">
-                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Food Cost</p>
-                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                Tk {(stats.totalFoodCost ?? 0).toLocaleString()}
+                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Meal Fund</p>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
+                                Tk {(stats.mealFund ?? 0).toLocaleString()}
                             </h3>
                         </div>
                         <div>
-                            <span className="bg-orange-100/90 text-[#FF6B00] text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5 w-fit shadow-2xs">
-                                <ArrowUpRight size={11} strokeWidth={3} /> +12%
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Today's Bazaar Card */}
-                    <div className="bg-gradient-to-b from-[#F0FDF4] via-[#DCFCE7] to-[#BBF7D0]/50 rounded-[28px] p-3 sm:p-3.5 border border-emerald-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[148px]">
-                        <div className="flex items-center justify-between">
-                            <div className="w-9 h-9 rounded-2xl bg-[#10B981] text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
-                                <ShoppingCart size={18} strokeWidth={2.2} />
-                            </div>
-                            <svg className="w-12 sm:w-14 h-7 text-emerald-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                <path d="M 4,12 C 14,8 24,20 38,14 C 48,10 56,22 66,18" />
-                            </svg>
-                        </div>
-                        <div className="my-auto py-1">
-                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Today's Bazaar</p>
-                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                Tk {todayBazaarTotal.toLocaleString()}
-                            </h3>
-                        </div>
-                        <div>
-                            <span className="bg-emerald-100/90 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5 w-fit shadow-2xs">
-                                <ArrowDownRight size={11} strokeWidth={3} /> -8%
-                            </span>
+                            <span className="text-[10px] font-semibold text-emerald-700">Food Reserve</span>
                         </div>
                     </div>
 
                     {/* Mess Fund Card */}
-                    <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 rounded-[28px] p-3 sm:p-3.5 border border-purple-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[148px]">
+                    <div className="bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]/50 rounded-[24px] p-3 sm:p-3.5 border border-purple-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[135px]">
                         <div className="flex items-center justify-between">
-                            <div className="w-9 h-9 rounded-2xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
-                                <Coins size={18} strokeWidth={2.2} />
+                            <div className="w-8 h-8 rounded-xl bg-[#8B5CF6] text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+                                <Coins size={16} strokeWidth={2.2} />
                             </div>
-                            <svg className="w-12 sm:w-14 h-7 text-purple-400/80 shrink-0" viewBox="0 0 70 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                <path d="M 4,22 C 16,20 26,8 38,14 C 50,20 58,10 66,6" />
-                            </svg>
+                            <span className="text-[9px] font-black uppercase tracking-tight bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                                Overhead
+                            </span>
                         </div>
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Mess Fund</p>
-                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
                                 Tk {(stats.messFund ?? 0).toLocaleString()}
                             </h3>
                         </div>
                         <div>
-                            <span className="bg-purple-100/90 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5 w-fit shadow-2xs">
-                                <ArrowUpRight size={11} strokeWidth={3} /> +5%
+                            <span className="text-[10px] font-semibold text-purple-700">Rent & Utility</span>
+                        </div>
+                    </div>
+
+                    {/* Food Cost Card */}
+                    <div className="bg-gradient-to-b from-[#FFF5ED] via-[#FFEADB] to-[#FED7AA]/50 rounded-[24px] p-3 sm:p-3.5 border border-orange-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[135px]">
+                        <div className="flex items-center justify-between">
+                            <div className="w-8 h-8 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                                <Receipt size={16} strokeWidth={2.2} />
+                            </div>
+                            <span className="text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-md">
+                                ৳{stats.liveMealRate || 0}/m
                             </span>
+                        </div>
+                        <div className="my-auto py-1">
+                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Food Cost</p>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
+                                Tk {(stats.totalFoodCost ?? 0).toLocaleString()}
+                            </h3>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-semibold text-orange-600">Total bazaar cost</span>
+                        </div>
+                    </div>
+
+                    {/* Today's Bazaar Card */}
+                    <div className="bg-gradient-to-b from-sky-50 via-blue-50 to-indigo-50/50 rounded-[24px] p-3 sm:p-3.5 border border-blue-200/40 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[135px]">
+                        <div className="flex items-center justify-between">
+                            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 shrink-0">
+                                <ShoppingCart size={16} strokeWidth={2.2} />
+                            </div>
+                            <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-md">
+                                Today
+                            </span>
+                        </div>
+                        <div className="my-auto py-1">
+                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Today's Bazaar</p>
+                            <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
+                                Tk {todayBazaarTotal.toLocaleString()}
+                            </h3>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-semibold text-blue-600">Daily Expense</span>
                         </div>
                     </div>
 

@@ -23,7 +23,9 @@ import {
     IconCircleCheck,
     IconClock,
     IconCreditCard,
-    IconTrash
+    IconTrash,
+    IconBuildingCommunity,
+    IconReceipt2
 } from "@tabler/icons-react";
 
 export default function MemberDashboard() {
@@ -31,6 +33,11 @@ export default function MemberDashboard() {
 
     // ─── Financial & Meal Stats ───
     const [totalDeposit, setTotalDeposit] = useState(0);
+    const [userMealDeposit, setUserMealDeposit] = useState(0);
+    const [userOverheadDeposit, setUserOverheadDeposit] = useState(0);
+    const [mealFund, setMealFund] = useState(0);
+    const [messFund, setMessFund] = useState(0);
+    const [monthlyOverheadConfig, setMonthlyOverheadConfig] = useState<any | null>(null);
     const [totalMeals, setTotalMeals] = useState(0);
     const [currentBalance, setCurrentBalance] = useState(0);
     const [fixedCost, setFixedCost] = useState(0);
@@ -68,6 +75,7 @@ export default function MemberDashboard() {
 
     // ─── Payment / Deposit Modal State ───
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [paymentCategory, setPaymentCategory] = useState<string>("Meal Fund");
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentMethod, setPaymentMethod] = useState<"Cash" | "bKash" | "Nagad" | "Bank">("Cash");
     const [paymentNote, setPaymentNote] = useState("");
@@ -94,6 +102,11 @@ export default function MemberDashboard() {
                 if (res.ok) {
                     const data = await res.json();
                     setTotalDeposit(data.stats.totalDeposit || 0);
+                    setUserMealDeposit(data.stats.userMealDeposit || 0);
+                    setUserOverheadDeposit(data.stats.userOverheadDeposit || 0);
+                    setMealFund(data.stats.mealFund ?? 0);
+                    setMessFund(data.stats.messFund ?? 0);
+                    setMonthlyOverheadConfig(data.monthlyOverheadConfig || null);
                     setTotalMeals(data.stats.totalMeals || 0);
                     setCurrentBalance(data.stats.currentBalance ?? 0);
                     setFixedCost(data.stats.fixedCost || 0);
@@ -328,6 +341,7 @@ export default function MemberDashboard() {
                 body: JSON.stringify({
                     type: "payment",
                     amount: amountVal,
+                    category: paymentCategory,
                     method: paymentMethod,
                     note: paymentNote.trim() || undefined,
                 }),
@@ -335,9 +349,10 @@ export default function MemberDashboard() {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast("Payment request submitted successfully for manager approval!", "success");
+                showToast(`Payment request for ${paymentCategory} submitted for manager approval!`, "success");
                 setPaymentAmount("");
                 setPaymentNote("");
+                setPaymentCategory("Meal Fund");
                 setPaymentMethod("Cash");
                 setIsPaymentModalOpen(false);
             } else {
@@ -551,8 +566,12 @@ export default function MemberDashboard() {
                     <div className="mt-2 md:mt-4">
                         <p className="text-xs font-bold text-slate-500 leading-tight">Total Deposit</p>
                         <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate">
-                            Tk {isLoadingData ? "..." : totalDeposit}
+                            Tk {isLoadingData ? "..." : totalDeposit.toLocaleString()}
                         </p>
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold text-slate-400 flex-wrap">
+                            <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-extrabold">Meal ৳{userMealDeposit.toLocaleString()}</span>
+                            <span className="text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded font-extrabold">Overhead ৳{userOverheadDeposit.toLocaleString()}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -577,6 +596,98 @@ export default function MemberDashboard() {
                     </div>
                 </Link>
 
+            </div>
+
+            {/* ──────────────────────────────────────────────────────────
+                D2. MESS FUNDS STATUS (Separately Visible Meal Fund & Mess Fund)
+            ────────────────────────────────────────────────────────── */}
+            <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3.5">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
+                            <IconWallet size={20} stroke={2.2} />
+                        </div>
+                        <div>
+                            <h2 className="text-sm sm:text-base font-black text-slate-900">
+                                Mess Funds Overview
+                            </h2>
+                            <p className="text-[11px] sm:text-xs font-medium text-slate-500">
+                                Real-time separated balances for Meal Fund & Overhead Mess Fund
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setPaymentCategory("Meal Fund");
+                            setIsPaymentModalOpen(true);
+                        }}
+                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                        <IconCreditCard size={15} stroke={2.5} />
+                        <span className="hidden sm:inline">Submit Payment</span>
+                        <span className="sm:hidden">Pay</span>
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    {/* 1. Meal Fund Card */}
+                    <div className="bg-gradient-to-br from-emerald-50/90 via-[#f0fdf4] to-teal-50/80 border border-emerald-200/70 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group">
+                        <div className="flex items-start justify-between gap-3 relative z-10">
+                            <div>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-800 border border-emerald-200/80">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Meal Fund (Bazaar)
+                                </span>
+                                <h3 className="text-2xl sm:text-3xl font-black text-emerald-950 mt-1.5 leading-none">
+                                    ৳ {isLoadingData ? "..." : mealFund.toLocaleString()}
+                                </h3>
+                                <p className="text-[11px] font-semibold text-emerald-700/90 mt-1">
+                                    Food deposits collected minus bazaar food cost
+                                </p>
+                            </div>
+                            <div className="w-11 h-11 rounded-2xl bg-white/80 backdrop-blur-sm border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconToolsKitchen2 size={22} stroke={2.2} />
+                            </div>
+                        </div>
+
+                        <div className="mt-3.5 pt-3 border-t border-emerald-200/60 flex items-center justify-between text-xs relative z-10">
+                            <span className="text-[11px] font-bold text-emerald-800">Your Meal Deposit:</span>
+                            <span className="font-black text-emerald-900 bg-white/70 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs">
+                                ৳ {isLoadingData ? "..." : userMealDeposit.toLocaleString()}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 2. Mess Fund Card */}
+                    <div className="bg-gradient-to-br from-purple-50/90 via-[#faf5ff] to-indigo-50/80 border border-purple-200/70 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group">
+                        <div className="flex items-start justify-between gap-3 relative z-10">
+                            <div>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-purple-100 text-purple-800 border border-purple-200/80">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                    Mess Fund (Overhead)
+                                </span>
+                                <h3 className="text-2xl sm:text-3xl font-black text-purple-950 mt-1.5 leading-none">
+                                    ৳ {isLoadingData ? "..." : messFund.toLocaleString()}
+                                </h3>
+                                <p className="text-[11px] font-semibold text-purple-700/90 mt-1">
+                                    Seat rent, utility bills, WiFi, and maid fund
+                                </p>
+                            </div>
+                            <div className="w-11 h-11 rounded-2xl bg-white/80 backdrop-blur-sm border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconBuildingCommunity size={22} stroke={2.2} />
+                            </div>
+                        </div>
+
+                        <div className="mt-3.5 pt-3 border-t border-purple-200/60 flex items-center justify-between text-xs relative z-10">
+                            <span className="text-[11px] font-bold text-purple-800">Your Overhead Deposit:</span>
+                            <span className="font-black text-purple-900 bg-white/70 px-2 py-0.5 rounded-md border border-purple-200/60 text-xs">
+                                ৳ {isLoadingData ? "..." : userOverheadDeposit.toLocaleString()}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* ─── Desktop Multi-Column Grid (Bazaar & Meals on Left 2 cols, Notice Board on Right) ─── */}
@@ -1173,25 +1284,25 @@ export default function MemberDashboard() {
             {/* ─── Payment / Deposit Submission Modal ─── */}
             {isPaymentModalOpen && (
                 <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => !isSubmittingPayment && setIsPaymentModalOpen(false)}
                 >
                     <div 
-                        className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-5 sm:p-6 space-y-4 relative z-10 animate-in zoom-in-95 duration-150"
+                        className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-lg w-full p-5 sm:p-6 space-y-4 relative z-10 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
-                                    <IconCreditCard size={18} stroke={2.2} />
+                                <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 border border-orange-100 flex items-center justify-center shrink-0">
+                                    <IconCreditCard size={20} stroke={2.2} />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-black text-slate-900 leading-tight">
-                                        Submit Payment
+                                    <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
+                                        Submit Payment / Deposit
                                     </h3>
                                     <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
-                                        Deposit request to manager for verification
+                                        Select Meal Fund or individual Overhead Expense
                                     </p>
                                 </div>
                             </div>
@@ -1206,11 +1317,187 @@ export default function MemberDashboard() {
                         </div>
 
                         {/* Modal Form */}
-                        <form onSubmit={handlePaymentSubmit} className="space-y-3.5">
-                            {/* 1. Payment / Deposit Amount */}
+                        <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                            
+                            {/* 1. Category Selector: Meal Fund vs Overhead Expense */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                                    Payment Category <span className="text-orange-500">*</span>
+                                </label>
+                                
+                                {/* Top 2 Tabs */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaymentCategory("Meal Fund")}
+                                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                            paymentCategory === "Meal Fund"
+                                                ? "bg-emerald-50/90 border-emerald-500 text-emerald-950 shadow-xs ring-1 ring-emerald-500/20"
+                                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xl">🍲</span>
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                paymentCategory === "Meal Fund" 
+                                                    ? "bg-emerald-600 text-white" 
+                                                    : "bg-slate-200 text-slate-600"
+                                            }`}>
+                                                Meal Fund
+                                            </span>
+                                        </div>
+                                        <div className="mt-2">
+                                            <p className="text-xs font-black">Daily Bazaar / Food</p>
+                                            <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                                                Adds to Meal Fund
+                                            </p>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (paymentCategory === "Meal Fund") {
+                                                setPaymentCategory("Seat Rent");
+                                            }
+                                        }}
+                                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                            paymentCategory !== "Meal Fund"
+                                                ? "bg-purple-50/90 border-purple-500 text-purple-950 shadow-xs ring-1 ring-purple-500/20"
+                                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xl">🏢</span>
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                paymentCategory !== "Meal Fund" 
+                                                    ? "bg-purple-600 text-white" 
+                                                    : "bg-slate-200 text-slate-600"
+                                            }`}>
+                                                Mess Fund
+                                            </span>
+                                        </div>
+                                        <div className="mt-2">
+                                            <p className="text-xs font-black">Overhead Expenses</p>
+                                            <p className="text-[10px] text-purple-700 font-semibold mt-0.5">
+                                                Adds to Mess Fund
+                                            </p>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                {/* Individual Overhead Options (If Overhead Tab Active) */}
+                                {paymentCategory !== "Meal Fund" && (
+                                    <div className="mt-2.5 p-3 rounded-2xl bg-purple-50/50 border border-purple-100/90 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-purple-900 uppercase tracking-wide">
+                                                Select Overhead Expense:
+                                            </span>
+                                            <span className="text-[10px] text-purple-700 font-medium">
+                                                Pay full or partial amount
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                            {[
+                                                { id: "Seat Rent", label: "Seat Rent", icon: "🛏️", rate: monthlyOverheadConfig?.seatRent },
+                                                { id: "Electricity + Gas", label: "Electricity + Gas", icon: "⚡", rate: monthlyOverheadConfig?.electricityGas },
+                                                { id: "Internet", label: "Internet / WiFi", icon: "📶", rate: monthlyOverheadConfig?.internet },
+                                                { id: "Maid Charge", label: "Maid Charge", icon: "🧹", rate: monthlyOverheadConfig?.maid },
+                                                { id: "Additional", label: "Additional", icon: "📦", rate: monthlyOverheadConfig?.additional },
+                                            ].map((oh) => {
+                                                const isSelected = paymentCategory === oh.id;
+                                                return (
+                                                    <button
+                                                        key={oh.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setPaymentCategory(oh.id);
+                                                            if (oh.rate && oh.rate > 0 && !paymentAmount) {
+                                                                setPaymentAmount(String(oh.rate));
+                                                            }
+                                                        }}
+                                                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                                            isSelected
+                                                                ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                                                                : "bg-white text-slate-800 border-purple-100 hover:border-purple-300 hover:bg-purple-50/30"
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-sm">{oh.icon}</span>
+                                                            <span className="text-[11px] font-black truncate">{oh.label}</span>
+                                                        </div>
+                                                        {oh.rate !== undefined && oh.rate > 0 && (
+                                                            <span className={`text-[9px] font-bold mt-1 ${
+                                                                isSelected ? "text-purple-100" : "text-purple-600"
+                                                            }`}>
+                                                                Rate: ৳{oh.rate.toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Helper quick-fill button for configured overhead rate */}
+                                        {(() => {
+                                            const currentConfigRate = 
+                                                paymentCategory === "Seat Rent" ? monthlyOverheadConfig?.seatRent :
+                                                paymentCategory === "Electricity + Gas" ? monthlyOverheadConfig?.electricityGas :
+                                                paymentCategory === "Internet" ? monthlyOverheadConfig?.internet :
+                                                paymentCategory === "Maid Charge" ? monthlyOverheadConfig?.maid :
+                                                paymentCategory === "Additional" ? monthlyOverheadConfig?.additional : 0;
+                                            
+                                            if (currentConfigRate && currentConfigRate > 0) {
+                                                return (
+                                                    <div className="pt-1 flex items-center justify-between text-[11px]">
+                                                        <span className="text-purple-800 font-semibold">
+                                                            This month's rate for {paymentCategory}: <strong>৳{currentConfigRate.toLocaleString()}</strong>
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPaymentAmount(String(currentConfigRate))}
+                                                            className="text-[10px] font-black text-purple-700 bg-white border border-purple-200 px-2 py-0.5 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer"
+                                                        >
+                                                            ⚡ Fill ৳{currentConfigRate.toLocaleString()}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Live Target Fund Callout Banner */}
+                            <div className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 ${
+                                paymentCategory === "Meal Fund"
+                                    ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
+                                    : "bg-purple-50/70 border-purple-200 text-purple-900"
+                            }`}>
+                                <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 font-bold ${
+                                    paymentCategory === "Meal Fund" ? "bg-emerald-200 text-emerald-800" : "bg-purple-200 text-purple-800"
+                                }`}>
+                                    {paymentCategory === "Meal Fund" ? "🍲" : "🏢"}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-extrabold text-[11px] leading-tight">
+                                        Target: {paymentCategory === "Meal Fund" ? "Mess Meal Fund" : "Mess Fund (Overhead)"}
+                                    </p>
+                                    <p className="text-[10px] opacity-85 leading-tight mt-0.5">
+                                        {paymentCategory === "Meal Fund" 
+                                            ? "Funds everyday bazaar items and groceries for all meals."
+                                            : `Paying for "${paymentCategory}". You can pay any partial or full amount, and it will be added to the Mess Fund.`
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 2. Payment / Deposit Amount */}
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                                    Payment / Deposit Amount (৳) <span className="text-orange-500">*</span>
+                                    Payment Amount (৳) <span className="text-orange-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <input 
@@ -1219,7 +1506,7 @@ export default function MemberDashboard() {
                                         step="any"
                                         value={paymentAmount} 
                                         onChange={(e) => setPaymentAmount(e.target.value)} 
-                                        placeholder="Enter amount (e.g. 2000)" 
+                                        placeholder="Enter amount (e.g. 1500)" 
                                         className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-2xs font-bold" 
                                         required 
                                         autoFocus
@@ -1231,12 +1518,12 @@ export default function MemberDashboard() {
 
                                 {/* Quick Amount Chips */}
                                 <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                                    {[500, 1000, 2000, 3000, 5000].map((amt) => (
+                                    {[500, 1000, 1500, 2000, 2500, 3000, 5000].map((amt) => (
                                         <button
                                             key={amt}
                                             type="button"
                                             onClick={() => setPaymentAmount(String(amt))}
-                                            className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 text-slate-600 transition-colors cursor-pointer"
+                                            className="text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 text-slate-600 transition-colors cursor-pointer"
                                         >
                                             +৳{amt.toLocaleString()}
                                         </button>
@@ -1244,7 +1531,7 @@ export default function MemberDashboard() {
                                 </div>
                             </div>
 
-                            {/* 2. Payment Method */}
+                            {/* 3. Payment Method */}
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                                     Payment Method <span className="text-orange-500">*</span>
@@ -1260,7 +1547,7 @@ export default function MemberDashboard() {
                                             key={pm.id}
                                             type="button"
                                             onClick={() => setPaymentMethod(pm.id)}
-                                            className={`py-2 px-2.5 rounded-xl border text-xs font-bold text-center transition-all cursor-pointer ${
+                                            className={`py-2 px-2 rounded-xl border text-xs font-bold text-center transition-all cursor-pointer ${
                                                 paymentMethod === pm.id
                                                     ? "bg-orange-50 border-orange-500 text-orange-600 shadow-2xs ring-1 ring-orange-500/20"
                                                     : "bg-slate-50/80 border-slate-200 text-slate-700 hover:bg-slate-100"
@@ -1272,7 +1559,7 @@ export default function MemberDashboard() {
                                 </div>
                             </div>
 
-                            {/* 3. Trx ID / Note */}
+                            {/* 4. Trx ID / Note */}
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                                     Trx ID / Note <span className="text-slate-400 font-normal">(Optional)</span>
@@ -1281,7 +1568,7 @@ export default function MemberDashboard() {
                                     type="text" 
                                     value={paymentNote} 
                                     onChange={(e) => setPaymentNote(e.target.value)} 
-                                    placeholder="E.g. TrxID: 9X8Y7Z... or cash reference" 
+                                    placeholder="E.g. TrxID: 9X8Y7Z... or partial note" 
                                     className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-2xs" 
                                 />
                             </div>
@@ -1302,7 +1589,12 @@ export default function MemberDashboard() {
                                     className="flex-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 disabled:opacity-50 text-white text-xs font-extrabold shadow-md shadow-orange-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                                 >
                                     <IconSend size={15} stroke={2.5} />
-                                    <span>{isSubmittingPayment ? "Submitting..." : "Submit to Manager"}</span>
+                                    <span>
+                                        {isSubmittingPayment 
+                                            ? "Submitting..." 
+                                            : `Pay ৳${paymentAmount ? Number(paymentAmount).toLocaleString() : "0"} (${paymentCategory})`
+                                        }
+                                    </span>
                                 </button>
                             </div>
                         </form>

@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { type, amount, note, method, date } = parsed.data;
+    const { type, amount, category, note, method, date } = parsed.data;
     const sanitizedNote = sanitizeInput(note);
     const transactionDate = date ? new Date(date) : new Date();
 
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
         data: {
           userId: user.id, // Strictly scoped to session user (Anti-IDOR)
           amount,
+          category: category || "Meal Fund",
           note: sanitizedNote,
           method: method || "Cash",
           status: "Pending", // Awaiting manager approval

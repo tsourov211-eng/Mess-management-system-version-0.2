@@ -88,7 +88,58 @@ export async function GET(req: Request) {
     });
     const fixedCostPerMember = calculateFixedCostPerMember(monthlyExpenseConfig);
 
-    // 7. Member Financial Summary
+    // 7. Separate Funds:
+    // Mess-wide Meal Fund = Approved Meal Deposits - Approved Food Expenses
+    const allMealDepositsAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: "Approved",
+        OR: [
+          { category: "Meal Fund" },
+          { category: null },
+          { category: "" },
+        ],
+      },
+    });
+    const allMealDeposits = allMealDepositsAgg._sum.amount || 0;
+
+    const allFoodExpensesAgg = await prisma.expense.aggregate({
+      _sum: { amount: true },
+      where: { status: "Approved" },
+    });
+    const allFoodExpenses = allFoodExpensesAgg._sum.amount || 0;
+    const mealFund = Math.round((allMealDeposits - allFoodExpenses) * 100) / 100;
+
+    // Mess-wide Overhead / Mess Fund = Approved Overhead Deposits
+    const allOverheadDepositsAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: "Approved",
+        NOT: [
+          { category: "Meal Fund" },
+        ],
+      },
+    });
+    const messFund = Math.round((allOverheadDepositsAgg._sum.amount || 0) * 100) / 100;
+
+    // Member's own deposit breakdown for active month
+    const userMealDepositAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        userId: user.id,
+        status: "Approved",
+        date: dateFilter,
+        OR: [
+          { category: "Meal Fund" },
+          { category: null },
+          { category: "" },
+        ],
+      },
+    });
+    const userMealDeposit = userMealDepositAgg._sum.amount || 0;
+    const userOverheadDeposit = Math.max(0, totalDeposit - userMealDeposit);
+
+    // 8. Member Financial Summary
     const summary = calculateMemberSummary({
       userId: user.id,
       name: user.name || "Member",
@@ -99,14 +150,14 @@ export async function GET(req: Request) {
       fixedCost: fixedCostPerMember,
     });
 
-    // 8. Recent Meals (Last 7 days)
+    // 9. Recent Meals (Last 7 days)
     const recentMeals = await prisma.mealLog.findMany({
       where: { userId: user.id },
       orderBy: { date: "desc" },
       take: 7,
     });
 
-    // 9. Notice Board (Exclude cleared notices & include user's guest meal requests)
+    // 10. Notice Board (Exclude cleared notices & include user's guest meal requests)
     const dbNotices = await prisma.notice.findMany({
       where: { 
         isActive: true,
@@ -147,6 +198,8 @@ export async function GET(req: Request) {
     return NextResponse.json({
       stats: {
         totalDeposit: summary.totalDeposit,
+        userMealDeposit: Math.round(userMealDeposit * 100) / 100,
+        userOverheadDeposit: Math.round(userOverheadDeposit * 100) / 100,
         totalMeals: summary.totalMeals,
         mealCost: summary.mealCost,
         fixedCost: summary.fixedCost,
@@ -155,7 +208,17 @@ export async function GET(req: Request) {
         isPositive: summary.isPositive,
         balanceFormatted: summary.balanceFormatted,
         liveMealRate,
+        mealFund,
+        messFund,
       },
+      monthlyOverheadConfig: monthlyExpenseConfig ? {
+        seatRent: monthlyExpenseConfig.seatRent || 0,
+        electricityGas: monthlyExpenseConfig.electricityGas || 0,
+        internet: monthlyExpenseConfig.internet || 0,
+        maid: monthlyExpenseConfig.maid || 0,
+        additional: monthlyExpenseConfig.additional || 0,
+        mealCharge: monthlyExpenseConfig.mealCharge || 0,
+      } : null,
       recentMeals,
       notices,
       defaultMeals: {

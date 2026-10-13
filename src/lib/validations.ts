@@ -51,6 +51,7 @@ export const FinanceSubmissionSchema = z.object({
     message: "Invalid transaction type",
   }),
   amount: z.coerce.number().positive("Amount must be greater than zero").max(1000000),
+  category: z.string().trim().max(100).optional().default("Meal Fund"),
   note: z.string().trim().max(500).optional().nullable(),
   method: z.enum(["Cash", "bKash", "Nagad", "Bank"]).optional().default("Cash"),
   date: z.string().optional().nullable(),

@@ -112,12 +112,20 @@ export async function GET() {
     });
     const marketDuty = todayDuty?.user?.name || "Unassigned";
 
-    // 7. Mess Fund: Total Deposits Collected - Total Actual Expenses Paid (Approved)
-    const depositAgg = await prisma.deposit.aggregate({
+    // 7. Separate Funds:
+    // Meal Fund: Total Meal Deposits Collected - Total Actual Food Expenses Paid (Approved)
+    const mealDepositAgg = await prisma.deposit.aggregate({
       _sum: { amount: true },
-      where: { status: "Approved" },
+      where: {
+        status: "Approved",
+        OR: [
+          { category: "Meal Fund" },
+          { category: null },
+          { category: "" },
+        ],
+      },
     });
-    const totalDeposits = depositAgg._sum.amount || 0;
+    const totalMealDeposits = mealDepositAgg._sum.amount || 0;
 
     const expenseAgg = await prisma.expense.aggregate({
       _sum: { amount: true },
@@ -125,7 +133,20 @@ export async function GET() {
     });
     const totalExpenses = expenseAgg._sum.amount || 0;
 
-    const messFund = Math.round((totalDeposits - totalExpenses) * 100) / 100;
+    const mealFund = Math.round((totalMealDeposits - totalExpenses) * 100) / 100;
+
+    // Mess Fund: Total Overhead Deposits Collected (Seat Rent, Utilities, WiFi, Maid, Additional)
+    const overheadDepositAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: "Approved",
+        NOT: [
+          { category: "Meal Fund" },
+        ],
+      },
+    });
+    const messFund = Math.round((overheadDepositAgg._sum.amount || 0) * 100) / 100;
+    const totalFund = Math.round((mealFund + messFund) * 100) / 100;
 
     return NextResponse.json(
       {
@@ -140,7 +161,9 @@ export async function GET() {
           currentMealRate,
           liveMealRate: currentMealRate,
           marketDuty,
+          mealFund,
           messFund,
+          totalFund,
         },
       },
       { status: 200 }

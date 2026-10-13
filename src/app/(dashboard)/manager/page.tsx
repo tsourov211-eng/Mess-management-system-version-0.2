@@ -36,7 +36,9 @@ export default function ManagerDashboard() {
         currentMealRate: 0,
         liveMealRate: 0,
         marketDuty: "Unassigned",
+        mealFund: 0,
         messFund: 0,
+        totalFund: 0,
     });
     const [users, setUsers] = useState<any[]>([]);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
@@ -348,8 +350,8 @@ export default function ManagerDashboard() {
                 </div>
             </div>
 
-            {/* ─── C. Top Metric Cards (Meals, Bazaar, Mess Fund, Market Duty) ─── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+            {/* ─── C. Top Metric Cards (Meals, Bazaar, Meal Fund, Mess Fund, Market Duty) ─── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-5">
                 {/* 1. Meals Card */}
                 <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-2xs">
@@ -391,7 +393,28 @@ export default function ManagerDashboard() {
                     </div>
                 </div>
 
-                {/* 3. Mess Fund Card */}
+                {/* 3. Meal Fund Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shadow-2xs">
+                        <IconToolsKitchen2 size={20} stroke={2.2} />
+                    </div>
+                    <div className="z-10 mt-2">
+                        <p className="text-xs font-semibold text-gray-500">Meal Fund</p>
+                        <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
+                            ৳ {isLoading ? "..." : (stats.mealFund ?? 0).toLocaleString()}
+                        </p>
+                    </div>
+                    {/* Bottom soft teal/emerald wave illustration */}
+                    <div className="absolute right-0 bottom-0 pointer-events-none w-28 md:w-36 h-16 md:h-20 opacity-80">
+                        <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                            <path d="M0 60C30 40 60 55 100 25V60H0Z" fill="#CCFBF1" fillOpacity="0.75"/>
+                            <path d="M40 60C65 48 80 50 100 38V60H40Z" fill="#99F6E4" fillOpacity="0.5"/>
+                            <path d="M75 35C80 25 92 28 95 35C88 40 78 38 75 35Z" fill="#14B8A6" fillOpacity="0.4"/>
+                        </svg>
+                    </div>
+                </div>
+
+                {/* 4. Mess Fund Card */}
                 <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-2xs">
                         <Coins size={20} strokeWidth={2.2} />
@@ -412,8 +435,8 @@ export default function ManagerDashboard() {
                     </div>
                 </div>
 
-                {/* 4. Market Duty Hero Card */}
-                <div className="bg-gradient-to-b from-slate-950 via-[#0B132B] to-slate-950 text-white rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg border border-slate-800 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-xl transition-shadow">
+                {/* 5. Market Duty Hero Card */}
+                <div className="col-span-2 sm:col-span-1 bg-gradient-to-b from-slate-950 via-[#0B132B] to-slate-950 text-white rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg border border-slate-800 relative overflow-hidden flex flex-col justify-between min-h-[126px] sm:min-h-[140px] md:min-h-[160px] hover:shadow-xl transition-shadow">
                     <div className="flex items-center justify-between gap-2 relative z-10">
                         <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-white/10 text-orange-400 flex items-center justify-center border border-white/10 shrink-0">
                             <IconShoppingCart size={20} stroke={2.2} />
