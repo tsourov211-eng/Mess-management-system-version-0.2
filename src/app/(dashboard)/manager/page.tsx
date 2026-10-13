@@ -79,11 +79,11 @@ export default function ManagerDashboard() {
     const getMemberAvatarStyle = (name: string, index: number) => {
         const initial = (name || "M").trim().charAt(0).toUpperCase();
         const palettes = [
-            { bg: "bg-[#FFEADB]", text: "text-[#EA580C]" },
-            { bg: "bg-[#DBEAFE]", text: "text-[#2563EB]" },
-            { bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
-            { bg: "bg-[#FCE7F3]", text: "text-[#DB2777]" },
-            { bg: "bg-[#EDE9FE]", text: "text-[#7C3AED]" },
+            { bg: "bg-[#FFEADB]", text: "text-[#C2410C]" },
+            { bg: "bg-[#DBEAFE]", text: "text-[#1D4ED8]" },
+            { bg: "bg-[#DCFCE7]", text: "text-[#15803D]" },
+            { bg: "bg-[#FCE7F3]", text: "text-[#BE185D]" },
+            { bg: "bg-[#EDE9FE]", text: "text-[#6D28D9]" },
         ];
         return {
             initial,
@@ -95,27 +95,27 @@ export default function ManagerDashboard() {
         const r = (role || "member").toLowerCase();
         if (r === "admin") {
             return (
-                <span className="bg-[#F3E8FF] text-[#7C3AED] border border-purple-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <span className="bg-purple-100 text-purple-900 border border-purple-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                     <IconCrown size={12} stroke={2.5} className="shrink-0" /> ADMIN
                 </span>
             );
         }
         if (r === "manager") {
             return (
-                <span className="bg-[#E0F2FE] text-[#0284C7] border border-sky-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <span className="bg-sky-100 text-sky-900 border border-sky-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                     <IconShieldCheck size={12} stroke={2.5} className="shrink-0" /> MANAGER
                 </span>
             );
         }
         if (r === "suspended") {
             return (
-                <span className="bg-rose-50 text-rose-600 border border-rose-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <span className="bg-rose-100 text-rose-900 border border-rose-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                     SUSPENDED
                 </span>
             );
         }
         return (
-            <span className="bg-[#DCFCE7] text-[#16A34A] border border-emerald-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+            <span className="bg-emerald-100 text-emerald-900 border border-emerald-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                 <IconUser size={12} stroke={2.5} className="shrink-0" /> MEMBER
             </span>
         );
@@ -953,19 +953,22 @@ export default function ManagerDashboard() {
                                 return (
                                     <div 
                                         key={user.id} 
-                                        className="bg-white rounded-2xl border border-gray-100/90 p-5 shadow-2xs hover:shadow-md hover:border-orange-200/60 transition-all flex flex-col justify-between group"
+                                        className="bg-gradient-to-b from-white via-white to-orange-50/20 rounded-2xl border border-slate-200/90 hover:border-orange-300 p-5 shadow-xs hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-200 flex flex-col justify-between group relative overflow-hidden"
                                     >
+                                        {/* Subtle top accent gradient line on hover */}
+                                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
                                         <div>
                                             <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-2xs ${avatar.bg} ${avatar.text}`}>
+                                                <div className="flex items-center gap-3.5 min-w-0">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-sm ring-2 ring-white/90 group-hover:scale-105 transition-transform ${avatar.bg} ${avatar.text}`}>
                                                         {avatar.initial}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <h3 className="font-extrabold text-gray-900 text-sm truncate group-hover:text-[#FF6B00] transition-colors">
+                                                        <h3 className="font-black text-slate-900 text-[15px] truncate group-hover:text-[#FF6B00] transition-colors tracking-tight">
                                                             {user.name || "Member"}
                                                         </h3>
-                                                        <p className="text-xs text-gray-400 font-medium truncate mt-0.5">
+                                                        <p className="text-xs text-slate-600 font-semibold truncate mt-0.5" title={user.email}>
                                                             {user.email}
                                                         </p>
                                                     </div>
@@ -975,19 +978,28 @@ export default function ManagerDashboard() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium mt-4 pt-3 border-t border-gray-50">
-                                                <span className="flex items-center gap-1.5 text-gray-400">
-                                                    <IconPhone size={14} className="shrink-0" />
-                                                    {user.phone || 'No phone'}
+                                            <div className="flex items-center justify-between text-xs mt-4 pt-3 border-t border-slate-100">
+                                                <span className="flex items-center gap-1.5 text-slate-700 font-bold">
+                                                    <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                                        <IconPhone size={12} stroke={2.2} />
+                                                    </span>
+                                                    {user.phone ? (
+                                                        <span className="text-slate-800 font-bold tracking-tight">{user.phone}</span>
+                                                    ) : (
+                                                        <span className="text-slate-400 font-medium italic text-[11px]">No phone</span>
+                                                    )}
                                                 </span>
                                                 {user.role === 'suspended' ? (
-                                                    <span className="flex items-center gap-1.5 text-rose-600 font-bold text-xs bg-rose-50 px-2 py-0.5 rounded-md">
+                                                    <span className="flex items-center gap-1.5 text-rose-800 font-extrabold text-[11px] bg-rose-50 border border-rose-200/90 px-2.5 py-0.5 rounded-full shadow-2xs">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
                                                         Suspended
                                                     </span>
                                                 ) : (
-                                                    <span className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-md">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                                    <span className="flex items-center gap-1.5 text-emerald-800 font-extrabold text-[11px] bg-emerald-50 border border-emerald-200/90 px-2.5 py-0.5 rounded-full shadow-2xs">
+                                                        <span className="relative flex h-2 w-2">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                        </span>
                                                         Active
                                                     </span>
                                                 )}
@@ -995,17 +1007,17 @@ export default function ManagerDashboard() {
                                         </div>
 
                                         {/* Financial Badges (Read-Only for Manager) */}
-                                        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100 text-center">
-                                            <div className="bg-gray-50 rounded-xl p-2">
-                                                <p className="text-[10px] font-bold text-gray-400">Deposit</p>
-                                                <p className="text-xs font-black text-gray-800 mt-0.5">৳ {Number(user.deposit || 0).toLocaleString()}</p>
+                                        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-100 text-center">
+                                            <div className="bg-slate-50/90 border border-slate-100 rounded-xl p-2">
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Deposit</p>
+                                                <p className="text-xs font-black text-slate-900 mt-0.5">৳ {Number(user.deposit || 0).toLocaleString()}</p>
                                             </div>
-                                            <div className="bg-gray-50 rounded-xl p-2">
-                                                <p className="text-[10px] font-bold text-gray-400">Meals</p>
-                                                <p className="text-xs font-black text-gray-800 mt-0.5">{user.totalMeals || 0}</p>
+                                            <div className="bg-slate-50/90 border border-slate-100 rounded-xl p-2">
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Meals</p>
+                                                <p className="text-xs font-black text-slate-900 mt-0.5">{user.totalMeals || 0}</p>
                                             </div>
-                                            <div className={`rounded-xl p-2 ${isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                                                <p className="text-[10px] font-bold opacity-75">Balance</p>
+                                            <div className={`rounded-xl p-2 border ${isPositive ? 'bg-emerald-50/90 text-emerald-800 border-emerald-200/80' : 'bg-rose-50/90 text-rose-800 border-rose-200/80'}`}>
+                                                <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">Balance</p>
                                                 <p className="text-xs font-black mt-0.5">৳ {Math.round(user.balance || 0).toLocaleString()}</p>
                                             </div>
                                         </div>

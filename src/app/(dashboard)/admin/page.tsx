@@ -121,11 +121,11 @@ export default function AdminDashboardPage() {
     const getMemberAvatarStyle = (name: string, index: number) => {
         const initial = (name || "M").trim().charAt(0).toUpperCase();
         const palettes = [
-            { bg: "bg-[#FFEADB]", text: "text-[#EA580C]" }, // Peach / Orange
-            { bg: "bg-[#DBEAFE]", text: "text-[#2563EB]" }, // Sky Blue
-            { bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" }, // Mint Green
-            { bg: "bg-[#FCE7F3]", text: "text-[#DB2777]" }, // Pink
-            { bg: "bg-[#EDE9FE]", text: "text-[#7C3AED]" }, // Lavender
+            { bg: "bg-[#FFEADB]", text: "text-[#C2410C]" }, // Peach / Orange
+            { bg: "bg-[#DBEAFE]", text: "text-[#1D4ED8]" }, // Sky Blue
+            { bg: "bg-[#DCFCE7]", text: "text-[#15803D]" }, // Mint Green
+            { bg: "bg-[#FCE7F3]", text: "text-[#BE185D]" }, // Pink
+            { bg: "bg-[#EDE9FE]", text: "text-[#6D28D9]" }, // Lavender
         ];
         return {
             initial,
@@ -137,27 +137,27 @@ export default function AdminDashboardPage() {
         const r = (role || "member").toLowerCase();
         if (r === "admin") {
             return (
-                <span className="bg-[#F3E8FF] text-[#7C3AED] border border-purple-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <span className="bg-purple-100 text-purple-900 border border-purple-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                     <Crown size={12} strokeWidth={2.5} className="shrink-0" /> ADMIN
                 </span>
             );
         }
         if (r === "manager") {
             return (
-                <span className="bg-[#E0F2FE] text-[#0284C7] border border-sky-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <span className="bg-sky-100 text-sky-900 border border-sky-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                     <ShieldCheck size={12} strokeWidth={2.5} className="shrink-0" /> MANAGER
                 </span>
             );
         }
         if (r === "suspended") {
             return (
-                <span className="bg-rose-50 text-rose-600 border border-rose-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+                <span className="bg-rose-100 text-rose-900 border border-rose-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                     SUSPENDED
                 </span>
             );
         }
         return (
-            <span className="bg-[#DCFCE7] text-[#16A34A] border border-emerald-200/50 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
+            <span className="bg-emerald-100 text-emerald-900 border border-emerald-200/90 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs shrink-0">
                 <UserIcon size={12} strokeWidth={2.5} className="shrink-0" /> MEMBER
             </span>
         );
@@ -1203,36 +1203,36 @@ export default function AdminDashboardPage() {
             <div className="hidden md:block bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow">
                 
                 {/* Header with Search */}
-                <div className="flex items-center justify-between gap-4 pb-5 border-b border-gray-100">
+                <div className="flex items-center justify-between gap-4 pb-5 border-b border-slate-100">
                     <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-orange-50 text-[#FF6B00] flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="w-11 h-11 rounded-2xl bg-orange-100 text-[#FF6B00] flex items-center justify-center shrink-0 shadow-xs border border-orange-200/60">
                             <Users size={22} strokeWidth={2.4} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-xl font-black text-gray-900 tracking-tight">Mess Members</h2>
-                                <span className="bg-orange-100 text-[#FF6B00] text-xs font-black px-2.5 py-0.5 rounded-full">
+                                <h2 className="text-xl font-black text-slate-900 tracking-tight">Mess Members</h2>
+                                <span className="bg-orange-100 text-orange-800 border border-orange-200/60 text-xs font-black px-2.5 py-0.5 rounded-full shadow-2xs">
                                     {users.length} Total
                                 </span>
                             </div>
-                            <p className="text-xs font-semibold text-gray-400 mt-0.5">Manage member roles, permissions, and active statuses</p>
+                            <p className="text-xs font-bold text-slate-500 mt-0.5">Manage member roles, permissions, and active statuses</p>
                         </div>
                     </div>
 
                     {/* Search Bar */}
                     <div className="w-72 relative group">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-[#FF6B00] transition-colors" />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-[#FF6B00] transition-colors" />
                         <input 
                             type="text" 
                             placeholder="Search by name, email, or role..."
                             value={memberSearchQuery}
                             onChange={(e) => setMemberSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-8 py-2 text-xs bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-[#FF6B00] rounded-xl outline-none focus:ring-4 focus:ring-orange-500/15 text-gray-900 font-semibold placeholder:text-gray-400 shadow-sm transition-all"
+                            className="w-full pl-9 pr-8 py-2 text-xs bg-white border-2 border-slate-200 hover:border-slate-300 focus:border-[#FF6B00] rounded-xl outline-none focus:ring-4 focus:ring-orange-500/15 text-slate-900 font-bold placeholder:text-slate-400 shadow-xs transition-all"
                         />
                         {memberSearchQuery && (
                             <button 
                                 onClick={() => setMemberSearchQuery("")} 
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-100 transition-colors"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
                             >
                                 <X size={14} />
                             </button>
@@ -1243,9 +1243,9 @@ export default function AdminDashboardPage() {
                 {/* Members Multi-Column Grid */}
                 <div className="pt-6">
                     {isLoading ? (
-                        <div className="p-12 text-center text-gray-400 font-bold">Loading members...</div>
+                        <div className="p-12 text-center text-slate-400 font-bold">Loading members...</div>
                     ) : filteredUsers.length === 0 ? (
-                        <div className="p-12 text-center text-gray-400 font-bold">No members found matching your search.</div>
+                        <div className="p-12 text-center text-slate-400 font-bold">No members found matching your search.</div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                             {filteredUsers.map((user, idx) => {
@@ -1255,20 +1255,23 @@ export default function AdminDashboardPage() {
                                 return (
                                     <div 
                                         key={user.id} 
-                                        className="bg-white rounded-2xl border border-gray-100/90 p-5 shadow-2xs hover:shadow-md hover:border-orange-200/60 transition-all flex flex-col justify-between group"
+                                        className="bg-gradient-to-b from-white via-white to-orange-50/20 rounded-2xl border border-slate-200/90 hover:border-orange-300 p-5 shadow-xs hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-200 flex flex-col justify-between group relative overflow-hidden"
                                     >
+                                        {/* Subtle top accent gradient line on hover */}
+                                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
                                         {/* Card Top: Avatar, Name, Email & Role */}
                                         <div>
                                             <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-2xs ${avatar.bg} ${avatar.text}`}>
+                                                <div className="flex items-center gap-3.5 min-w-0">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-sm ring-2 ring-white/90 group-hover:scale-105 transition-transform ${avatar.bg} ${avatar.text}`}>
                                                         {avatar.initial}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <h3 className="font-extrabold text-gray-900 text-sm truncate group-hover:text-[#FF6B00] transition-colors">
+                                                        <h3 className="font-black text-slate-900 text-[15px] truncate group-hover:text-[#FF6B00] transition-colors tracking-tight">
                                                             {user.name || "Member"}
                                                         </h3>
-                                                        <p className="text-xs text-gray-400 font-medium truncate mt-0.5">
+                                                        <p className="text-xs text-slate-600 font-semibold truncate mt-0.5" title={user.email}>
                                                             {user.email}
                                                         </p>
                                                     </div>
@@ -1279,19 +1282,28 @@ export default function AdminDashboardPage() {
                                             </div>
 
                                             {/* Phone & Status Line */}
-                                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium mt-4 pt-3 border-t border-gray-50">
-                                                <span className="flex items-center gap-1.5 text-gray-400">
-                                                    <IconPhone size={14} className="shrink-0" />
-                                                    {user.phone || 'No phone'}
+                                            <div className="flex items-center justify-between text-xs mt-4 pt-3 border-t border-slate-100">
+                                                <span className="flex items-center gap-1.5 text-slate-700 font-bold">
+                                                    <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                                        <IconPhone size={12} stroke={2.2} />
+                                                    </span>
+                                                    {user.phone ? (
+                                                        <span className="text-slate-800 font-bold tracking-tight">{user.phone}</span>
+                                                    ) : (
+                                                        <span className="text-slate-400 font-medium italic text-[11px]">No phone</span>
+                                                    )}
                                                 </span>
                                                 {user.role === 'suspended' ? (
-                                                    <span className="flex items-center gap-1.5 text-rose-600 font-bold text-xs bg-rose-50 px-2 py-0.5 rounded-md">
+                                                    <span className="flex items-center gap-1.5 text-rose-800 font-extrabold text-[11px] bg-rose-50 border border-rose-200/90 px-2.5 py-0.5 rounded-full shadow-2xs">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
                                                         Suspended
                                                     </span>
                                                 ) : (
-                                                    <span className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-md">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                                    <span className="flex items-center gap-1.5 text-emerald-800 font-extrabold text-[11px] bg-emerald-50 border border-emerald-200/90 px-2.5 py-0.5 rounded-full shadow-2xs">
+                                                        <span className="relative flex h-2 w-2">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                        </span>
                                                         Active
                                                     </span>
                                                 )}
@@ -1299,16 +1311,16 @@ export default function AdminDashboardPage() {
                                         </div>
 
                                         {/* Card Bottom: Role Select & Action Controls */}
-                                        <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-gray-100">
+                                        <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-100">
                                             {/* Role Selector */}
                                             <select 
                                                 value={user.role} 
                                                 onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1.5 rounded-xl border outline-none cursor-pointer transition-colors ${
-                                                    user.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                    user.role === 'manager' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                    user.role === 'suspended' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                    'bg-gray-50 text-gray-700 border-gray-200'
+                                                className={`text-[11px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl border outline-none cursor-pointer transition-all shadow-2xs ${
+                                                    user.role === 'admin' ? 'bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100/80 focus:ring-2 focus:ring-purple-400/20' :
+                                                    user.role === 'manager' ? 'bg-sky-50 text-sky-900 border-sky-200 hover:bg-sky-100/80 focus:ring-2 focus:ring-sky-400/20' :
+                                                    user.role === 'suspended' ? 'bg-rose-50 text-rose-900 border-rose-200 hover:bg-rose-100/80 focus:ring-2 focus:ring-rose-400/20' :
+                                                    'bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100/80 focus:ring-2 focus:ring-slate-400/20'
                                                 }`}
                                             >
                                                 <option value="member">Member</option>
@@ -1321,9 +1333,9 @@ export default function AdminDashboardPage() {
                                             <div className="flex items-center gap-1.5 relative">
                                                 <button 
                                                     onClick={() => handleEditClick(user)} 
-                                                    className="border border-gray-200 text-gray-700 hover:text-gray-900 hover:bg-gray-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                                                    className="border border-slate-200 bg-white hover:bg-orange-50 hover:border-orange-300 text-slate-800 hover:text-orange-600 text-xs font-black px-3.5 py-1.5 rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
                                                 >
-                                                    <IconEdit className="w-3.5 h-3.5" stroke={2} />
+                                                    <IconEdit className="w-3.5 h-3.5" stroke={2.4} />
                                                     <span>Edit</span>
                                                 </button>
 
@@ -1333,25 +1345,29 @@ export default function AdminDashboardPage() {
                                                             e.stopPropagation(); 
                                                             setActiveDropdown(isDropdownOpen ? null : user.id); 
                                                         }} 
-                                                        className="p-1.5 border border-gray-200 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+                                                        className="w-8 h-8 flex items-center justify-center border border-slate-200 bg-white rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+                                                        aria-label="More actions"
                                                     >
-                                                        <IconDotsVertical className="w-4 h-4" stroke={2} />
+                                                        <IconDotsVertical className="w-4 h-4" stroke={2.4} />
                                                     </button>
 
                                                     {isDropdownOpen && (
                                                         <div 
                                                             onClick={(e) => e.stopPropagation()}
-                                                            className="absolute right-0 bottom-full mb-2 w-40 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-150"
+                                                            className="absolute right-0 bottom-full mb-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-150"
                                                         >
+                                                            <div className="px-3.5 py-1.5 border-b border-slate-100">
+                                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Quick Actions</p>
+                                                            </div>
                                                             <button 
                                                                 onClick={() => { setActiveDropdown(null); handleRoleChange(user.id, user.role === 'suspended' ? 'member' : 'suspended'); }} 
-                                                                className="w-full text-left px-3.5 py-2 text-xs font-bold text-orange-600 hover:bg-orange-50 transition-colors cursor-pointer border-b border-gray-50"
+                                                                className="w-full text-left px-3.5 py-2 text-xs font-bold text-orange-700 hover:bg-orange-50 transition-colors cursor-pointer border-b border-slate-50"
                                                             >
-                                                                {user.role === 'suspended' ? "Unsuspend" : "Suspend User"}
+                                                                {user.role === 'suspended' ? "Unsuspend User" : "Suspend User"}
                                                             </button>
                                                             <button 
                                                                 onClick={() => { setActiveDropdown(null); handleDeleteUser(user.id); }} 
-                                                                className="w-full text-left px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                                                className="w-full text-left px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
                                                             >
                                                                 Delete User
                                                             </button>
@@ -1972,10 +1988,10 @@ export default function AdminDashboardPage() {
 
                                         {/* 3. Name & Email */}
                                         <div className="flex-1 min-w-0 pr-1">
-                                            <p className="text-xs sm:text-[13px] font-black text-gray-900 truncate leading-snug">
+                                            <p className="text-xs sm:text-[13px] font-black text-slate-900 truncate leading-snug">
                                                 {user.name || "Member"}
                                             </p>
-                                            <p className="text-[10px] sm:text-[11px] font-medium text-gray-400 truncate leading-tight mt-0.5">
+                                            <p className="text-[10px] sm:text-[11px] font-semibold text-slate-600 truncate leading-tight mt-0.5">
                                                 {user.email}
                                             </p>
                                         </div>
