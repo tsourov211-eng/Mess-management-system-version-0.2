@@ -67,8 +67,9 @@ export async function PUT(req: Request) {
     const { name, phone, address, messName, defaultBreakfast, defaultLunch, defaultDinner } = body;
 
     const dataToUpdate: any = {};
+    const userRole = ((session.user as any)?.role || "").toLowerCase();
     if (name) dataToUpdate.name = sanitizeInput(name);
-    if (messName) dataToUpdate.messName = sanitizeInput(messName);
+    if (messName && userRole === "admin") dataToUpdate.messName = sanitizeInput(messName);
     if (phone !== undefined) dataToUpdate.phone = sanitizeInput(phone);
     if (address !== undefined) dataToUpdate.address = sanitizeInput(address);
     if (body.image !== undefined) dataToUpdate.image = body.image;

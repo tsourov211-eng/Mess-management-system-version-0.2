@@ -37,9 +37,21 @@ function SettingsContent() {
     const searchParams = useSearchParams();
     const tabQuery = searchParams.get("tab") as TabType | null;
 
-    const [activeTab, setActiveTab] = useState<TabType>("mess");
+    const { data: profileData, isLoading: isLoadingProfile, mutate } = useSWR<{ profile?: any }>("/api/members/profile");
 
-    // Mess Configuration Tab States
+    // Unified display role and role resolution
+    const effectiveRole = (profileData?.profile?.role || (session?.user as any)?.role || "member").toLowerCase();
+    const isAdmin = effectiveRole === "admin";
+
+    // Non-admin (members & managers) only have access to personal profile, security & notifications
+    const [activeTab, setActiveTab] = useState<TabType>(() => {
+        if (tabQuery && (tabQuery !== "mess" || isAdmin)) {
+            return tabQuery;
+        }
+        return isAdmin ? "mess" : "profile";
+    });
+
+    // Mess Configuration Tab States (Admin only)
     const [messName, setMessName] = useState("Amader Mess");
     const [currencySymbol, setCurrencySymbol] = useState("BDT");
     const [monthStartDay, setMonthStartDay] = useState("1");
@@ -69,16 +81,23 @@ function SettingsContent() {
         inAppAlerts: false,
     });
 
-    const { data: profileData, isLoading: isLoadingProfile, mutate } = useSWR<{ profile?: any }>("/api/members/profile");
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<ToastState | null>(null);
 
-    // Sync tab from URL query param if valid
+    // Sync tab from URL query param if valid or fallback based on role
     useEffect(() => {
-        if (tabQuery && ["mess", "profile", "security", "notifications"].includes(tabQuery)) {
-            setActiveTab(tabQuery);
+        if (tabQuery) {
+            if (tabQuery === "mess" && !isAdmin) {
+                setActiveTab("profile");
+            } else if (["mess", "profile", "security", "notifications"].includes(tabQuery)) {
+                setActiveTab(tabQuery);
+            }
+        } else {
+            if (!isAdmin && activeTab === "mess") {
+                setActiveTab("profile");
+            }
         }
-    }, [tabQuery]);
+    }, [tabQuery, isAdmin, activeTab]);
 
     // Load notification preferences from localStorage
     useEffect(() => {
@@ -123,6 +142,7 @@ function SettingsContent() {
     };
 
     const handleTabChange = (tab: TabType) => {
+        if (tab === "mess" && !isAdmin) return;
         setActiveTab(tab);
         try {
             const url = new URL(window.location.href);
@@ -134,7 +154,6 @@ function SettingsContent() {
     // Unified display role and badge resolution
     const displayName = fullName || session?.user?.name || "User";
     const displayEmail = email || session?.user?.email || "No email";
-    const effectiveRole = role || session?.user?.role || "member";
     const displayRole = getUserDisplayRole(effectiveRole);
     const badgeStyle = getRoleBadgeStyle(effectiveRole);
     const initial = (displayName ? displayName.charAt(0) : "U").toUpperCase();
@@ -170,6 +189,11 @@ function SettingsContent() {
 
         try {
             if (activeTab === "mess") {
+                if (!isAdmin) {
+                    showToast("Only administrators can update mess configuration.", "error");
+                    setIsSaving(false);
+                    return;
+                }
                 // Tab 1: Save Mess Config & Account Profile
                 const res = await fetch("/api/members/profile", {
                     method: "PUT",
@@ -306,7 +330,11 @@ function SettingsContent() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B132B] tracking-tight">System Settings</h1>
-                    <p className="text-gray-500 text-sm mt-1.5 font-medium">Manage your mess preferences, profile, and security.</p>
+                    <p className="text-gray-500 text-sm mt-1.5 font-medium">
+                        {isAdmin 
+                            ? "Manage your mess preferences, profile, and security." 
+                            : "Manage your personal profile details, password, and notifications."}
+                    </p>
                 </div>
 
                 {/* Save All Button (Desktop md and above) */}
@@ -330,18 +358,20 @@ function SettingsContent() {
                 <div className="lg:col-span-1 space-y-4">
                     <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-2 flex flex-col gap-1">
                         
-                        {/* Tab 1: Mess Information */}
-                        <button 
-                            onClick={() => handleTabChange("mess")}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all w-full text-left cursor-pointer ${
-                                activeTab === "mess"
-                                    ? "bg-orange-50 text-orange-600 shadow-xs"
-                                    : "text-gray-600 hover:bg-orange-50/50 hover:text-orange-600"
-                            }`}
-                        >
-                            <IconBuilding className="w-5 h-5 shrink-0" stroke={2} />
-                            <span>Mess Information</span>
-                        </button>
+                        {/* Tab 1: Mess Information (Admin only) */}
+                        {isAdmin && (
+                            <button 
+                                onClick={() => handleTabChange("mess")}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all w-full text-left cursor-pointer ${
+                                    activeTab === "mess"
+                                        ? "bg-orange-50 text-orange-600 shadow-xs"
+                                        : "text-gray-600 hover:bg-orange-50/50 hover:text-orange-600"
+                                }`}
+                            >
+                                <IconBuilding className="w-5 h-5 shrink-0" stroke={2} />
+                                <span>Mess Information</span>
+                            </button>
+                        )}
 
                         {/* Tab 2: Profile Details */}
                         <button 
@@ -396,9 +426,9 @@ function SettingsContent() {
                 <div className="lg:col-span-2 space-y-6">
                     
                     {/* ═══════════════════════════════════════════
-                        PANEL 1: MESS INFORMATION (Default View)
+                        PANEL 1: MESS INFORMATION (Admin only)
                        ═══════════════════════════════════════════ */}
-                    {activeTab === "mess" && (
+                    {isAdmin && activeTab === "mess" && (
                         <div className="space-y-6 animate-in fade-in duration-200">
                             
                             {/* Mess Information Card */}

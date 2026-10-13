@@ -274,6 +274,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
                         { name: "My Financial Reports", href: "/member/reports", icon: IconChartLine },
                         { name: "My Profile", href: "/profile", icon: IconUser },
+                        { name: "Settings", href: "/settings", icon: IconSettings },
                     ],
                 },
             ];
@@ -290,6 +291,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     { name: "My Meals", href: "/member/my-meals", icon: IconToolsKitchen2 },
                     { name: "My Financial Reports", href: "/member/reports", icon: IconChartLine },
                     { name: "My Profile", href: "/profile", icon: IconUser },
+                    { name: "Settings", href: "/settings", icon: IconSettings },
                 ],
             },
         ];
