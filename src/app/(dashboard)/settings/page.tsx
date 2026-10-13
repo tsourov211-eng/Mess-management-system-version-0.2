@@ -51,6 +51,7 @@ interface ModernDropdownProps<T> {
     className?: string;
     theme?: "orange" | "amber" | "indigo" | "blue";
     ariaLabel?: string;
+    placement?: "top" | "bottom";
 }
 
 function ModernDropdown<T extends string | number>({
@@ -60,6 +61,7 @@ function ModernDropdown<T extends string | number>({
     className = "",
     theme = "orange",
     ariaLabel,
+    placement = "bottom",
 }: ModernDropdownProps<T>) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -147,7 +149,9 @@ function ModernDropdown<T extends string | number>({
             {isOpen && (
                 <div 
                     role="listbox"
-                    className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 min-w-[150px]"
+                    className={`absolute left-0 right-0 z-40 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 min-w-[150px] ${
+                        placement === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                    }`}
                 >
                     {options.map((opt) => {
                         const isSelected = opt.value === value;
@@ -972,6 +976,7 @@ function SettingsContent() {
                                             onChange={setDefaultBreakfast}
                                             options={breakfastOptions}
                                             theme="amber"
+                                            placement="top"
                                             ariaLabel="Select Breakfast meal count"
                                         />
                                     </div>
@@ -1001,6 +1006,7 @@ function SettingsContent() {
                                             onChange={setDefaultLunch}
                                             options={lunchOptions}
                                             theme="orange"
+                                            placement="top"
                                             ariaLabel="Select Lunch meal count"
                                         />
                                     </div>
@@ -1030,6 +1036,7 @@ function SettingsContent() {
                                             onChange={setDefaultDinner}
                                             options={dinnerOptions}
                                             theme="indigo"
+                                            placement="top"
                                             ariaLabel="Select Dinner meal count"
                                         />
                                     </div>
