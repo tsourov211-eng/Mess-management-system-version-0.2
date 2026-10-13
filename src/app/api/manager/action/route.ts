@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ManagerActionSchema } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { safeErrorResponse } from "@/lib/security";
+import { calculateGuestMealUnits } from "@/lib/calculations";
 
 export async function POST(req: Request) {
   try {
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
         const nextDate = new Date(reqDate);
         nextDate.setDate(nextDate.getDate() + 1);
 
-        // Sum all approved guest meals for this user on this date
+        // Sum all approved guest meal units for this user on this date
         const allApproved = await tx.guestMealRequest.findMany({
           where: {
             userId: guestReq.userId,
@@ -91,7 +92,10 @@ export async function POST(req: Request) {
           },
         });
 
-        const totalApprovedGuests = allApproved.reduce((acc, r) => acc + (r.guests || 0), 0);
+        const totalApprovedGuestMeals = allApproved.reduce(
+          (acc, r) => acc + calculateGuestMealUnits(r.guests, r.mealType),
+          0
+        );
 
         const existingMeal = await tx.mealLog.findFirst({
           where: {
@@ -103,9 +107,9 @@ export async function POST(req: Request) {
         if (existingMeal) {
           await tx.mealLog.update({
             where: { id: existingMeal.id },
-            data: { guest: totalApprovedGuests },
+            data: { guest: totalApprovedGuestMeals },
           });
-        } else if (totalApprovedGuests > 0) {
+        } else if (totalApprovedGuestMeals > 0) {
           await tx.mealLog.create({
             data: {
               userId: guestReq.userId,
@@ -113,17 +117,18 @@ export async function POST(req: Request) {
               breakfast: guestReq.user.defaultBreakfast ?? 0.5,
               lunch: guestReq.user.defaultLunch ?? 1.0,
               dinner: guestReq.user.defaultDinner ?? 1.0,
-              guest: totalApprovedGuests,
+              guest: totalApprovedGuestMeals,
             },
           });
         }
 
         // 3. Create a notification notice for the member
         const dateFormatted = reqDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const requestUnits = calculateGuestMealUnits(guestReq.guests, guestReq.mealType);
         const noticeTitle = action === "Approve" ? "Guest Meal Approved" : "Guest Meal Rejected";
         const noticeDesc = action === "Approve"
-          ? `Your request for ${guestReq.guests} guest meal(s) on ${dateFormatted} (${guestReq.mealType}) has been approved.`
-          : `Your request for ${guestReq.guests} guest meal(s) on ${dateFormatted} (${guestReq.mealType}) has been rejected.`;
+          ? `Your request for ${guestReq.guests} guest(s) (${requestUnits} meal${requestUnits > 1 ? "s" : ""}) on ${dateFormatted} (${guestReq.mealType}) has been approved.`
+          : `Your request for ${guestReq.guests} guest(s) on ${dateFormatted} (${guestReq.mealType}) has been rejected.`;
 
         await tx.notice.create({
           data: {

@@ -30,7 +30,7 @@ export const SingleMealItemSchema = z.object({
   breakfast: z.coerce.number().min(0, "Breakfast cannot be negative").max(10),
   lunch: z.coerce.number().min(0, "Lunch cannot be negative").max(10),
   dinner: z.coerce.number().min(0, "Dinner cannot be negative").max(10),
-  guest: z.coerce.number().int().min(0, "Guest meals cannot be negative").max(50).default(0),
+  guest: z.coerce.number().min(0, "Guest meals cannot be negative").max(50).default(0),
 });
 
 export const SaveMealsSchema = z.object({
@@ -40,7 +40,7 @@ export const SaveMealsSchema = z.object({
   breakfast: z.coerce.number().min(0).max(10).optional(),
   lunch: z.coerce.number().min(0).max(10).optional(),
   dinner: z.coerce.number().min(0).max(10).optional(),
-  guest: z.coerce.number().int().min(0).max(50).optional(),
+  guest: z.coerce.number().min(0).max(50).optional(),
 });
 
 /**

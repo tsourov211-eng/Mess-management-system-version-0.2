@@ -14,6 +14,7 @@ import {
 } from "@tabler/icons-react";
 
 import ConfirmModal from "@/components/ConfirmModal";
+import { calculateGuestMealUnits } from "@/lib/calculations";
 
 export default function GuestMealsPage() {
     const { data: session } = useSession();
@@ -145,7 +146,7 @@ export default function GuestMealsPage() {
                                 </div>
                                 <div className="text-right shrink-0">
                                     <span className="text-sm font-black text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1 rounded-xl inline-block">
-                                        {item.guests} {item.guests > 1 ? "Guests" : "Guest"}
+                                        {item.guests} {item.guests > 1 ? "Guests" : "Guest"} ({calculateGuestMealUnits(item.guests, item.mealType)} meals)
                                     </span>
                                 </div>
                             </div>

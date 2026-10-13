@@ -28,6 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { Coins, Search } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
+import { calculateGuestMealUnits } from "@/lib/calculations";
 
 export default function ManagerDashboard() {
     const [stats, setStats] = useState({
@@ -863,7 +864,7 @@ export default function ManagerDashboard() {
                                                 {item.guests} {item.guests > 1 ? 'Guests' : 'Guest'}
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-gray-400 font-medium">{item.mealType} meal</p>
+                                        <p className="text-[11px] text-gray-500 font-medium">{item.mealType} • {calculateGuestMealUnits(item.guests, item.mealType)} meals</p>
                                         <div className="flex gap-2 pt-1">
                                             <button onClick={() => handleAction(item.id, 'guestMeal', 'Reject')} className="flex-1 text-xs font-bold text-red-600 bg-white border border-red-200 py-1.5 rounded-xl hover:bg-red-50">Reject</button>
                                             <button onClick={() => handleAction(item.id, 'guestMeal', 'Approve')} className="flex-1 text-xs font-bold text-white bg-emerald-600 py-1.5 rounded-xl hover:bg-emerald-700">Approve</button>

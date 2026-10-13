@@ -13,7 +13,8 @@ import {
   ensureTodayBazaarNotice,
   ensureTodayMealLogs,
   calculateConsumedMeals,
-  getDhakaTodayStartAndEnd
+  getDhakaTodayStartAndEnd,
+  syncUserGuestMeals
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -49,6 +50,9 @@ export async function GET(req: Request) {
       allMonthKeys, 
       monthName 
     } = getMonthDateRange(yearParam, monthParam);
+
+    // Ensure approved guest meals are synchronized for active month
+    await syncUserGuestMeals(prisma, user.id, dateFilter);
 
     // Parallelize all 12 independent database queries for lightning-fast performance
     const [

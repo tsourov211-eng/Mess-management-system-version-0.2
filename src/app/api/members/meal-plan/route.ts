@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { safeErrorResponse } from "@/lib/security";
+import { round1 } from "@/lib/calculations";
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     const validBreakfast = Math.max(0, Math.min(10, Number(breakfast) || 0));
     const validLunch = Math.max(0, Math.min(10, Number(lunch) || 0));
     const validDinner = Math.max(0, Math.min(10, Number(dinner) || 0));
-    const validGuest = Math.max(0, Math.min(50, Math.round(Number(guest) || 0)));
+    const validGuest = Math.max(0, Math.min(50, round1(Number(guest) || 0)));
 
     const savedMeal = await prisma.mealLog.upsert({
       where: {

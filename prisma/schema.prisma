@@ -82,7 +82,7 @@ model MealLog {
   breakfast Float    @default(0.0)
   lunch     Float    @default(0.0)
   dinner    Float    @default(0.0)
-  guest     Int      @default(0)
+  guest     Float    @default(0.0)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

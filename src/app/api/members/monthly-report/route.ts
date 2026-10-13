@@ -11,7 +11,8 @@ import {
   calculateConsumedMeals,
   getDhakaTodayStartAndEnd,
   round1,
-  round2
+  round2,
+  syncUserGuestMeals
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -54,6 +55,9 @@ export async function GET(req: Request) {
       monthKey,
       daysInMonth 
     } = getMonthDateRange(searchParams.get("year"), searchParams.get("month"));
+
+    // Ensure approved guest meals are synchronized for active month
+    await syncUserGuestMeals(prisma, user.id, dateFilter);
 
     // Parallelize all 6 queries for maximum responsiveness
     const [

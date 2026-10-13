@@ -543,3 +543,147 @@ export async function ensureTodayMealLogs(prismaClient: any) {
   }
 }
 
+/**
+ * Calculates the meal portion (multiplier) for a single guest based on mealType.
+ * Standard Mess rules:
+ * - Breakfast Only: 0.5 meal
+ * - Lunch Only: 1.0 meal
+ * - Dinner Only: 1.0 meal
+ * - Breakfast & Dinner: 1.5 meals
+ * - Lunch & Dinner: 2.0 meals
+ * - All Meals: 2.5 meals
+ */
+export function getGuestMealPortion(mealType?: string | null): number {
+  if (!mealType) return 1.0;
+  const normalized = mealType.trim().toLowerCase();
+
+  if (normalized.includes("all")) {
+    return 2.5;
+  }
+
+  let portion = 0;
+  if (normalized.includes("breakfast") || normalized.includes("bfast")) {
+    portion += 0.5;
+  }
+  if (normalized.includes("lunch")) {
+    portion += 1.0;
+  }
+  if (normalized.includes("dinner")) {
+    portion += 1.0;
+  }
+
+  if (portion > 0) {
+    return portion;
+  }
+
+  if (normalized.includes("both")) {
+    return 2.0;
+  }
+
+  return 1.0;
+}
+
+/**
+ * Calculates total guest meals for a guest request.
+ * guestCount * portionPerGuest
+ */
+export function calculateGuestMealUnits(guests: number, mealType?: string | null): number {
+  const count = Math.max(0, Number(guests) || 0);
+  const portion = getGuestMealPortion(mealType);
+  return round1(count * portion);
+}
+
+/**
+ * Synchronizes approved guest meal requests with MealLog records.
+ * Guarantees MealLog.guest accurately reflects:
+ * sum of (guests * portion) for all approved guest meal requests on each date.
+ */
+export async function syncUserGuestMeals(
+  prismaClient: any,
+  userId?: string | null,
+  dateFilter?: { gte: Date; lt: Date }
+) {
+  try {
+    const whereReq: any = { status: "Approved" };
+    if (userId) whereReq.userId = userId;
+    if (dateFilter) whereReq.date = dateFilter;
+
+    const approvedRequests = await prismaClient.guestMealRequest.findMany({
+      where: whereReq,
+    });
+
+    const whereLog: any = {};
+    if (userId) whereLog.userId = userId;
+    if (dateFilter) whereLog.date = dateFilter;
+
+    const mealLogs = await prismaClient.mealLog.findMany({
+      where: whereLog,
+    });
+
+    // Group approved guest meals by user and UTC date key: userId_YYYY-MM-DD
+    const approvedByUserDate = new Map<string, { totalUnits: number; date: Date; userId: string }>();
+    for (const req of approvedRequests) {
+      const d = new Date(req.date);
+      const key = `${req.userId}_${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+      const units = calculateGuestMealUnits(req.guests, req.mealType);
+      const current = approvedByUserDate.get(key) || { totalUnits: 0, date: d, userId: req.userId };
+      current.totalUnits = round1(current.totalUnits + units);
+      approvedByUserDate.set(key, current);
+    }
+
+    const updates: Promise<any>[] = [];
+
+    // 1. Sync existing logs whose guest count differs from approved guest meals
+    for (const log of mealLogs) {
+      const d = new Date(log.date);
+      const key = `${log.userId}_${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+      const expectedUnits = approvedByUserDate.get(key)?.totalUnits || 0;
+
+      if (Math.abs((log.guest || 0) - expectedUnits) > 0.01) {
+        updates.push(
+          prismaClient.mealLog.update({
+            where: { id: log.id },
+            data: { guest: expectedUnits },
+          })
+        );
+      }
+    }
+
+    // 2. Create missing MealLog records for dates that have approved guest meals but no log yet
+    for (const [key, item] of approvedByUserDate.entries()) {
+      const hasLog = mealLogs.some((l: any) => {
+        const d = new Date(l.date);
+        const lKey = `${l.userId}_${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        return lKey === key;
+      });
+
+      if (!hasLog && item.totalUnits > 0) {
+        const u = await prismaClient.user.findUnique({
+          where: { id: item.userId },
+          select: { defaultBreakfast: true, defaultLunch: true, defaultDinner: true },
+        });
+        const reqUtcDate = new Date(Date.UTC(item.date.getUTCFullYear(), item.date.getUTCMonth(), item.date.getUTCDate(), 0, 0, 0, 0));
+        updates.push(
+          prismaClient.mealLog.create({
+            data: {
+              userId: item.userId,
+              date: reqUtcDate,
+              breakfast: u?.defaultBreakfast ?? 0.5,
+              lunch: u?.defaultLunch ?? 1.0,
+              dinner: u?.defaultDinner ?? 1.0,
+              guest: item.totalUnits,
+            },
+          })
+        );
+      }
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates);
+    }
+  } catch (error) {
+    console.error("syncUserGuestMeals error:", error);
+  }
+}
+
+

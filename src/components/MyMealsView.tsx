@@ -24,6 +24,7 @@ import {
     IconAlertCircle,
     IconLock
 } from "@tabler/icons-react";
+import { getGuestMealPortion, calculateGuestMealUnits } from "@/lib/calculations";
 
 // ─── Guest Meal Type Options ───
 const MEAL_TYPE_OPTIONS = [
@@ -901,6 +902,25 @@ export default function MyMealsView() {
 
                         </div>
 
+                        {/* Calculated Guest Meals Preview */}
+                        {(() => {
+                            const portion = getGuestMealPortion(mealType);
+                            const totalMeals = calculateGuestMealUnits(guestCount, mealType);
+                            return (
+                                <div className="bg-orange-50/70 border border-orange-100/90 rounded-2xl px-3 py-2 flex items-center justify-between text-xs mt-2">
+                                    <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+                                        <span className="text-orange-600 font-black">Total Guest Meals:</span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">
+                                            ({guestCount} {guestCount > 1 ? "guests" : "guest"} × {portion} meal{portion > 1 ? "s" : ""})
+                                        </span>
+                                    </div>
+                                    <span className="font-black text-orange-600 bg-orange-100 px-2 py-0.5 rounded-lg text-xs">
+                                        {totalMeals} {totalMeals > 1 ? "meals" : "meal"}
+                                    </span>
+                                </div>
+                            );
+                        })()}
+
                         {/* Submit Request Button */}
                         <button 
                             type="submit" 
@@ -1075,7 +1095,10 @@ export default function MyMealsView() {
                                     <div key={item.id} className="grid grid-cols-4 items-center px-4 py-2.5 text-xs hover:bg-slate-50/50 transition-colors">
                                         <span className="font-bold text-slate-800 text-left">{reqDate}</span>
                                         <span className="font-semibold text-slate-700 text-left truncate pr-1">{item.mealType}</span>
-                                        <span className="font-black text-slate-800 text-center">{item.guests}</span>
+                                        <div className="text-center leading-tight">
+                                            <span className="font-black text-slate-800">{item.guests}</span>
+                                            <span className="text-[10px] font-bold text-emerald-600 block">({calculateGuestMealUnits(item.guests, item.mealType)}m)</span>
+                                        </div>
                                         <div className="text-right">
                                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black border ${
                                                 item.status === "Approved"
@@ -1230,7 +1253,7 @@ export default function MyMealsView() {
                                         </div>
                                         <div className="flex items-center justify-between text-[11px] text-slate-500">
                                             <span>Type: <strong className="text-slate-700">{item.mealType}</strong></span>
-                                            <span>Guests: <strong className="text-slate-800">{item.guests}</strong></span>
+                                            <span>Guests: <strong className="text-slate-800">{item.guests} ({calculateGuestMealUnits(item.guests, item.mealType)} meals)</strong></span>
                                         </div>
                                         {item.note && (
                                             <p className="text-[11px] text-slate-600 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100">

@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { safeErrorResponse, sanitizeInput } from "@/lib/security";
-import { getDhakaDate, getMonthDateRange } from "@/lib/calculations";
+import { getDhakaDate, getMonthDateRange, calculateGuestMealUnits, syncUserGuestMeals } from "@/lib/calculations";
 
 function getDhakaHour(): number {
   try {
@@ -46,6 +46,9 @@ export async function GET(req: Request) {
 
     // Dynamic month boundaries for monthly meal history
     const { dateFilter: monthDateFilter } = getMonthDateRange(year, month);
+
+    // Synchronize approved guest meal requests with MealLog records for this month
+    await syncUserGuestMeals(prisma, user.id, monthDateFilter);
 
     // Run all 5 independent queries in parallel
     const [
@@ -130,8 +133,11 @@ export async function GET(req: Request) {
       isManagerOrAdmin,
     };
 
-    const tomorrowGuestCountFromReqs = tomorrowsGuestReqs.reduce((sum, r) => sum + (r.guests || 0), 0);
-    const resolvedTomorrowGuests = Math.max(tomorrowsMeal?.guest || 0, tomorrowGuestCountFromReqs);
+    const tomorrowGuestUnitsFromReqs = tomorrowsGuestReqs.reduce(
+      (sum, r) => sum + calculateGuestMealUnits(r.guests, r.mealType),
+      0
+    );
+    const resolvedTomorrowGuests = Math.max(tomorrowsMeal?.guest || 0, tomorrowGuestUnitsFromReqs);
 
     const tomorrowPlan = {
       breakfast: tomorrowsMeal ? tomorrowsMeal.breakfast : defaultB,
