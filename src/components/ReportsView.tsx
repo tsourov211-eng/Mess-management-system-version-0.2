@@ -24,7 +24,6 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Skeleton, ReportSummarySkeleton } from "@/components/Skeleton";
 
 export default function ReportsView() {
     const today = new Date();
@@ -485,7 +484,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className="text-lg font-black text-slate-900 leading-tight">
-                                {isLoading ? <Skeleton className="h-6 w-20 rounded" /> : `Tk ${stats.totalDeposit.toLocaleString()}`}
+                                Tk {isLoading ? "..." : stats.totalDeposit.toLocaleString()}
                             </h3>
                         </div>
                         {/* Soft blue wallet watermark */}
@@ -511,7 +510,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className="text-xl font-black text-slate-900 leading-tight">
-                                {isLoading ? <Skeleton className="h-6 w-16 rounded" /> : stats.totalMeals}
+                                {isLoading ? "..." : stats.totalMeals}
                             </h3>
                         </div>
                         {/* Soft peach fork & spoon watermark */}
@@ -535,7 +534,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className="text-lg font-black text-slate-900 leading-tight">
-                                {isLoading ? <Skeleton className="h-6 w-20 rounded" /> : `Tk ${stats.liveMealRate.toFixed(2)}`}
+                                Tk {isLoading ? "..." : stats.liveMealRate.toFixed(2)}
                             </h3>
                         </div>
                         {/* Soft lavender 3-bar chart watermark */}
@@ -560,7 +559,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className={`text-lg font-black leading-tight ${stats.currentBalance < 0 ? "text-rose-600" : "text-[#059669]"}`}>
-                                {isLoading ? <Skeleton className="h-6 w-24 rounded" /> : `${stats.currentBalance >= 0 ? "+ " : "- "}Tk ${Math.abs(stats.currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+ " : "- "}Tk ${Math.abs(stats.currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </h3>
                         </div>
                         {/* Soft mint growth arrow watermark */}
@@ -737,7 +736,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
-                                {isLoading ? <Skeleton className="h-8 w-28 rounded-md" /> : `Tk ${stats.totalDeposit.toLocaleString()}`}
+                                Tk {isLoading ? "..." : stats.totalDeposit.toLocaleString()}
                             </h3>
                         </div>
                         <div className="absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none text-emerald-500 group-hover:scale-105 transition-transform">
@@ -757,7 +756,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
-                                {isLoading ? <Skeleton className="h-8 w-20 rounded-md" /> : stats.totalMeals}
+                                {isLoading ? "..." : stats.totalMeals}
                             </h3>
                         </div>
                         <div className="absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none text-amber-500 group-hover:scale-105 transition-transform">
@@ -777,7 +776,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
-                                {isLoading ? <Skeleton className="h-8 w-24 rounded-md" /> : `Tk ${stats.liveMealRate.toFixed(2)}`}
+                                Tk {isLoading ? "..." : stats.liveMealRate.toFixed(2)}
                             </h3>
                         </div>
                         <div className="absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none text-purple-500 group-hover:scale-105 transition-transform">
@@ -805,7 +804,7 @@ export default function ReportsView() {
                         </div>
                         <div className="mt-2 relative z-10">
                             <h3 className={`text-2xl sm:text-3xl font-extrabold ${stats.currentBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                {isLoading ? <Skeleton className="h-8 w-32 rounded-md" /> : `${stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(stats.currentBalance).toLocaleString()}`}
+                                {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+" : "-"} Tk ${Math.abs(stats.currentBalance).toLocaleString()}`}
                             </h3>
                         </div>
                         <div className={`absolute -bottom-1 -right-1 w-24 h-14 opacity-20 pointer-events-none group-hover:scale-105 transition-transform ${stats.currentBalance < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
@@ -825,14 +824,7 @@ export default function ReportsView() {
                     
                     <div className="p-6 sm:p-8">
                         {isLoading ? (
-                            <div className="max-w-2xl mx-auto space-y-4 py-2">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="flex justify-between items-center py-3 border-b border-gray-100">
-                                        <Skeleton className="h-5 w-48 rounded" />
-                                        <Skeleton className="h-5 w-24 rounded" />
-                                    </div>
-                                ))}
-                            </div>
+                            <p className="text-center text-gray-400 font-bold py-10">Calculating your data...</p>
                         ) : (
                             <div className="max-w-2xl mx-auto space-y-4">
                                 
@@ -955,7 +947,10 @@ export default function ReportsView() {
                         {/* Modal Body */}
                         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
                             {isLoadingReportDetails ? (
-                                <ReportSummarySkeleton />
+                                <div className="py-20 text-center flex flex-col items-center justify-center gap-3 text-gray-400">
+                                    <IconLoader2 size={32} className="animate-spin text-orange-500" />
+                                    <p className="text-sm font-bold">Compiling full day-wise report...</p>
+                                </div>
                             ) : reportDetails ? (
                                 <>
                                     {/* Monthly Summary Strip */}

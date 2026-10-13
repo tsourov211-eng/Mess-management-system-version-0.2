@@ -15,7 +15,6 @@ import {
     X, 
     Check 
 } from "lucide-react";
-import { Skeleton } from "@/components/Skeleton";
 
 export default function ProfileView() {
     const [profileData, setProfileData] = useState<any>(null);
@@ -221,12 +220,12 @@ export default function ProfileView() {
 
                         {/* User Name & Email */}
                         <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2.5 text-center leading-tight">
-                            {isLoading ? <Skeleton className="h-7 w-40 rounded mx-auto" /> : (profileData?.name || "Admin")}
+                            {isLoading ? "..." : (profileData?.name || "Admin")}
                         </h2>
                         
                         <div className="text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5 mt-1 leading-tight">
                             <Mail size={14} className="text-[#FF6B00]" strokeWidth={2.2} />
-                            <span className="truncate">{isLoading ? <Skeleton className="h-4 w-36 rounded inline-block" /> : (profileData?.email || "ourmess001@gmail.com")}</span>
+                            <span className="truncate">{isLoading ? "..." : (profileData?.email || "ourmess001@gmail.com")}</span>
                         </div>
                     </div>
 
@@ -243,7 +242,7 @@ export default function ProfileView() {
                                     PHONE NUMBER
                                 </p>
                                 <p className="font-black text-sm sm:text-base text-slate-900 leading-tight mt-1 truncate">
-                                    {isLoading ? <Skeleton className="h-5 w-32 rounded" /> : (profileData?.phone || "01729326783")}
+                                    {isLoading ? "..." : (profileData?.phone || "01729326783")}
                                 </p>
                             </div>
                         </div>
@@ -258,7 +257,7 @@ export default function ProfileView() {
                                     ADDRESS
                                 </p>
                                 <p className="font-black text-sm sm:text-base text-slate-900 leading-tight mt-1 truncate">
-                                    {isLoading ? <Skeleton className="h-5 w-28 rounded" /> : (profileData?.address || "dhaka")}
+                                    {isLoading ? "..." : (profileData?.address || "dhaka")}
                                 </p>
                             </div>
                         </div>
@@ -280,7 +279,7 @@ export default function ProfileView() {
                                 TOTAL DEPOSIT
                             </p>
                             <h3 className="font-black text-base sm:text-lg text-slate-900 leading-tight mt-1 truncate">
-                                {isLoading ? <Skeleton className="h-6 w-20 rounded" /> : `Tk ${Number(stats.totalDeposit || 0).toLocaleString()}`}
+                                Tk {isLoading ? "..." : Number(stats.totalDeposit || 0).toLocaleString()}
                             </h3>
                         </div>
                     </div>
@@ -295,7 +294,7 @@ export default function ProfileView() {
                                 TOTAL MEALS
                             </p>
                             <h3 className="font-black text-base sm:text-lg text-slate-900 leading-tight mt-1">
-                                {isLoading ? <Skeleton className="h-6 w-12 rounded" /> : Number(stats.totalMeals || 0)}
+                                {isLoading ? "..." : Number(stats.totalMeals || 0)}
                             </h3>
                         </div>
                     </div>
@@ -346,7 +345,7 @@ export default function ProfileView() {
                                 BREAKFAST
                             </span>
                             <span className="font-black text-lg sm:text-xl text-slate-900 mt-0.5 leading-tight">
-                                {isLoading ? <Skeleton className="h-6 w-8 rounded mx-auto" /> : (profileData?.defaultBreakfast ?? 0.5)}
+                                {isLoading ? "..." : (profileData?.defaultBreakfast ?? 0.5)}
                             </span>
                         </div>
 
@@ -357,7 +356,7 @@ export default function ProfileView() {
                                 LUNCH
                             </span>
                             <span className="font-black text-lg sm:text-xl text-slate-900 mt-0.5 leading-tight">
-                                {isLoading ? <Skeleton className="h-6 w-8 rounded mx-auto" /> : (profileData?.defaultLunch ?? 1)}
+                                {isLoading ? "..." : (profileData?.defaultLunch ?? 1)}
                             </span>
                         </div>
 
@@ -368,7 +367,7 @@ export default function ProfileView() {
                                 DINNER
                             </span>
                             <span className="font-black text-lg sm:text-xl text-slate-900 mt-0.5 leading-tight">
-                                {isLoading ? <Skeleton className="h-6 w-8 rounded mx-auto" /> : (profileData?.defaultDinner ?? 1)}
+                                {isLoading ? "..." : (profileData?.defaultDinner ?? 1)}
                             </span>
                         </div>
 
@@ -378,6 +377,9 @@ export default function ProfileView() {
 
             </div>
 
+            {/* ═══════════════════════════════════════════════════════════════════
+                DESKTOP VIEW: Spacious Responsive Layout
+               ═══════════════════════════════════════════════════════════════════ */}
             {/* ═══════════════════════════════════════════════════════════════════
                 DESKTOP VIEW: Spacious Responsive Layout
                ═══════════════════════════════════════════════════════════════════ */}
@@ -400,13 +402,10 @@ export default function ProfileView() {
                                 )}
                             </div>
                             <div>
-                                <h1 className="text-2xl lg:text-3xl font-black text-slate-900">
-                                    {isLoading ? <Skeleton className="h-8 w-52 rounded-lg" /> : (profileData?.name || "Member Name")}
-                                </h1>
-                                <div className="text-sm font-semibold text-slate-500 flex items-center gap-1.5 mt-1">
-                                    <Mail size={16} className="text-[#FF6B00]" />
-                                    {isLoading ? <Skeleton className="h-4 w-40 rounded" /> : profileData?.email}
-                                </div>
+                                <h1 className="text-2xl lg:text-3xl font-black text-slate-900">{profileData?.name || "Member Name"}</h1>
+                                <p className="text-sm font-semibold text-slate-500 flex items-center gap-1.5 mt-1">
+                                    <Mail size={16} className="text-[#FF6B00]" /> {profileData?.email}
+                                </p>
                             </div>
                         </div>
 
@@ -433,9 +432,7 @@ export default function ProfileView() {
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-400 uppercase">Phone Number</p>
-                                <p className="text-base font-black text-slate-900 mt-0.5">
-                                    {isLoading ? <Skeleton className="h-5 w-32 rounded" /> : (profileData?.phone || "Not set")}
-                                </p>
+                                <p className="text-base font-black text-slate-900 mt-0.5">{profileData?.phone || "Not set"}</p>
                             </div>
                         </div>
 
@@ -445,9 +442,7 @@ export default function ProfileView() {
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-400 uppercase">Address</p>
-                                <p className="text-base font-black text-slate-900 mt-0.5">
-                                    {isLoading ? <Skeleton className="h-5 w-32 rounded" /> : (profileData?.address || "Not set")}
-                                </p>
+                                <p className="text-base font-black text-slate-900 mt-0.5">{profileData?.address || "Not set"}</p>
                             </div>
                         </div>
                     </div>
@@ -462,9 +457,7 @@ export default function ProfileView() {
                         </div>
                         <div>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Deposit</p>
-                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">
-                                {isLoading ? <Skeleton className="h-7 w-28 rounded-md" /> : `Tk ${Number(stats.totalDeposit || 0).toLocaleString()}`}
-                            </h3>
+                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">Tk {Number(stats.totalDeposit || 0).toLocaleString()}</h3>
                         </div>
                     </div>
 
@@ -475,9 +468,7 @@ export default function ProfileView() {
                         </div>
                         <div>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Meals</p>
-                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">
-                                {isLoading ? <Skeleton className="h-7 w-16 rounded-md" /> : Number(stats.totalMeals || 0)}
-                            </h3>
+                            <h3 className="text-2xl font-black text-slate-900 mt-0.5">{Number(stats.totalMeals || 0)}</h3>
                         </div>
                     </div>
 
@@ -503,21 +494,15 @@ export default function ProfileView() {
                         <div className="grid grid-cols-3 gap-2 mt-3 text-center">
                             <div className="bg-amber-50/70 border border-amber-200/50 rounded-xl p-2">
                                 <span className="block text-[9px] font-bold text-amber-700 uppercase">Breakfast</span>
-                                <span className="text-base font-black text-slate-900">
-                                    {isLoading ? <Skeleton className="h-5 w-8 rounded mx-auto" /> : (profileData?.defaultBreakfast ?? 0.5)}
-                                </span>
+                                <span className="text-base font-black text-slate-900">{profileData?.defaultBreakfast ?? 0.5}</span>
                             </div>
                             <div className="bg-blue-50/70 border border-blue-200/50 rounded-xl p-2">
                                 <span className="block text-[9px] font-bold text-blue-700 uppercase">Lunch</span>
-                                <span className="text-base font-black text-slate-900">
-                                    {isLoading ? <Skeleton className="h-5 w-8 rounded mx-auto" /> : (profileData?.defaultLunch ?? 1)}
-                                </span>
+                                <span className="text-base font-black text-slate-900">{profileData?.defaultLunch ?? 1}</span>
                             </div>
                             <div className="bg-purple-50/70 border border-purple-200/50 rounded-xl p-2">
                                 <span className="block text-[9px] font-bold text-purple-700 uppercase">Dinner</span>
-                                <span className="text-base font-black text-slate-900">
-                                    {isLoading ? <Skeleton className="h-5 w-8 rounded mx-auto" /> : (profileData?.defaultDinner ?? 1)}
-                                </span>
+                                <span className="text-base font-black text-slate-900">{profileData?.defaultDinner ?? 1}</span>
                             </div>
                         </div>
                     </div>

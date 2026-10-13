@@ -25,7 +25,6 @@ import {
     IconLock
 } from "@tabler/icons-react";
 import { getGuestMealPortion, calculateGuestMealUnits } from "@/lib/calculations";
-import { Skeleton } from "@/components/Skeleton";
 
 // ─── Guest Meal Type Options ───
 const MEAL_TYPE_OPTIONS = [
@@ -1083,16 +1082,7 @@ export default function MyMealsView() {
                     {/* Table Content */}
                     <div className="divide-y divide-slate-100 min-h-[70px] flex flex-col justify-center">
                         {isLoading ? (
-                            <div className="py-1 space-y-2">
-                                {Array.from({ length: 3 }).map((_, i) => (
-                                    <div key={i} className="grid grid-cols-4 items-center px-4 py-2.5">
-                                        <Skeleton className="h-4 w-12 rounded" />
-                                        <Skeleton className="h-4 w-20 rounded" />
-                                        <Skeleton className="h-4 w-10 rounded mx-auto" />
-                                        <Skeleton className="h-5 w-14 rounded-full ml-auto" />
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="py-6 text-center text-xs font-bold text-slate-400">Loading requests...</div>
                         ) : guestHistory.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-6 text-slate-400 gap-1.5">
                                 <IconFileText size={22} className="text-slate-300" stroke={1.5} />
@@ -1169,18 +1159,7 @@ export default function MyMealsView() {
                     {/* Table Content */}
                     <div className="divide-y divide-slate-100 min-h-[70px] flex flex-col justify-center">
                         {isHistoryLoading ? (
-                            <div className="py-1 space-y-2">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="grid grid-cols-6 items-center px-2.5 sm:px-3 py-2">
-                                        <Skeleton className="h-4 w-14 rounded" />
-                                        <Skeleton className="h-4 w-6 rounded mx-auto" />
-                                        <Skeleton className="h-4 w-6 rounded mx-auto" />
-                                        <Skeleton className="h-4 w-6 rounded mx-auto" />
-                                        <Skeleton className="h-4 w-6 rounded mx-auto" />
-                                        <Skeleton className="h-4 w-8 rounded mx-auto" />
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="py-6 text-center text-xs font-bold text-slate-400">Loading monthly history...</div>
                         ) : monthlyMeals.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-6 text-slate-400 gap-1.5">
                                 <IconFileText size={22} className="text-slate-300" stroke={1.5} />

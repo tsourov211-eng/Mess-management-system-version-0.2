@@ -31,7 +31,6 @@ import {
     IconChartPie
 } from "@tabler/icons-react";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Skeleton } from "@/components/Skeleton";
 
 export default function MonthlyExpenseSetup() {
     const generateMonths = () => {
@@ -311,9 +310,8 @@ export default function MonthlyExpenseSetup() {
                 {/* 3. 6 Expense Category Cards (2-Column Grid) */}
                 <div className="grid grid-cols-2 gap-3 relative">
                     {isLoading && (
-                        <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-20 rounded-2xl flex flex-col items-center justify-center gap-2">
-                            <Skeleton className="h-6 w-32 rounded-lg" />
-                            <Skeleton className="h-4 w-20 rounded-md" />
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-20 rounded-2xl flex items-center justify-center">
+                            <span className="text-xs font-black text-orange-600 animate-pulse">Loading...</span>
                         </div>
                     )}
 
@@ -661,9 +659,8 @@ export default function MonthlyExpenseSetup() {
 
                         <div className="p-6 space-y-3 relative">
                             {isLoading && (
-                                <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-b-2xl gap-2">
-                                    <Skeleton className="h-7 w-44 rounded-lg" />
-                                    <Skeleton className="h-4 w-28 rounded-md" />
+                                <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center rounded-b-2xl">
+                                    <p className="font-bold text-orange-600 animate-pulse">Loading data...</p>
                                 </div>
                             )}
 

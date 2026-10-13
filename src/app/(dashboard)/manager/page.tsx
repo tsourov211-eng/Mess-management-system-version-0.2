@@ -29,7 +29,6 @@ import {
 import { Coins, Search } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import { calculateGuestMealUnits } from "@/lib/calculations";
-import { Skeleton, ListItemSkeleton, MemberCardSkeleton } from "@/components/Skeleton";
 
 export default function ManagerDashboard() {
     const [stats, setStats] = useState({
@@ -362,7 +361,7 @@ export default function ManagerDashboard() {
                     <div className="z-10 mt-2">
                         <p className="text-xs font-semibold text-gray-500">Meals</p>
                         <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
-                            {isLoading ? <Skeleton className="h-7 md:h-8 w-16 rounded-lg" /> : (stats.totalMealsToday ?? 0)}
+                            {isLoading ? "..." : (stats.totalMealsToday ?? 0)}
                         </p>
                     </div>
                     {/* Bottom soft mint-green wave illustration */}
@@ -383,7 +382,7 @@ export default function ManagerDashboard() {
                     <div className="z-10 mt-2">
                         <p className="text-xs font-semibold text-gray-500">Bazaar</p>
                         <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
-                            {isLoading ? <Skeleton className="h-7 md:h-8 w-24 rounded-lg" /> : `৳ ${(stats.totalBazaarToday ?? 0).toLocaleString()}`}
+                            ৳ {isLoading ? "..." : (stats.totalBazaarToday ?? 0).toLocaleString()}
                         </p>
                     </div>
                     {/* Bottom soft peach/orange wave illustration */}
@@ -403,7 +402,7 @@ export default function ManagerDashboard() {
                     <div className="z-10 mt-2">
                         <p className="text-xs font-semibold text-gray-500">Meal Fund</p>
                         <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
-                            {isLoading ? <Skeleton className="h-7 md:h-8 w-24 rounded-lg" /> : `৳ ${(stats.mealFund ?? 0).toLocaleString()}`}
+                            ৳ {isLoading ? "..." : (stats.mealFund ?? 0).toLocaleString()}
                         </p>
                     </div>
                     {/* Bottom soft teal/emerald wave illustration */}
@@ -424,7 +423,7 @@ export default function ManagerDashboard() {
                     <div className="z-10 mt-2">
                         <p className="text-xs font-semibold text-gray-500">Mess Fund</p>
                         <p className="text-2xl md:text-3xl font-black text-slate-900 mt-0.5 leading-none">
-                            {isLoading ? <Skeleton className="h-7 md:h-8 w-24 rounded-lg" /> : `৳ ${(stats.messFund ?? 0).toLocaleString()}`}
+                            ৳ {isLoading ? "..." : (stats.messFund ?? 0).toLocaleString()}
                         </p>
                     </div>
                     {/* Bottom soft lavender/purple wave illustration */}
@@ -452,15 +451,9 @@ export default function ManagerDashboard() {
                     <div className="z-10 mt-2">
                         <p className="text-xs text-gray-400 font-medium">Market Duty</p>
                         <p className="text-base sm:text-lg md:text-xl font-black text-white mt-0.5 tracking-tight truncate flex items-center gap-1.5" title={stats.marketDuty || "Unassigned"}>
-                            {isLoading ? (
-                                <Skeleton variant="dark" className="h-6 w-28 rounded-md bg-slate-800" />
-                            ) : (
-                                <>
-                                    <span>{stats.marketDuty || "Unassigned"}</span>
-                                    {(stats as any).marketDutyStatus === "done" && (
-                                        <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">Done ✅</span>
-                                    )}
-                                </>
+                            <span>{stats.marketDuty || "Unassigned"}</span>
+                            {(stats as any).marketDutyStatus === "done" && (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">Done ✅</span>
                             )}
                         </p>
                     </div>
@@ -619,7 +612,7 @@ export default function ManagerDashboard() {
                 {/* Notice Rows */}
                 <div className="divide-y divide-slate-100 mt-3">
                     {isLoading ? (
-                        <ListItemSkeleton count={3} />
+                        <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
                     ) : notices.length === 0 ? (
                         <div className="py-7 text-center">
                             <p className="text-xs font-bold text-slate-600">All caught up! 🪶 No new notices.</p>
@@ -732,30 +725,9 @@ export default function ManagerDashboard() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {isLoading ? (
-                                    Array.from({ length: 3 }).map((_, i) => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td className="p-4 text-center"><Skeleton className="w-4 h-4 mx-auto rounded" /></td>
-                                            <td className="p-4"><Skeleton className="w-4 h-4 rounded" /></td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2.5">
-                                                    <Skeleton className="w-8 h-8 rounded-full" />
-                                                    <div className="space-y-1">
-                                                        <Skeleton className="w-24 h-3.5 rounded" />
-                                                        <Skeleton className="w-32 h-2.5 rounded bg-slate-100" />
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4"><Skeleton className="w-20 h-4 rounded" /></td>
-                                            <td className="p-4"><Skeleton className="w-28 h-4 rounded" /></td>
-                                            <td className="p-4"><Skeleton className="w-16 h-5 rounded-full" /></td>
-                                            <td className="p-4 text-center">
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <Skeleton className="w-16 h-7 rounded-lg" />
-                                                    <Skeleton className="w-16 h-7 rounded-lg" />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-gray-400 font-bold text-sm">Loading...</td>
+                                    </tr>
                                 ) : pendingBazaarSchedules.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="p-8 text-center text-gray-400 font-bold text-sm">No pending bazaar requests.</td>
@@ -958,7 +930,7 @@ export default function ManagerDashboard() {
                 {/* Members Grid */}
                 <div className="pt-6">
                     {isLoading ? (
-                        <MemberCardSkeleton count={6} />
+                        <div className="p-12 text-center text-gray-400 font-bold">Loading members...</div>
                     ) : filteredUsers.length === 0 ? (
                         <div className="p-12 text-center text-gray-400 font-bold">No members found matching your search.</div>
                     ) : (

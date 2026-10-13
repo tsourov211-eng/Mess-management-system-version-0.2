@@ -27,7 +27,6 @@ import {
     IconBuildingCommunity,
     IconReceipt2
 } from "@tabler/icons-react";
-import { Skeleton, ListItemSkeleton, TableSkeleton } from "@/components/Skeleton";
 
 export default function MemberDashboard() {
     const { data: session, status } = useSession(); 
@@ -720,7 +719,7 @@ export default function MemberDashboard() {
                         </div>
                         <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-0.5">
                             {isLoadingData 
-                                ? <Skeleton variant="dark" className="h-9 w-36 bg-slate-800 rounded-xl" />
+                                ? "..." 
                                 : `${currentBalance < 0 ? "- Tk " : currentBalance > 0 ? "+ Tk " : "Tk "}${Math.abs(currentBalance).toLocaleString()}`
                             }
                         </h2>
@@ -740,7 +739,7 @@ export default function MemberDashboard() {
                     <div className="mt-2 md:mt-4">
                         <p className="text-xs font-bold text-slate-500 leading-tight">Total Deposit</p>
                         <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate">
-                            {isLoadingData ? <Skeleton className="h-7 w-28 rounded-md" /> : `Tk ${totalDeposit.toLocaleString()}`}
+                            Tk {isLoadingData ? "..." : totalDeposit.toLocaleString()}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold text-slate-400 flex-wrap">
                             <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-extrabold">Meal ৳{userMealDeposit.toLocaleString()}</span>
@@ -765,7 +764,7 @@ export default function MemberDashboard() {
                     <div className="mt-2 md:mt-4">
                         <p className="text-xs font-bold text-slate-500 leading-tight">My Total Meals</p>
                         <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate group-hover:text-[#FF6B00] transition-colors">
-                            {isLoadingData ? <Skeleton className="h-7 w-16 rounded-md" /> : totalMeals}
+                            {isLoadingData ? "..." : totalMeals}
                         </p>
                     </div>
                 </Link>
@@ -815,7 +814,7 @@ export default function MemberDashboard() {
                                     Meal Fund (Bazaar)
                                 </span>
                                 <h3 className="text-2xl sm:text-3xl font-black text-emerald-950 mt-1.5 leading-none">
-                                    {isLoadingData ? <Skeleton className="h-8 w-28 rounded-md" /> : `৳ ${mealFund.toLocaleString()}`}
+                                    ৳ {isLoadingData ? "..." : mealFund.toLocaleString()}
                                 </h3>
                                 <p className="text-[11px] font-semibold text-emerald-700/90 mt-1">
                                     Food deposits collected minus bazaar food cost
@@ -829,7 +828,7 @@ export default function MemberDashboard() {
                         <div className="mt-3.5 pt-3 border-t border-emerald-200/60 flex items-center justify-between text-xs relative z-10">
                             <span className="text-[11px] font-bold text-emerald-800">Your Meal Deposit:</span>
                             <span className="font-black text-emerald-900 bg-white/70 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs">
-                                {isLoadingData ? <Skeleton className="h-4 w-16 rounded inline-block" /> : `৳ ${userMealDeposit.toLocaleString()}`}
+                                ৳ {isLoadingData ? "..." : userMealDeposit.toLocaleString()}
                             </span>
                         </div>
                     </div>
@@ -843,7 +842,7 @@ export default function MemberDashboard() {
                                     Mess Fund (Overhead)
                                 </span>
                                 <h3 className="text-2xl sm:text-3xl font-black text-purple-950 mt-1.5 leading-none">
-                                    {isLoadingData ? <Skeleton className="h-8 w-28 rounded-md" /> : `৳ ${messFund.toLocaleString()}`}
+                                    ৳ {isLoadingData ? "..." : messFund.toLocaleString()}
                                 </h3>
                                 <p className="text-[11px] font-semibold text-purple-700/90 mt-1">
                                     Seat rent, utility bills, WiFi, and maid fund
@@ -857,7 +856,7 @@ export default function MemberDashboard() {
                         <div className="mt-3.5 pt-3 border-t border-purple-200/60 flex items-center justify-between text-xs relative z-10">
                             <span className="text-[11px] font-bold text-purple-800">Your Overhead Deposit:</span>
                             <span className="font-black text-purple-900 bg-white/70 px-2 py-0.5 rounded-md border border-purple-200/60 text-xs">
-                                {isLoadingData ? <Skeleton className="h-4 w-16 rounded inline-block" /> : `৳ ${userOverheadDeposit.toLocaleString()}`}
+                                ৳ {isLoadingData ? "..." : userOverheadDeposit.toLocaleString()}
                             </span>
                         </div>
                     </div>
@@ -921,9 +920,7 @@ export default function MemberDashboard() {
 
                             {/* Graphic Illustration or Scheduled Dates */}
                             {isLoadingBazar ? (
-                                <div className="py-2">
-                                    <ListItemSkeleton count={2} />
-                                </div>
+                                <div className="py-6 text-center text-xs font-bold text-slate-400">Loading dates...</div>
                             ) : bazarSchedules.length === 0 ? (
                                 <div className="py-3 flex flex-col items-center justify-center">
                                     {/* Dotted path curve illustration */}
@@ -1185,9 +1182,7 @@ export default function MemberDashboard() {
                 {/* Table Content */}
                 <div className="divide-y divide-slate-100 min-h-[90px] flex flex-col justify-center">
                     {isLoadingData ? (
-                        <div className="py-2">
-                            <TableSkeleton rows={4} cols={5} showHeader={false} />
-                        </div>
+                        <div className="py-6 text-center text-xs font-bold text-slate-400">Loading meals...</div>
                     ) : recentMeals.length === 0 ? (
                         <div className="py-7 flex flex-col items-center justify-center gap-1.5">
                             {/* Food Cloche / Plate SVG Icon */}
@@ -1265,7 +1260,7 @@ export default function MemberDashboard() {
                 {/* Notice Rows */}
                 <div className="divide-y divide-slate-100 mt-3">
                     {isLoadingData ? (
-                        <ListItemSkeleton count={3} />
+                        <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
                     ) : notices.length === 0 ? (
                         <div className="py-7 text-center">
                             <p className="text-xs font-bold text-slate-500">All caught up! 🎉 No new notices.</p>

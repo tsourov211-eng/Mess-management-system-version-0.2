@@ -15,7 +15,6 @@ import {
     ChevronLeft, 
     ChevronRight 
 } from "lucide-react";
-import { Skeleton } from "@/components/Skeleton";
 
 interface MemberMeal {
     userId: string;
@@ -213,7 +212,7 @@ export default function FoodManagementPage() {
                                 Total Meals
                             </p>
                             <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight mt-0.5">
-                                {isLoading ? <Skeleton className="h-4 w-12 rounded mx-auto inline-block" /> : stats.totalMealsToday}
+                                {isLoading ? "..." : stats.totalMealsToday}
                             </h3>
                         </div>
                         {/* Soft bottom orange gradient wave */}
@@ -238,7 +237,7 @@ export default function FoodManagementPage() {
                                 Meal Rate
                             </p>
                             <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight mt-0.5 truncate max-w-full">
-                                {isLoading ? <Skeleton className="h-4 w-16 rounded mx-auto inline-block" /> : `Tk ${Number(stats.currentMealRate || 0).toFixed(2)}`}
+                                {isLoading ? "..." : `Tk ${Number(stats.currentMealRate || 0).toFixed(2)}`}
                             </h3>
                         </div>
                         {/* Soft bottom blue gradient wave */}
@@ -263,7 +262,7 @@ export default function FoodManagementPage() {
                                 Bazaar
                             </p>
                             <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight mt-0.5 truncate max-w-full">
-                                {isLoading ? <Skeleton className="h-4 w-16 rounded mx-auto inline-block" /> : `Tk ${Math.round(stats.todayBazaar)}`}
+                                {isLoading ? "..." : `Tk ${Math.round(stats.todayBazaar)}`}
                             </h3>
                         </div>
                         {/* Soft bottom green gradient wave */}
@@ -356,20 +355,11 @@ export default function FoodManagementPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-50/80">
                                 {isLoading ? (
-                                    Array.from({ length: 4 }).map((_, i) => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td className="py-2.5 px-2">
-                                                <div className="flex items-center gap-2">
-                                                    <Skeleton className="w-7 h-7 rounded-full" />
-                                                    <Skeleton className="w-16 h-3 rounded" />
-                                                </div>
-                                            </td>
-                                            <td className="py-2 px-1 text-center"><Skeleton className="w-7 h-6 mx-auto rounded-md" /></td>
-                                            <td className="py-2 px-1 text-center"><Skeleton className="w-7 h-6 mx-auto rounded-md" /></td>
-                                            <td className="py-2 px-1 text-center"><Skeleton className="w-7 h-6 mx-auto rounded-md" /></td>
-                                            <td className="py-2 px-1 text-center"><Skeleton className="w-7 h-6 mx-auto rounded-md bg-orange-100" /></td>
-                                        </tr>
-                                    ))
+                                    <tr>
+                                        <td colSpan={5} className="py-10 text-center text-xs font-bold text-slate-400">
+                                            Loading meals...
+                                        </td>
+                                    </tr>
                                 ) : members.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="py-10 text-center text-xs font-bold text-slate-400">
@@ -596,23 +586,11 @@ export default function FoodManagementPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {isLoading ? (
-                                    Array.from({ length: 5 }).map((_, i) => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td className="py-4 px-6">
-                                                <div className="flex items-center gap-3">
-                                                    <Skeleton className="w-10 h-10 rounded-2xl" />
-                                                    <div className="space-y-1">
-                                                        <Skeleton className="w-28 h-4 rounded" />
-                                                        <Skeleton className="w-16 h-3 rounded bg-slate-100" />
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 text-center"><Skeleton className="w-16 h-8 mx-auto rounded-xl" /></td>
-                                            <td className="py-4 px-6 text-center"><Skeleton className="w-16 h-8 mx-auto rounded-xl" /></td>
-                                            <td className="py-4 px-6 text-center"><Skeleton className="w-16 h-8 mx-auto rounded-xl" /></td>
-                                            <td className="py-4 px-6 text-center"><Skeleton className="w-16 h-8 mx-auto rounded-xl bg-orange-100" /></td>
-                                        </tr>
-                                    ))
+                                    <tr>
+                                        <td colSpan={5} className="py-12 text-center text-sm font-bold text-slate-400">
+                                            Loading meals...
+                                        </td>
+                                    </tr>
                                 ) : members.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="py-12 text-center text-sm font-bold text-slate-400">
