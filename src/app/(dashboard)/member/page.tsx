@@ -723,23 +723,59 @@ export default function MemberDashboard() {
                 </div>
 
                 {/* 2. Total Deposit Card */}
-                <div className="col-span-1 bg-white/95 backdrop-blur-sm rounded-2xl md:rounded-3xl p-3.5 sm:p-4 md:p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[110px] md:min-h-[170px] hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-50 text-blue-500 border border-blue-100/60 flex items-center justify-center shrink-0 shadow-2xs">
-                            <IconWallet size={22} stroke={2.2} />
+                <div 
+                    onClick={() => {
+                        setPaymentCategory("Meal Fund");
+                        setIsPaymentModalOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            setPaymentCategory("Meal Fund");
+                            setIsPaymentModalOpen(true);
+                        }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="col-span-1 bg-gradient-to-br from-[#1e3a8a] via-[#172554] to-[#0a1128] border border-blue-700/40 text-white rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 shadow-xl hover:shadow-2xl hover:scale-[1.01] transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px] md:min-h-[170px] cursor-pointer group"
+                >
+                    {/* Decorative Geometric Deposit Sparkline */}
+                    <svg 
+                        className="absolute right-3 bottom-2 w-32 md:w-36 h-20 pointer-events-none text-blue-400/20 transition-opacity" 
+                        viewBox="0 0 100 50" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="3" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                    >
+                        <path d="M5 42 L30 36 L55 38 L75 20 L95 12" />
+                        <circle cx="95" cy="12" r="3" fill="currentColor" />
+                    </svg>
+
+                    {/* Top Row: Icon badge + Action Badge */}
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center shrink-0 shadow-inner text-blue-300 group-hover:scale-105 transition-transform">
+                            <IconCreditCard size={22} stroke={2.2} />
                         </div>
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                            <IconChevronRight size={15} stroke={2.5} />
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 group-hover:bg-white/20 text-blue-200 border border-white/15 backdrop-blur-md transition-all shadow-2xs">
+                            <span className="hidden sm:inline">Deposit</span>
+                            <IconChevronRight size={13} stroke={2.5} className="group-hover:translate-x-0.5 transition-transform" />
                         </div>
                     </div>
-                    <div className="mt-2 md:mt-4">
-                        <p className="text-xs font-bold text-slate-500 leading-tight">Total Deposit</p>
-                        <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate">
+
+                    {/* Bottom: Total Deposit Amount + Fund Pills */}
+                    <div className="mt-3 relative z-10">
+                        <p className="text-[11px] sm:text-xs font-bold text-blue-200/80 tracking-wide uppercase leading-tight">Total Deposit</p>
+                        <h2 className="text-2xl sm:text-3xl md:text-3xl font-black text-white tracking-tight mt-0.5 truncate">
                             Tk {isLoadingData ? "..." : totalDeposit.toLocaleString()}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold text-slate-400 flex-wrap">
-                            <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-extrabold">Meal ৳{userMealDeposit.toLocaleString()}</span>
-                            <span className="text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded font-extrabold">Overhead ৳{userOverheadDeposit.toLocaleString()}</span>
+                        </h2>
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            <span className="text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-lg bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 backdrop-blur-xs whitespace-nowrap shadow-2xs">
+                                Meal ৳{userMealDeposit.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-lg bg-indigo-300/20 text-indigo-200 border border-indigo-300/30 backdrop-blur-xs whitespace-nowrap shadow-2xs">
+                                Overhead ৳{userOverheadDeposit.toLocaleString()}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -747,21 +783,44 @@ export default function MemberDashboard() {
                 {/* 3. My Total Meals Card */}
                 <Link 
                     href="/member/my-meals"
-                    className="col-span-1 bg-white/95 backdrop-blur-sm rounded-2xl md:rounded-3xl p-3.5 sm:p-4 md:p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[110px] md:min-h-[170px] hover:shadow-md hover:bg-orange-50/20 transition-all group"
+                    className="col-span-1 bg-gradient-to-br from-[#ea580c] via-[#c2410c] to-[#7c2d12] border border-orange-600/40 text-white rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 shadow-xl hover:shadow-2xl hover:scale-[1.01] transition-all relative overflow-hidden flex flex-col justify-between min-h-[148px] md:min-h-[170px] group"
                 >
-                    <div className="flex items-center justify-between">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-orange-50 text-orange-500 border border-orange-100/60 flex items-center justify-center shrink-0 shadow-2xs">
+                    {/* Decorative Dining Accent Wave */}
+                    <svg 
+                        className="absolute right-3 bottom-2 w-32 md:w-36 h-20 pointer-events-none text-orange-300/20 transition-opacity" 
+                        viewBox="0 0 100 50" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2.5" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                    >
+                        <path d="M10 40 Q 40 18, 65 28 T 95 14" />
+                        <circle cx="78" cy="18" r="8" strokeDasharray="3 3" />
+                    </svg>
+
+                    {/* Top Row: Kitchen Icon + Details Badge */}
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center shrink-0 shadow-inner text-orange-200 group-hover:scale-105 transition-transform">
                             <IconToolsKitchen2 size={22} stroke={2.2} />
                         </div>
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 group-hover:bg-orange-100 group-hover:text-orange-600 flex items-center justify-center text-slate-400 shrink-0 transition-colors">
-                            <IconChevronRight size={15} stroke={2.5} />
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 group-hover:bg-white/20 text-orange-100 border border-white/15 backdrop-blur-md transition-all shadow-2xs">
+                            <span className="hidden sm:inline">Details</span>
+                            <IconChevronRight size={13} stroke={2.5} className="group-hover:translate-x-0.5 transition-transform" />
                         </div>
                     </div>
-                    <div className="mt-2 md:mt-4">
-                        <p className="text-xs font-bold text-slate-500 leading-tight">My Total Meals</p>
-                        <p className="text-lg md:text-2xl font-black text-slate-900 leading-tight mt-1 truncate group-hover:text-[#FF6B00] transition-colors">
+
+                    {/* Bottom: Meal Count + Pill */}
+                    <div className="mt-3 relative z-10">
+                        <p className="text-[11px] sm:text-xs font-bold text-orange-200/80 tracking-wide uppercase leading-tight">My Total Meals</p>
+                        <h2 className="text-2xl sm:text-3xl md:text-3xl font-black text-white tracking-tight mt-0.5 truncate">
                             {isLoadingData ? "..." : totalMeals}
-                        </p>
+                        </h2>
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            <span className="text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-lg bg-white/15 text-orange-100 border border-white/20 backdrop-blur-xs whitespace-nowrap shadow-2xs flex items-center gap-1">
+                                <span>🍽️ Logged Meals</span>
+                            </span>
+                        </div>
                     </div>
                 </Link>
 
