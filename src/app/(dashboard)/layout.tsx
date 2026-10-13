@@ -232,6 +232,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         { name: "Food Management", href: "/meals", icon: IconToolsKitchen2 },
                         { name: "Expenses", href: "/bazaar", icon: IconReceipt },
                         { name: "Reports", href: "/reports", icon: IconChartBar },
+                        { name: "Settings", href: "/settings", icon: IconSettings },
                     ],
                 },
                 {
