@@ -30,6 +30,7 @@ import {
     IconInfoCircle,
     IconChartPie
 } from "@tabler/icons-react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function MonthlyExpenseSetup() {
     const generateMonths = () => {
@@ -67,6 +68,8 @@ export default function MonthlyExpenseSetup() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+    const [showResetModal, setShowResetModal] = useState(false);
     const [message, setMessage] = useState<{type: 'success' | 'error' | 'info', text: string} | null>(null);
     const [lastBeforeReset, setLastBeforeReset] = useState<{
         seatRent: number | string;
@@ -123,29 +126,45 @@ export default function MonthlyExpenseSetup() {
         fetchConfig();
     }, [month]);
 
-    const handleReset = () => {
-        // Save current values so admin can undo if reset was clicked accidentally
-        setLastBeforeReset({
-            seatRent,
-            electricityGas,
-            internet,
-            maid,
-            additional,
-            mealCharge,
-        });
-
-        // Reset all overhead fields to 0
-        setSeatRent(0);
-        setElectricityGas(0);
-        setInternet(0);
-        setMaid(0);
-        setAdditional(0);
-        setMealCharge(0);
-
-        setMessage({
-            type: 'success',
-            text: `All monthly expense fields for ${month} have been reset to ৳0. Click 'Save Monthly Expense' to apply.`
-        });
+    const handleConfirmReset = async () => {
+        setIsResetting(true);
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/admin/monthly-expense?month=${encodeURIComponent(month)}`, {
+                method: "DELETE",
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const empty = { seatRent: 0, electricityGas: 0, internet: 0, maid: 0, additional: 0, mealCharge: 0 };
+                setSeatRent(0);
+                setElectricityGas(0);
+                setInternet(0);
+                setMaid(0);
+                setAdditional(0);
+                setMealCharge(0);
+                setSavedConfig(empty);
+                setLastBeforeReset(null);
+                setShowResetModal(false);
+                setMessage({
+                    type: 'success',
+                    text: `Monthly expenses for ${month} have been successfully reset to ৳0 in the system.`
+                });
+            } else {
+                setMessage({
+                    type: 'error',
+                    text: data.error || "Failed to reset monthly expense in the database."
+                });
+                setShowResetModal(false);
+            }
+        } catch (error) {
+            setMessage({
+                type: 'error',
+                text: "An error occurred while resetting monthly expenses."
+            });
+            setShowResetModal(false);
+        } finally {
+            setIsResetting(false);
+        }
     };
 
     const handleUndoReset = () => {
@@ -458,7 +477,8 @@ export default function MonthlyExpenseSetup() {
                 <div className="flex items-center gap-3">
                     {/* Reset Button */}
                     <button 
-                        onClick={() => handleReset()}
+                        type="button"
+                        onClick={() => setShowResetModal(true)}
                         className="bg-white/95 text-[#FF6B00] font-bold py-3.5 px-4 rounded-2xl border border-orange-200 flex-1 flex items-center justify-center gap-2 shadow-sm hover:bg-orange-50/50 cursor-pointer active:scale-95 transition-all text-sm"
                     >
                         <RotateCcw size={17} strokeWidth={2.5} />
@@ -655,7 +675,7 @@ export default function MonthlyExpenseSetup() {
                         <div className="p-5 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end gap-3">
                             <button 
                                 type="button"
-                                onClick={handleReset}
+                                onClick={() => setShowResetModal(true)}
                                 className="px-5 py-2.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer flex items-center gap-2 active:scale-95"
                             >
                                 <RotateCcw size={15} strokeWidth={2.5} className="text-gray-500" />
@@ -708,6 +728,23 @@ export default function MonthlyExpenseSetup() {
                 </div>
 
             </div>
+
+            {/* Custom Modern Reset Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showResetModal}
+                onClose={() => !isResetting && setShowResetModal(false)}
+                onConfirm={handleConfirmReset}
+                isLoading={isResetting}
+                type="warning"
+                title="Reset Monthly Expenses"
+                message={
+                    <span>
+                        Are you sure you want to reset all overhead charges for <strong className="text-slate-800">{month}</strong>? This will clear all amounts to <strong className="text-slate-800">৳0</strong> in the database.
+                    </span>
+                }
+                confirmText="Reset to ৳0"
+                cancelText="Cancel"
+            />
 
         </div>
     );
