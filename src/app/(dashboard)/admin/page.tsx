@@ -892,17 +892,17 @@ export default function AdminDashboardPage() {
 
                 {/* 2. Notice Board Card */}
                 <div className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-10 h-10 rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm shadow-orange-500/20 shrink-0">
-                                <IconBell size={20} stroke={2.2} />
+                    <div className="flex items-center justify-between gap-1.5 sm:gap-2 flex-nowrap min-w-0">
+                        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 min-w-0">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl sm:rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm shadow-orange-500/20 shrink-0">
+                                <IconBell size={18} stroke={2.2} className="sm:w-5 sm:h-5" />
                             </div>
-                            <h2 className="text-base font-black text-slate-900">Notice Board</h2>
+                            <h2 className="text-sm sm:text-base font-black text-slate-900 whitespace-nowrap shrink-0">Notice Board</h2>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap">
                             {notices.length > 0 && (
-                                <span className="bg-[#FF6B00] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full">
+                                <span className="bg-[#FF6B00] text-white text-[10px] sm:text-[11px] font-black px-2 sm:px-2.5 py-0.5 rounded-full whitespace-nowrap shrink-0 leading-tight">
                                     {notices.length} New
                                 </span>
                             )}
@@ -910,7 +910,7 @@ export default function AdminDashboardPage() {
                                 <button
                                     type="button"
                                     onClick={handleClearAllNotices}
-                                    className="text-xs font-semibold text-gray-500 hover:text-rose-600 px-2.5 py-1 rounded-full hover:bg-rose-50 transition-colors cursor-pointer"
+                                    className="text-[11px] sm:text-xs font-semibold text-gray-500 hover:text-rose-600 px-2 sm:px-2.5 py-1 rounded-full hover:bg-rose-50 transition-colors cursor-pointer whitespace-nowrap shrink-0 leading-tight"
                                 >
                                     Clear All
                                 </button>
@@ -918,7 +918,7 @@ export default function AdminDashboardPage() {
                             <button 
                                 type="button"
                                 onClick={() => setSelectedNotice(notices[0] || null)}
-                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-xs font-bold px-3.5 py-1 rounded-full transition-colors cursor-pointer"
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 rounded-full transition-colors cursor-pointer whitespace-nowrap shrink-0 leading-tight"
                             >
                                 View All
                             </button>
