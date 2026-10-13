@@ -17,6 +17,7 @@ import {
     IconAlertTriangle, 
     IconLoader2 
 } from "@tabler/icons-react";
+import { MemberCardSkeleton } from "@/components/Skeleton";
 
 export default function MembersListPage() {
     const { data: session } = useSession();
@@ -192,17 +193,7 @@ export default function MembersListPage() {
                 {/* 3. Member Cards List */}
                 <div className="space-y-3 mt-1">
                     {isLoading ? (
-                        <div className="space-y-3">
-                            {[1, 2, 3, 4].map((n) => (
-                                <div key={n} className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-gray-100/70 animate-pulse flex items-start gap-3.5">
-                                    <div className="w-12 h-12 rounded-2xl bg-gray-200 shrink-0" />
-                                    <div className="flex-1 space-y-3">
-                                        <div className="h-4 bg-gray-200 rounded w-2/3" />
-                                        <div className="h-4 bg-gray-200 rounded w-1/2" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <MemberCardSkeleton count={4} />
                     ) : filteredMembers.length === 0 ? (
                         <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 text-center border border-gray-100/70 shadow-sm">
                             <p className="text-gray-500 font-bold text-sm">No members found.</p>
@@ -377,9 +368,7 @@ export default function MembersListPage() {
 
                 {/* Member Cards Grid */}
                 {isLoading ? (
-                    <div className="p-16 text-center font-bold text-gray-400 bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100">
-                        Loading members...
-                    </div>
+                    <MemberCardSkeleton count={6} />
                 ) : filteredMembers.length === 0 ? (
                     <div className="p-16 text-center font-bold text-gray-400 bg-white/95 backdrop-blur-sm rounded-3xl border border-gray-100">
                         No members found matching your search.

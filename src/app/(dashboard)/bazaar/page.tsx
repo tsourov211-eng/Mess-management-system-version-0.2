@@ -32,6 +32,7 @@ import {
     Clock,
     FileText
 } from "lucide-react";
+import { Skeleton, ListItemSkeleton } from "@/components/Skeleton";
 
 export default function BazaarManagementPage() {
     const { data: session } = useSession();
@@ -350,7 +351,7 @@ export default function BazaarManagementPage() {
                         <div className="my-auto py-1 relative z-10">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Today's Bazaar</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                ৳ {todayTotal.toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `৳ ${todayTotal.toLocaleString()}`}
                             </h3>
                         </div>
                         <div className="relative z-10">
@@ -378,7 +379,7 @@ export default function BazaarManagementPage() {
                         <div className="my-auto py-1 relative z-10">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Mess Fund</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-1 truncate">
-                                ৳ {(stats.availableBalance ?? 0).toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `৳ ${(stats.availableBalance ?? 0).toLocaleString()}`}
                             </h3>
                         </div>
                         <div className="relative z-10">
@@ -1194,8 +1195,8 @@ export default function BazaarManagementPage() {
                         
                         <div className="p-2 max-h-[60vh] overflow-y-auto divide-y divide-gray-50">
                             {isLoadingMonth ? (
-                                <div className="p-8 text-center text-sm font-bold text-gray-500 animate-pulse">
-                                    Loading schedule...
+                                <div className="p-3">
+                                    <ListItemSkeleton count={4} />
                                 </div>
                             ) : fullMonthSchedules.length === 0 ? (
                                 <div className="p-8 text-center text-sm font-bold text-gray-400">
@@ -1269,8 +1270,8 @@ export default function BazaarManagementPage() {
 
                         <div className="p-2 max-h-[50vh] overflow-y-auto divide-y divide-gray-50">
                             {isLoadingMonthly ? (
-                                <div className="p-8 text-center text-sm font-bold text-gray-500 animate-pulse">
-                                    Loading expenses...
+                                <div className="p-3">
+                                    <ListItemSkeleton count={4} />
                                 </div>
                             ) : monthlySummary.length === 0 ? (
                                 <div className="p-8 text-center text-sm font-bold text-gray-400">

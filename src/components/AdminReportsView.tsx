@@ -25,6 +25,7 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Skeleton, ListItemSkeleton, TableSkeleton, ReportSummarySkeleton } from "@/components/Skeleton";
 
 export default function AdminReportsView() {
     const today = new Date();
@@ -781,7 +782,7 @@ export default function AdminReportsView() {
                         <div className="min-w-0 z-10">
                             <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Members</p>
                             <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">
-                                {isLoading ? "..." : stats.totalMembers}
+                                {isLoading ? <Skeleton className="h-5 w-12 rounded" /> : stats.totalMembers}
                             </h3>
                         </div>
                         {/* Faded users graphic on right */}
@@ -798,7 +799,7 @@ export default function AdminReportsView() {
                         <div className="min-w-0 z-10">
                             <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Bazaar</p>
                             <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5 truncate">
-                                ৳ {isLoading ? "..." : stats.totalBazaarCost.toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `৳ ${stats.totalBazaarCost.toLocaleString()}`}
                             </h3>
                         </div>
                         {/* Green trendline wave on right */}
@@ -822,7 +823,7 @@ export default function AdminReportsView() {
                         <div className="min-w-0 z-10">
                             <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Deposit</p>
                             <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5 truncate">
-                                ৳ {isLoading ? "..." : stats.totalDeposit.toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `৳ ${stats.totalDeposit.toLocaleString()}`}
                             </h3>
                         </div>
                         {/* Purple trendline wave on right */}
@@ -846,7 +847,7 @@ export default function AdminReportsView() {
                         <div className="min-w-0 z-10">
                             <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Meals</p>
                             <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight mt-0.5">
-                                {isLoading ? "..." : stats.totalMealsConsumed}
+                                {isLoading ? <Skeleton className="h-5 w-16 rounded" /> : stats.totalMealsConsumed}
                             </h3>
                         </div>
                         {/* Orange trendline wave on right */}
@@ -870,7 +871,7 @@ export default function AdminReportsView() {
                         <div className="min-w-0 z-10">
                             <p className="text-[11px] font-bold text-slate-500 leading-tight">Balance</p>
                             <h3 className={`text-base sm:text-lg font-black leading-tight mt-0.5 truncate ${stats.currentBalance >= 0 ? "text-[#16A34A]" : "text-rose-600"}`}>
-                                {isLoading ? "..." : `${stats.currentBalance >= 0 ? "+ " : "- "}৳ ${Math.abs(stats.currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `${stats.currentBalance >= 0 ? "+ " : "- "}৳ ${Math.abs(stats.currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </h3>
                         </div>
                         {/* Green trendline wave on right */}
@@ -889,14 +890,14 @@ export default function AdminReportsView() {
                             <div className="min-w-0">
                                 <p className="text-[11px] font-bold text-slate-500 leading-tight">Total Due</p>
                                 <h3 className="text-base sm:text-lg font-black text-rose-600 leading-tight mt-0.5 truncate">
-                                    - ৳ {isLoading ? "..." : Math.abs(totalNegativeAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `- ৳ ${Math.abs(totalNegativeAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </h3>
                             </div>
                         </div>
                         {/* 0 Members indicator on right */}
                         <div className="text-right shrink-0 pr-1 z-10">
                             <span className="block text-sm font-black text-slate-800 leading-tight">
-                                {negativeMembersCount}
+                                {isLoading ? <Skeleton className="h-4 w-6 rounded ml-auto" /> : negativeMembersCount}
                             </span>
                             <span className="block text-[10px] font-bold text-slate-400 leading-tight">
                                 Members
@@ -943,8 +944,8 @@ export default function AdminReportsView() {
                         {/* List Items */}
                         <div className="divide-y divide-slate-100/70">
                             {isLoading ? (
-                                <div className="py-8 text-center text-xs font-bold text-slate-400">
-                                    Loading member reports...
+                                <div className="py-2">
+                                    <ListItemSkeleton count={4} />
                                 </div>
                             ) : filteredMembers.length === 0 ? (
                                 <div className="py-8 text-center text-xs font-bold text-slate-400">
@@ -1205,7 +1206,9 @@ export default function AdminReportsView() {
                         </div>
                         <div className="z-10 mt-3">
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Members</p>
-                            <h3 className="text-xl font-black text-gray-900 mt-0.5">{isLoading ? "..." : stats.totalMembers}</h3>
+                            <h3 className="text-xl font-black text-gray-900 mt-0.5">
+                                {isLoading ? <Skeleton className="h-6 w-16 rounded-md" /> : stats.totalMembers}
+                            </h3>
                         </div>
                         <div className="absolute right-2 bottom-2 opacity-15 text-orange-400 pointer-events-none">
                             <IconUsers size={44} stroke={1.5} />
@@ -1221,7 +1224,9 @@ export default function AdminReportsView() {
                         </div>
                         <div className="z-10 mt-3">
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Bazaar</p>
-                            <h3 className="text-xl font-black text-gray-900 mt-0.5 truncate">৳ {isLoading ? "..." : stats.totalBazaarCost.toLocaleString()}</h3>
+                            <h3 className="text-xl font-black text-gray-900 mt-0.5 truncate">
+                                {isLoading ? <Skeleton className="h-6 w-24 rounded-md" /> : `৳ ${stats.totalBazaarCost.toLocaleString()}`}
+                            </h3>
                         </div>
                         <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
                             <path d="M0,45 C25,45 35,35 50,30 C65,25 75,10 100,5 L100,50 L0,50 Z" fill="#DCFCE7" />
@@ -1238,7 +1243,9 @@ export default function AdminReportsView() {
                         </div>
                         <div className="z-10 mt-3">
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Deposit</p>
-                            <h3 className="text-xl font-black text-purple-600 mt-0.5 truncate">৳ {isLoading ? "..." : stats.totalDeposit.toLocaleString()}</h3>
+                            <h3 className="text-xl font-black text-purple-600 mt-0.5 truncate">
+                                {isLoading ? <Skeleton className="h-6 w-24 rounded-md" /> : `৳ ${stats.totalDeposit.toLocaleString()}`}
+                            </h3>
                         </div>
                         <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
                             <path d="M0,45 C25,40 40,35 60,25 C75,18 85,12 100,8 L100,50 L0,50 Z" fill="#F3E8FF" />
@@ -1255,7 +1262,9 @@ export default function AdminReportsView() {
                         </div>
                         <div className="z-10 mt-3">
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Meals</p>
-                            <h3 className="text-xl font-black text-gray-900 mt-0.5">{isLoading ? "..." : stats.totalMealsConsumed}</h3>
+                            <h3 className="text-xl font-black text-gray-900 mt-0.5">
+                                {isLoading ? <Skeleton className="h-6 w-16 rounded-md" /> : stats.totalMealsConsumed}
+                            </h3>
                         </div>
                         <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
                             <path d="M0,42 C20,38 45,32 65,22 C80,15 90,12 100,6 L100,50 L0,50 Z" fill="#FFEDD5" />
@@ -1273,7 +1282,7 @@ export default function AdminReportsView() {
                         <div className="z-10 mt-3">
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Balance</p>
                             <h3 className={`text-xl font-black mt-0.5 truncate ${stats.currentBalance < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                {isLoading ? "..." : `${stats.currentBalance >= 0 ? '+ ' : '- '}৳ ${Math.abs(stats.currentBalance).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
+                                {isLoading ? <Skeleton className="h-6 w-24 rounded-md" /> : `${stats.currentBalance >= 0 ? '+ ' : '- '}৳ ${Math.abs(stats.currentBalance).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
                             </h3>
                         </div>
                         <svg className="absolute right-0 bottom-0 w-24 h-12 pointer-events-none opacity-80" viewBox="0 0 100 50" fill="none">
@@ -1289,13 +1298,13 @@ export default function AdminReportsView() {
                                 <IconUserMinus size={20} stroke={2.2} />
                             </div>
                             <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
-                                {negativeMembersCount} {negativeMembersCount === 1 ? 'member' : 'members'}
+                                {isLoading ? <Skeleton className="h-3 w-12 rounded inline-block" /> : `${negativeMembersCount} ${negativeMembersCount === 1 ? 'member' : 'members'}`}
                             </span>
                         </div>
                         <div className="z-10 mt-3">
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Due</p>
                             <h3 className="text-xl font-black text-rose-600 mt-0.5 truncate">
-                                {isLoading ? "..." : `- ৳ ${Math.abs(totalNegativeAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
+                                {isLoading ? <Skeleton className="h-6 w-24 rounded-md" /> : `- ৳ ${Math.abs(totalNegativeAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
                             </h3>
                         </div>
                     </div>
@@ -1341,9 +1350,25 @@ export default function AdminReportsView() {
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-12 text-center text-gray-400 font-bold">Loading report data...</td>
-                                    </tr>
+                                    Array.from({ length: 5 }).map((_, idx) => (
+                                        <tr key={idx} className="border-b border-gray-50">
+                                            <td className="py-3 px-6"><Skeleton className="h-4 w-4 rounded" /></td>
+                                            <td className="py-3 px-6">
+                                                <div className="flex items-center gap-3">
+                                                    <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                                                    <div className="space-y-1.5 flex-1">
+                                                        <Skeleton className="h-4 w-28 rounded" />
+                                                        <Skeleton className="h-3 w-36 rounded" />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-6"><Skeleton className="h-4 w-16 rounded ml-auto" /></td>
+                                            <td className="py-3 px-6"><Skeleton className="h-4 w-16 rounded ml-auto" /></td>
+                                            <td className="py-3 px-6"><Skeleton className="h-4 w-10 rounded mx-auto" /></td>
+                                            <td className="py-3 px-6"><Skeleton className="h-4 w-20 rounded ml-auto" /></td>
+                                            <td className="py-3 px-6"><Skeleton className="h-6 w-6 rounded mx-auto" /></td>
+                                        </tr>
+                                    ))
                                 ) : filteredMembers.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="py-12 text-center text-gray-400 font-bold">No members found.</td>
@@ -1445,10 +1470,7 @@ export default function AdminReportsView() {
                         {/* Modal Body */}
                         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
                             {isLoadingFullReport ? (
-                                <div className="py-16 flex flex-col items-center justify-center gap-3">
-                                    <IconLoader2 size={36} className="animate-spin text-orange-500" />
-                                    <p className="text-sm font-bold text-gray-500">Loading complete mess records & logs...</p>
-                                </div>
+                                <ReportSummarySkeleton />
                             ) : fullReportData ? (
                                 <>
                                     {/* Highlights Grid */}

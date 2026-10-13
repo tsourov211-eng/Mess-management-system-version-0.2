@@ -55,9 +55,9 @@ import {
     Check,
     X,
     Calendar
-} from "lucide-react";
 import Link from "next/link";
 import ConfirmModal from "@/components/ConfirmModal";
+import { Skeleton, ListItemSkeleton, MemberCardSkeleton } from "@/components/Skeleton";
 
 export default function AdminDashboardPage() {
     const [users, setUsers] = useState<any[]>([]);
@@ -580,7 +580,7 @@ export default function AdminDashboardPage() {
                     <div className="my-auto py-2">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Meal Fund</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {(stats.mealFund ?? 0).toLocaleString()}
+                            {isLoading ? <Skeleton className="h-7 w-28 rounded-lg" /> : `Tk ${(stats.mealFund ?? 0).toLocaleString()}`}
                         </h3>
                     </div>
                     <div className="flex items-center justify-between pt-1">
@@ -603,7 +603,7 @@ export default function AdminDashboardPage() {
                     <div className="my-auto py-2">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Mess Fund</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {(stats.messFund ?? 0).toLocaleString()}
+                            {isLoading ? <Skeleton className="h-7 w-28 rounded-lg" /> : `Tk ${(stats.messFund ?? 0).toLocaleString()}`}
                         </h3>
                     </div>
                     <div className="flex items-center justify-between pt-1">
@@ -626,7 +626,7 @@ export default function AdminDashboardPage() {
                     <div className="my-auto py-2">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Food Cost</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {(stats.totalFoodCost ?? 0).toLocaleString()}
+                            {isLoading ? <Skeleton className="h-7 w-28 rounded-lg" /> : `Tk ${(stats.totalFoodCost ?? 0).toLocaleString()}`}
                         </h3>
                     </div>
                     <div className="flex items-center justify-between pt-1">
@@ -649,7 +649,7 @@ export default function AdminDashboardPage() {
                     <div className="my-auto py-2">
                         <p className="text-xs font-bold text-gray-500 leading-tight">Today's Bazaar</p>
                         <h3 className="text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-1 truncate">
-                            Tk {todayBazaarTotal.toLocaleString()}
+                            {isLoading ? <Skeleton className="h-7 w-28 rounded-lg" /> : `Tk ${todayBazaarTotal.toLocaleString()}`}
                         </h3>
                     </div>
                     <div className="flex items-center justify-between pt-1">
@@ -748,7 +748,7 @@ export default function AdminDashboardPage() {
                     {/* Pending Requests List in Desktop Card */}
                     <div className="mt-4 pt-3 border-t border-blue-100/80 space-y-2 max-h-[160px] overflow-y-auto">
                         {isLoading ? (
-                            <p className="text-center text-gray-400 font-bold py-2 text-xs">Loading requests...</p>
+                            <ListItemSkeleton count={2} />
                         ) : pendingMembers.length === 0 ? (
                             <p className="text-center text-gray-500 font-bold py-2 text-xs">No pending requests at this time.</p>
                         ) : (
@@ -927,7 +927,7 @@ export default function AdminDashboardPage() {
 
                     <div className="divide-y divide-slate-100 mt-3">
                         {isLoading ? (
-                            <div className="py-6 text-center text-xs font-bold text-slate-400">Loading notices...</div>
+                            <ListItemSkeleton count={3} />
                         ) : notices.length === 0 ? (
                             <div className="py-8 text-center">
                                 <p className="text-xs font-bold text-slate-600">All caught up! 🪶 No new notices.</p>
@@ -1038,9 +1038,30 @@ export default function AdminDashboardPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="p-8 text-center text-gray-400 font-bold text-sm">Loading...</td>
-                                    </tr>
+                                    Array.from({ length: 3 }).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="p-4 text-center"><Skeleton className="w-4 h-4 mx-auto rounded" /></td>
+                                            <td className="p-4"><Skeleton className="w-4 h-4 rounded" /></td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2.5">
+                                                    <Skeleton className="w-8 h-8 rounded-full" />
+                                                    <div className="space-y-1">
+                                                        <Skeleton className="w-24 h-3.5 rounded" />
+                                                        <Skeleton className="w-32 h-2.5 rounded bg-slate-100" />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4"><Skeleton className="w-20 h-4 rounded" /></td>
+                                            <td className="p-4"><Skeleton className="w-28 h-4 rounded" /></td>
+                                            <td className="p-4"><Skeleton className="w-16 h-5 rounded-full" /></td>
+                                            <td className="p-4 text-center">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <Skeleton className="w-16 h-7 rounded-lg" />
+                                                    <Skeleton className="w-16 h-7 rounded-lg" />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
                                 ) : pendingBazaarSchedules.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="p-8 text-center text-gray-400 font-bold text-sm">No pending bazaar requests.</td>
@@ -1244,7 +1265,7 @@ export default function AdminDashboardPage() {
                 {/* Members Multi-Column Grid */}
                 <div className="pt-6">
                     {isLoading ? (
-                        <div className="p-12 text-center text-gray-400 font-bold">Loading members...</div>
+                        <MemberCardSkeleton count={6} />
                     ) : filteredUsers.length === 0 ? (
                         <div className="p-12 text-center text-gray-400 font-bold">No members found matching your search.</div>
                     ) : (
@@ -1407,7 +1428,7 @@ export default function AdminDashboardPage() {
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Meal Fund</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
-                                Tk {(stats.mealFund ?? 0).toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `Tk ${(stats.mealFund ?? 0).toLocaleString()}`}
                             </h3>
                         </div>
                         <div>
@@ -1428,7 +1449,7 @@ export default function AdminDashboardPage() {
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Mess Fund</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
-                                Tk {(stats.messFund ?? 0).toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `Tk ${(stats.messFund ?? 0).toLocaleString()}`}
                             </h3>
                         </div>
                         <div>
@@ -1449,7 +1470,7 @@ export default function AdminDashboardPage() {
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Food Cost</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
-                                Tk {(stats.totalFoodCost ?? 0).toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `Tk ${(stats.totalFoodCost ?? 0).toLocaleString()}`}
                             </h3>
                         </div>
                         <div>
@@ -1470,7 +1491,7 @@ export default function AdminDashboardPage() {
                         <div className="my-auto py-1">
                             <p className="text-[11px] font-bold text-gray-500 leading-tight">Today's Bazaar</p>
                             <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight mt-0.5 truncate">
-                                Tk {todayBazaarTotal.toLocaleString()}
+                                {isLoading ? <Skeleton className="h-5 w-20 rounded" /> : `Tk ${todayBazaarTotal.toLocaleString()}`}
                             </h3>
                         </div>
                         <div>
@@ -1574,7 +1595,7 @@ export default function AdminDashboardPage() {
                     {isPendingExpanded && (
                         <div className="mt-3 pt-3 border-t border-blue-100/80 space-y-2.5 animate-in slide-in-from-top-2 fade-in duration-200">
                             {isLoading ? (
-                                <p className="text-center text-gray-400 font-bold py-3 text-xs">Loading requests...</p>
+                                <ListItemSkeleton count={2} />
                             ) : pendingMembers.length === 0 ? (
                                 <p className="text-center text-gray-400 font-bold py-3 text-xs">No pending requests at this time.</p>
                             ) : (
@@ -1740,7 +1761,7 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="mt-2.5 divide-y divide-slate-100">
                         {isLoading ? (
-                            <p className="py-4 text-center text-xs text-slate-400 font-bold">Loading notices...</p>
+                            <ListItemSkeleton count={3} />
                         ) : notices.length === 0 ? (
                             <div className="py-4 text-center">
                                 <p className="text-xs font-bold text-slate-600">All caught up! 🪶 No new notices.</p>
@@ -1951,7 +1972,9 @@ export default function AdminDashboardPage() {
                     {/* Members List */}
                     <div className="divide-y divide-gray-100/80">
                         {isLoading ? (
-                            <p className="text-center text-gray-400 font-bold py-10 text-xs">Loading members...</p>
+                            <div className="py-2 space-y-2">
+                                <ListItemSkeleton count={5} />
+                            </div>
                         ) : filteredUsers.length === 0 ? (
                             <p className="text-center text-gray-400 font-bold py-10 text-xs">No members found.</p>
                         ) : (

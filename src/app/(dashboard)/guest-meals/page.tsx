@@ -15,6 +15,7 @@ import {
 
 import ConfirmModal from "@/components/ConfirmModal";
 import { calculateGuestMealUnits } from "@/lib/calculations";
+import { MemberCardSkeleton } from "@/components/Skeleton";
 
 export default function GuestMealsPage() {
     const { data: session } = useSession();
@@ -116,9 +117,7 @@ export default function GuestMealsPage() {
 
             {/* Guest Meals List */}
             {isLoading ? (
-                <div className="p-12 text-center text-gray-400 font-bold bg-white/90 rounded-3xl border border-gray-100 shadow-sm">
-                    Loading guest meal requests...
-                </div>
+                <MemberCardSkeleton count={6} />
             ) : guestMeals.length === 0 ? (
                 <div className="p-12 text-center bg-white/90 rounded-3xl border border-gray-100 shadow-sm space-y-2">
                     <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto">

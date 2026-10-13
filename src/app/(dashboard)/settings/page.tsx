@@ -23,6 +23,7 @@ import {
     IconMapPin
 } from "@tabler/icons-react";
 import { getUserDisplayRole, getRoleBadgeStyle } from "@/lib/user";
+import { Skeleton } from "@/components/Skeleton";
 
 type TabType = "mess" | "profile" | "security" | "notifications";
 
@@ -472,14 +473,14 @@ function SettingsContent() {
                                 </h2>
                                 
                                 {isLoadingProfile && !fullName && status === "loading" ? (
-                                    <div className="flex flex-col sm:flex-row items-center gap-6 mb-6 animate-pulse">
-                                        <div className="w-20 h-20 rounded-full bg-slate-200 shrink-0" />
+                                    <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+                                        <Skeleton className="w-20 h-20 rounded-full shrink-0" />
                                         <div className="space-y-2 text-center sm:text-left">
                                             <div className="flex items-center justify-center sm:justify-start gap-2">
-                                                <div className="h-5 w-24 bg-gray-200 rounded-md" />
-                                                <div className="h-5 w-20 bg-gray-200 rounded-full" />
+                                                <Skeleton className="h-5 w-28 rounded-md" />
+                                                <Skeleton className="h-5 w-20 rounded-full" />
                                             </div>
-                                            <div className="h-4 w-40 bg-gray-100 rounded-md" />
+                                            <Skeleton className="h-4 w-44 rounded-md" />
                                         </div>
                                     </div>
                                 ) : (
@@ -967,8 +968,26 @@ function SettingsContent() {
 export default function SettingsPage() {
     return (
         <Suspense fallback={
-            <div className="max-w-5xl mx-auto p-12 text-center text-gray-400 font-bold animate-pulse">
-                Loading settings...
+            <div className="max-w-5xl mx-auto space-y-6">
+                <div className="flex items-center gap-3">
+                    <Skeleton className="w-12 h-12 rounded-2xl shrink-0" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-6 w-36 rounded-md" />
+                        <Skeleton className="h-4 w-64 rounded-md" />
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <Skeleton className="h-10 w-28 rounded-xl" />
+                    <Skeleton className="h-10 w-28 rounded-xl" />
+                    <Skeleton className="h-10 w-28 rounded-xl" />
+                </div>
+                <div className="bg-white rounded-3xl border border-gray-100 p-8 space-y-6">
+                    <Skeleton className="h-6 w-48 rounded-md" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <Skeleton className="h-12 w-full rounded-xl" />
+                        <Skeleton className="h-12 w-full rounded-xl" />
+                    </div>
+                </div>
             </div>
         }>
             <SettingsContent />

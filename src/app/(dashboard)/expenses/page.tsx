@@ -14,6 +14,7 @@ import {
 } from "@tabler/icons-react";
 
 import ConfirmModal from "@/components/ConfirmModal";
+import { MemberCardSkeleton } from "@/components/Skeleton";
 
 export default function ExpensesQueuePage() {
     const { data: session } = useSession();
@@ -115,9 +116,7 @@ export default function ExpensesQueuePage() {
 
             {/* Expenses List */}
             {isLoading ? (
-                <div className="p-12 text-center text-gray-400 font-bold bg-white/90 rounded-3xl border border-gray-100 shadow-sm">
-                    Loading expenses...
-                </div>
+                <MemberCardSkeleton count={6} />
             ) : expenses.length === 0 ? (
                 <div className="p-12 text-center bg-white/90 rounded-3xl border border-gray-100 shadow-sm space-y-2">
                     <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto">
