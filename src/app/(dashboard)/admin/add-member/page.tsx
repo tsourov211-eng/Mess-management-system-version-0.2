@@ -254,17 +254,17 @@ export default function AddMemberPage() {
             </div>
 
             {/* ─── Form Section Card ─── */}
-            <div className="bg-gradient-to-br from-white via-orange-50/20 to-amber-50/30 rounded-3xl border border-orange-100/80 shadow-sm hover:shadow-md transition-shadow p-6 sm:p-8 lg:p-10 relative">
+            <div className="bg-gradient-to-br from-white via-orange-50/20 to-amber-50/30 rounded-3xl border border-orange-100/80 shadow-sm hover:shadow-md transition-shadow p-5 sm:p-7 md:p-8 relative">
                 {error && (
-                    <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-bold shadow-2xs">
+                    <div className="mb-5 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-bold shadow-2xs">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     
                     {/* Grid Layout for Fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                         
                         {/* Full Name */}
                         <div>
@@ -358,21 +358,18 @@ export default function AddMemberPage() {
                         </div>
                     </div>
 
-                    {/* Divider */}
-                    <div className="h-px w-full bg-orange-100/60 my-8"></div>
-
                     {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row items-center justify-end gap-4 mt-8">
+                    <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-2">
                         <Link 
                             href="/members-list"
-                            className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm text-slate-600 hover:text-slate-900 hover:bg-white transition-all text-center cursor-pointer border border-transparent hover:border-slate-200"
+                            className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:text-slate-900 hover:bg-white transition-all text-center cursor-pointer border border-transparent hover:border-slate-200"
                         >
                             Cancel
                         </Link>
                         <button 
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 py-3 rounded-xl font-black text-sm shadow-md shadow-orange-500/25 transition-all cursor-pointer disabled:opacity-50"
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-7 py-2.5 rounded-xl font-black text-sm shadow-md shadow-orange-500/25 transition-all cursor-pointer disabled:opacity-50"
                         >
                             <IconUserPlus className="w-5 h-5" stroke={2.5} />
                             {isSubmitting ? "Saving..." : "Save Member"}
