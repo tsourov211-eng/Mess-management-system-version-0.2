@@ -426,3 +426,120 @@ export async function updateBazaarNoticeStatus(
     console.error("updateBazaarNoticeStatus error:", error);
   }
 }
+
+export interface MealLogItem {
+  date: Date | string;
+  breakfast?: number | null;
+  lunch?: number | null;
+  dinner?: number | null;
+  guest?: number | null;
+}
+
+/**
+ * Calculates the actual CONSUMED meal units taking Dhaka meal cutoff times into account.
+ * - Past dates (< todayStart): All meals (breakfast, lunch, dinner, guest) are 100% consumed.
+ * - Today: Only meals whose cutoff times have passed in Dhaka time are counted as consumed!
+ *   - Breakfast: counted if current Dhaka hour >= 8
+ *   - Lunch: counted if current Dhaka hour >= 12
+ *   - Dinner: counted if current Dhaka hour >= 21
+ * - Future dates (>= todayEnd): 0 meals consumed yet.
+ */
+export function calculateConsumedMeals(
+  meal: MealLogItem,
+  dhakaDate = getDhakaDate(),
+  todayStartAndEnd?: { todayStart: Date; todayEnd: Date; dhaka?: any }
+): number {
+  const mDate = new Date(meal.date);
+  const bounds = todayStartAndEnd || getDhakaTodayStartAndEnd();
+  const { todayStart, todayEnd } = bounds;
+
+  // 1. If this meal is in the PAST (before today), all meals have already been consumed
+  if (mDate.getTime() < todayStart.getTime()) {
+    return round1((meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0));
+  }
+
+  // 2. If this meal is in the FUTURE (after today), none have been consumed yet
+  if (mDate.getTime() >= todayEnd.getTime()) {
+    return 0;
+  }
+
+  // 3. This meal is for TODAY! Only count meals whose cutoff times have PASSED
+  const currentHour = dhakaDate.hour;
+  const breakfastPassed = currentHour >= 8;
+  const lunchPassed = currentHour >= 12;
+  const dinnerPassed = currentHour >= 21;
+
+  let consumed = 0;
+  if (breakfastPassed) consumed += (meal.breakfast || 0);
+  if (lunchPassed) consumed += (meal.lunch || 0);
+  if (dinnerPassed) consumed += (meal.dinner || 0);
+
+  if (meal.guest && meal.guest > 0) {
+    if (dinnerPassed) {
+      consumed += meal.guest;
+    } else if (lunchPassed) {
+      consumed += meal.guest;
+    } else if (breakfastPassed) {
+      consumed += Math.min(meal.guest, 0.5);
+    }
+  }
+
+  return round1(consumed);
+}
+
+/**
+ * Ensures all active mess members have a MealLog record initialized for today with their default meals.
+ * This guarantees that live meal tracking, cooking headcount, and financial reports are 100% accurate.
+ */
+export async function ensureTodayMealLogs(prismaClient: any) {
+  try {
+    const { todayStart, todayEnd, dhaka } = getDhakaTodayStartAndEnd();
+    const dhakaUtcToday = new Date(Date.UTC(dhaka.year, dhaka.month - 1, dhaka.day, 0, 0, 0, 0));
+
+    // 1. Fetch active members
+    const activeUsers = await prismaClient.user.findMany({
+      where: { role: { not: "pending" } },
+      select: {
+        id: true,
+        defaultBreakfast: true,
+        defaultLunch: true,
+        defaultDinner: true,
+      },
+    });
+
+    if (!activeUsers || activeUsers.length === 0) return { count: 0 };
+
+    // 2. Fetch existing meal logs for today
+    const existingLogs = await prismaClient.mealLog.findMany({
+      where: {
+        date: { gte: todayStart, lt: todayEnd },
+      },
+      select: { userId: true },
+    });
+
+    const loggedUserIds = new Set(existingLogs.map((l: any) => l.userId));
+
+    // 3. Find active users who don't have a meal log for today
+    const missingUsers = activeUsers.filter((u: any) => !loggedUserIds.has(u.id));
+
+    if (missingUsers.length === 0) return { count: existingLogs.length };
+
+    // 4. Create missing logs in bulk with user default meals
+    await prismaClient.mealLog.createMany({
+      data: missingUsers.map((u: any) => ({
+        userId: u.id,
+        date: dhakaUtcToday,
+        breakfast: u.defaultBreakfast ?? 0.5,
+        lunch: u.defaultLunch ?? 1.0,
+        dinner: u.defaultDinner ?? 1.0,
+        guest: 0,
+      })),
+    });
+
+    return { count: existingLogs.length + missingUsers.length, created: missingUsers.length };
+  } catch (error) {
+    console.error("ensureTodayMealLogs error:", error);
+    return { error };
+  }
+}
+

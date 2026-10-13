@@ -8,7 +8,10 @@ import {
   calculateMemberSummary, 
   getMonthDateRange,
   round1,
-  round2
+  round2,
+  ensureTodayMealLogs,
+  calculateConsumedMeals,
+  getDhakaTodayStartAndEnd
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -26,6 +29,9 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Ensure today's meal logs are populated for all active mess members
+    await ensureTodayMealLogs(prisma);
 
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get("month");
@@ -60,7 +66,7 @@ export async function GET(req: Request) {
       // 2. All meal logs this month
       prisma.mealLog.findMany({
         where: { date: dateFilter },
-        select: { userId: true, breakfast: true, lunch: true, dinner: true, guest: true },
+        select: { userId: true, date: true, breakfast: true, lunch: true, dinner: true, guest: true },
       }),
       // 3. Monthly overhead config
       prisma.monthlyExpense.findFirst({
@@ -95,10 +101,14 @@ export async function GET(req: Request) {
       }),
     ]);
 
+    const { todayStart, todayEnd, dhaka: dhakaNow } = getDhakaTodayStartAndEnd();
+
     const totalBazaarCost = expenseAgg._sum.amount || 0;
-    const totalMealsConsumed = allMeals.reduce(
-      (acc, meal) => acc + (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0),
-      0
+    const totalMealsConsumed = round1(
+      allMeals.reduce(
+        (acc, meal) => acc + calculateConsumedMeals(meal, dhakaNow, { todayStart, todayEnd }),
+        0
+      )
     );
 
     const liveMealRate = calculateMealRate(totalBazaarCost, totalMealsConsumed);
@@ -117,8 +127,8 @@ export async function GET(req: Request) {
 
     const mealsByUser = new Map<string, number>();
     for (const m of allMeals) {
-      const count = (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0);
-      mealsByUser.set(m.userId, (mealsByUser.get(m.userId) || 0) + count);
+      const count = calculateConsumedMeals(m, dhakaNow, { todayStart, todayEnd });
+      mealsByUser.set(m.userId, round1((mealsByUser.get(m.userId) || 0) + count));
     }
 
     let globalTotalDeposit = 0;

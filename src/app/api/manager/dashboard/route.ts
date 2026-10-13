@@ -9,7 +9,9 @@ import {
   calculateFunds,
   round1,
   round2,
-  ensureTodayBazaarNotice
+  ensureTodayBazaarNotice,
+  ensureTodayMealLogs,
+  calculateConsumedMeals
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -30,6 +32,9 @@ export async function GET(req: Request) {
 
     // Ensure midnight / today notice is synchronized
     await ensureTodayBazaarNotice(prisma);
+
+    // Ensure today's meal logs are populated
+    await ensureTodayMealLogs(prisma);
 
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get("month");
@@ -114,7 +119,7 @@ export async function GET(req: Request) {
       // 9. Month meals
       prisma.mealLog.findMany({
         where: { date: dateFilter },
-        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+        select: { date: true, breakfast: true, lunch: true, dinner: true, guest: true },
       }),
       // 10. Market Duty for today
       prisma.bazaarSchedule.findFirst({
@@ -145,6 +150,8 @@ export async function GET(req: Request) {
       }),
     ]);
 
+    const { dhaka: dhakaNow } = getDhakaTodayStartAndEnd();
+
     // Today calculations
     const totalMealsToday = todayMeals.reduce(
       (acc, meal) => acc + (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0),
@@ -153,9 +160,11 @@ export async function GET(req: Request) {
     const totalBazaarToday = todayExpenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
 
     // Month calculations
-    const totalMonthMeals = monthMeals.reduce(
-      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
-      0
+    const totalMonthMeals = round1(
+      monthMeals.reduce(
+        (acc, m) => acc + calculateConsumedMeals(m, dhakaNow, { todayStart, todayEnd }),
+        0
+      )
     );
     const currentMealRate = calculateMealRate(monthExpenses._sum.amount || 0, totalMonthMeals);
 

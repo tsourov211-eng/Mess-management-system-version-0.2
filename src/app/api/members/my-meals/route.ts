@@ -195,8 +195,8 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: false, error: "Dinner cutoff time (9:00 PM) has passed for today" }, { status: 400 });
     }
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const dhakaToday = getDhakaDate();
+    const today = new Date(Date.UTC(dhakaToday.year, dhakaToday.month - 1, dhakaToday.day, 0, 0, 0, 0));
 
     const defaultVal = meal === "breakfast" ? (user.defaultBreakfast ?? 0.5) : (meal === "lunch" ? (user.defaultLunch ?? 1.0) : (user.defaultDinner ?? 1.0));
     const newVal = enabled ? (defaultVal > 0 ? defaultVal : 1.0) : 0;

@@ -10,7 +10,10 @@ import {
   calculateFunds,
   round1,
   round2,
-  ensureTodayBazaarNotice
+  ensureTodayBazaarNotice,
+  ensureTodayMealLogs,
+  calculateConsumedMeals,
+  getDhakaTodayStartAndEnd
 } from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
@@ -30,6 +33,9 @@ export async function GET(req: Request) {
 
     // Ensure today's bazaar duty announcement notice is created / updated
     await ensureTodayBazaarNotice(prisma);
+
+    // Ensure today's meal logs exist for all active mess members
+    await ensureTodayMealLogs(prisma);
 
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get("month");
@@ -85,7 +91,7 @@ export async function GET(req: Request) {
       // 3. User meals for the active month
       prisma.mealLog.findMany({
         where: { userId: user.id, date: dateFilter },
-        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+        select: { date: true, breakfast: true, lunch: true, dinner: true, guest: true },
       }),
       // 4. Mess total food expenses for active month
       prisma.expense.aggregate({
@@ -95,7 +101,7 @@ export async function GET(req: Request) {
       // 5. Mess total meals for active month
       prisma.mealLog.findMany({
         where: { date: dateFilter },
-        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+        select: { date: true, breakfast: true, lunch: true, dinner: true, guest: true },
       }),
       // 6. Monthly Fixed Overhead Config
       prisma.monthlyExpense.findFirst({
@@ -154,15 +160,40 @@ export async function GET(req: Request) {
     const userMealDeposit = userMealDepositAgg._sum.amount || 0;
     const userOverheadDeposit = Math.max(0, totalDeposit - userMealDeposit);
 
-    const totalMeals = userMeals.reduce(
-      (acc, meal) => acc + (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0),
-      0
+    const { todayStart, todayEnd, dhaka: dhakaNow } = getDhakaTodayStartAndEnd();
+    const dhakaUtcToday = new Date(Date.UTC(dhakaNow.year, dhakaNow.month - 1, dhakaNow.day, 0, 0, 0, 0));
+
+    // Guarantee today's meal is represented if user visits during active month
+    if (targetMonth === dhakaNow.month && targetYear === dhakaNow.year) {
+      const hasTodayInUserMeals = userMeals.some((m) => {
+        const d = new Date(m.date);
+        return d.getTime() >= todayStart.getTime() && d.getTime() < todayEnd.getTime();
+      });
+      if (!hasTodayInUserMeals) {
+        userMeals.push({
+          date: dhakaUtcToday,
+          breakfast: user.defaultBreakfast ?? 0.5,
+          lunch: user.defaultLunch ?? 1.0,
+          dinner: user.defaultDinner ?? 1.0,
+          guest: 0,
+        });
+      }
+    }
+
+    // Accurately compute consumed meals based on Dhaka meal cutoff times
+    const totalMeals = round1(
+      userMeals.reduce(
+        (acc, meal) => acc + calculateConsumedMeals(meal, dhakaNow, { todayStart, todayEnd }),
+        0
+      )
     );
 
     const totalMessExpense = expenseAgg._sum.amount || 0;
-    const totalMessMeals = allMeals.reduce(
-      (acc, meal) => acc + (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0) + (meal.guest || 0),
-      0
+    const totalMessMeals = round1(
+      allMeals.reduce(
+        (acc, meal) => acc + calculateConsumedMeals(meal, dhakaNow, { todayStart, todayEnd }),
+        0
+      )
     );
 
     // Live Meal Rate (0.00 fallback on 0 meals)

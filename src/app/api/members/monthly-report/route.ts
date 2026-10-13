@@ -2,7 +2,17 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateMealRate, calculateFixedCostPerMember, formatMonthKey, getMonthDateRange } from "@/lib/calculations";
+import { 
+  calculateMealRate, 
+  calculateFixedCostPerMember, 
+  formatMonthKey, 
+  getMonthDateRange,
+  ensureTodayMealLogs,
+  calculateConsumedMeals,
+  getDhakaTodayStartAndEnd,
+  round1,
+  round2
+} from "@/lib/calculations";
 import { safeErrorResponse } from "@/lib/security";
 
 export async function GET(req: Request) {
@@ -21,12 +31,18 @@ export async function GET(req: Request) {
         phone: true,
         role: true,
         messName: true,
+        defaultBreakfast: true,
+        defaultLunch: true,
+        defaultDinner: true,
       },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    // Ensure today's meal logs exist for all active mess members
+    await ensureTodayMealLogs(prisma);
 
     const { searchParams } = new URL(req.url);
     const { 
@@ -83,7 +99,7 @@ export async function GET(req: Request) {
       // 5. Mess meal logs for the month
       prisma.mealLog.findMany({
         where: { date: dateFilter },
-        select: { breakfast: true, lunch: true, dinner: true, guest: true },
+        select: { date: true, breakfast: true, lunch: true, dinner: true, guest: true },
       }),
       // 6. Fixed Overhead per member
       prisma.monthlyExpense.findFirst({
@@ -91,10 +107,36 @@ export async function GET(req: Request) {
       }),
     ]);
 
+    const { todayStart, todayEnd, dhaka: dhakaNow } = getDhakaTodayStartAndEnd();
+    const dhakaUtcToday = new Date(Date.UTC(dhakaNow.year, dhakaNow.month - 1, dhakaNow.day, 0, 0, 0, 0));
+
+    // Guarantee today's meal is represented in userMealLogs if active month is current month
+    if (targetMonth === dhakaNow.month && targetYear === dhakaNow.year) {
+      const hasTodayInUserLogs = userMealLogs.some((m) => {
+        const d = new Date(m.date);
+        return d.getTime() >= todayStart.getTime() && d.getTime() < todayEnd.getTime();
+      });
+      if (!hasTodayInUserLogs) {
+        userMealLogs.push({
+          id: "today-virtual",
+          userId: user.id,
+          date: dhakaUtcToday,
+          breakfast: user.defaultBreakfast ?? 0.5,
+          lunch: user.defaultLunch ?? 1.0,
+          dinner: user.defaultDinner ?? 1.0,
+          guest: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any);
+      }
+    }
+
     const totalMessExpense = messExpensesAgg._sum.amount || 0;
-    const totalMessMeals = allMessMealLogs.reduce(
-      (acc, m) => acc + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.guest || 0),
-      0
+    const totalMessMeals = round1(
+      allMessMealLogs.reduce(
+        (acc, m) => acc + calculateConsumedMeals(m, dhakaNow, { todayStart, todayEnd }),
+        0
+      )
     );
 
     const liveMealRate = calculateMealRate(totalMessExpense, totalMessMeals);
@@ -104,11 +146,46 @@ export async function GET(req: Request) {
     const approvedDeposits = userDeposits.filter((d) => d.status === "Approved");
     const totalDeposit = approvedDeposits.reduce((acc, d) => acc + d.amount, 0);
 
-    const totalBreakfast = userMealLogs.reduce((acc, m) => acc + (m.breakfast || 0), 0);
-    const totalLunch = userMealLogs.reduce((acc, m) => acc + (m.lunch || 0), 0);
-    const totalDinner = userMealLogs.reduce((acc, m) => acc + (m.dinner || 0), 0);
-    const totalGuest = userMealLogs.reduce((acc, m) => acc + (m.guest || 0), 0);
-    const totalMeals = Math.round((totalBreakfast + totalLunch + totalDinner + totalGuest) * 10) / 10;
+    const currentHour = dhakaNow.hour;
+    const breakfastPassed = currentHour >= 8;
+    const lunchPassed = currentHour >= 12;
+    const dinnerPassed = currentHour >= 21;
+
+    const isTodayRecord = (dbDate: Date) => {
+      const d = new Date(dbDate);
+      return d.getTime() >= todayStart.getTime() && d.getTime() < todayEnd.getTime();
+    };
+
+    let totalBreakfast = 0;
+    let totalLunch = 0;
+    let totalDinner = 0;
+    let totalGuest = 0;
+
+    for (const m of userMealLogs) {
+      if (isTodayRecord(m.date)) {
+        if (breakfastPassed) totalBreakfast += (m.breakfast || 0);
+        if (lunchPassed) totalLunch += (m.lunch || 0);
+        if (dinnerPassed) totalDinner += (m.dinner || 0);
+        if (m.guest && m.guest > 0) {
+          if (dinnerPassed || lunchPassed) totalGuest += m.guest;
+          else if (breakfastPassed) totalGuest += Math.min(m.guest, 0.5);
+        }
+      } else {
+        const mTime = new Date(m.date).getTime();
+        if (mTime < todayStart.getTime()) {
+          totalBreakfast += (m.breakfast || 0);
+          totalLunch += (m.lunch || 0);
+          totalDinner += (m.dinner || 0);
+          totalGuest += (m.guest || 0);
+        }
+      }
+    }
+
+    totalBreakfast = round1(totalBreakfast);
+    totalLunch = round1(totalLunch);
+    totalDinner = round1(totalDinner);
+    totalGuest = round1(totalGuest);
+    const totalMeals = round1(totalBreakfast + totalLunch + totalDinner + totalGuest);
 
     const mealCost = Math.round(totalMeals * liveMealRate * 100) / 100;
     const totalFixedCost = fixedCostPerMember;
@@ -136,11 +213,26 @@ export async function GET(req: Request) {
       const isoDate = `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
       const meal = userMealLogs.find((m) => isSameDay(m.date, d));
-      const b = meal ? meal.breakfast || 0 : 0;
-      const l = meal ? meal.lunch || 0 : 0;
-      const dn = meal ? meal.dinner || 0 : 0;
-      const g = meal ? meal.guest || 0 : 0;
-      const dayMeals = Math.round((b + l + dn + g) * 10) / 10;
+      const isCurrentDay = d === dhakaNow.day && targetMonth === dhakaNow.month && targetYear === dhakaNow.year;
+
+      let b = 0;
+      let l = 0;
+      let dn = 0;
+      let g = 0;
+
+      if (isCurrentDay) {
+        b = breakfastPassed ? (meal ? meal.breakfast || 0 : (user.defaultBreakfast ?? 0.5)) : 0;
+        l = lunchPassed ? (meal ? meal.lunch || 0 : (user.defaultLunch ?? 1.0)) : 0;
+        dn = dinnerPassed ? (meal ? meal.dinner || 0 : (user.defaultDinner ?? 1.0)) : 0;
+        g = (lunchPassed || dinnerPassed) ? (meal ? meal.guest || 0 : 0) : 0;
+      } else if (dayDate.getTime() < todayStart.getTime()) {
+        b = meal ? meal.breakfast || 0 : 0;
+        l = meal ? meal.lunch || 0 : 0;
+        dn = meal ? meal.dinner || 0 : 0;
+        g = meal ? meal.guest || 0 : 0;
+      }
+
+      const dayMeals = round1(b + l + dn + g);
 
       const dayDeposits = userDeposits.filter((dep) => isSameDay(dep.date, d));
       const dayApprovedDepositTotal = dayDeposits

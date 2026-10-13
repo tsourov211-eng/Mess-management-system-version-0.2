@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { BazaarExpenseSchema } from "@/lib/validations";
-import { getDhakaTodayStartAndEnd, ensureTodayBazaarNotice, updateBazaarNoticeStatus } from "@/lib/calculations";
+import { getDhakaTodayStartAndEnd, ensureTodayBazaarNotice, updateBazaarNoticeStatus, ensureTodayMealLogs } from "@/lib/calculations";
 import { checkRateLimit, getClientIdentifier, rateLimitExceededResponse } from "@/lib/rate-limit";
 import { sanitizeInput, safeErrorResponse } from "@/lib/security";
 
@@ -16,6 +16,9 @@ export async function GET() {
 
     // Ensure midnight / today notice is synchronized
     await ensureTodayBazaarNotice(prisma);
+
+    // Ensure today's meal logs are populated for cooking headcount
+    await ensureTodayMealLogs(prisma);
 
     // Dhaka-aware Today's date filter
     const { todayStart, todayEnd } = getDhakaTodayStartAndEnd();
