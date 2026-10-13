@@ -581,7 +581,7 @@ export default function ManagerDashboard() {
                         <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl sm:rounded-2xl bg-[#FF6B00] text-white flex items-center justify-center shadow-sm shadow-orange-500/20 shrink-0">
                             <IconBell size={18} stroke={2.2} className="sm:w-5 sm:h-5" />
                         </div>
-                        <h2 className="text-sm sm:text-base font-black text-slate-900 whitespace-nowrap shrink-0">Notice Board</h2>
+                        <h2 className="text-sm sm:text-base font-black text-slate-900 whitespace-nowrap shrink-0">Notice</h2>
                     </div>
 
                     <div className="flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap">
