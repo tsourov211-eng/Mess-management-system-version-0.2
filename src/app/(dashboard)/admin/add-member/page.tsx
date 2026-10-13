@@ -14,6 +14,7 @@ import {
     IconShieldCheck,
     IconChevronDown,
     IconCheck,
+    IconX,
     IconKey
 } from "@tabler/icons-react";
 
@@ -201,6 +202,8 @@ export default function AddMemberPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState("");
     
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError("");
@@ -223,14 +226,16 @@ export default function AddMemberPage() {
 
             if (!res.ok) {
                 setError(data.error || "Failed to add member");
+                setIsSubmitting(false);
             } else {
-                alert("✅ Member added successfully!");
-                router.push("/members-list");
+                setToast({ message: "Member added successfully!", type: "success" });
+                setTimeout(() => {
+                    router.push("/members-list");
+                }, 1000);
             }
         } catch (err) {
             console.error("Add Member Error:", err);
             setError("Server error while adding member.");
-        } finally {
             setIsSubmitting(false);
         }
     };
@@ -378,6 +383,22 @@ export default function AddMemberPage() {
 
                 </form>
             </div>
+
+            {/* ─── Floating Toast Notification ─── */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+                    toast.type === "success" 
+                        ? "bg-white text-emerald-950 border-emerald-200/90 shadow-emerald-500/10" 
+                        : "bg-white text-rose-950 border-rose-200/90 shadow-rose-500/10"
+                }`}>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        toast.type === "success" ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                    }`}>
+                        {toast.type === "success" ? <IconCheck size={18} stroke={3} /> : <IconX size={18} stroke={3} />}
+                    </div>
+                    <p className="text-sm font-bold">{toast.message}</p>
+                </div>
+            )}
 
         </div>
     );
