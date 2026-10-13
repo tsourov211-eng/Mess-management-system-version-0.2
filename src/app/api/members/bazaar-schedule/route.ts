@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMonthDateRange, ensureTodayBazaarNotice, updateBazaarNoticeStatus } from "@/lib/calculations";
+import { getMonthDateRange, ensureTodayBazaarNotice, updateBazaarNoticeStatus, getDhakaTodayStartAndEnd } from "@/lib/calculations";
 
 // 1. GET request to fetch user's and mess bazaar schedule
 export async function GET(req: Request) {
@@ -203,6 +203,38 @@ export async function PATCH(req: Request) {
       }
       if (status !== "done" && status !== "approved") {
         return NextResponse.json({ error: "Members can only mark their schedule as done or approved" }, { status: 403 });
+      }
+    }
+
+    // Require expense input if marking done
+    const expenseAmountVal = body.amount ? parseFloat(body.amount) : null;
+    if (status === "done") {
+      if (expenseAmountVal && expenseAmountVal > 0) {
+        await prisma.expense.create({
+          data: {
+            userId: targetSchedule.userId,
+            amount: expenseAmountVal,
+            description: body.note?.trim() || "Daily Bazaar",
+            status: isManagerOrAdmin ? "Approved" : "Pending",
+            date: targetSchedule.date,
+          },
+        });
+      } else if (!isManagerOrAdmin) {
+        // Check if an expense was already submitted for today
+        const { todayStart, todayEnd } = getDhakaTodayStartAndEnd(targetSchedule.date);
+        const existingExpense = await prisma.expense.findFirst({
+          where: {
+            userId: targetSchedule.userId,
+            date: { gte: todayStart, lt: todayEnd },
+          },
+        });
+
+        if (!existingExpense) {
+          return NextResponse.json(
+            { error: "Please enter your bazaar expense amount in Update Bazar Expense to mark bazaar as done." },
+            { status: 400 }
+          );
+        }
       }
     }
 

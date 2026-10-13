@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { 
@@ -68,10 +68,13 @@ export default function MemberDashboard() {
     const [selectedDates, setSelectedDates] = useState<string[]>([]);
     const [isSubmittingBazarDates, setIsSubmittingBazarDates] = useState(false);
 
-    // ─── Bazaar Expense Form ───
+    // ─── Bazaar Expense Form & Done Duty State ───
     const [expenseAmount, setExpenseAmount] = useState("");
     const [expenseDetails, setExpenseDetails] = useState("");
     const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+    const [isDoneBazarModalOpen, setIsDoneBazarModalOpen] = useState(false);
+    const [targetDoneScheduleId, setTargetDoneScheduleId] = useState<string | null>(null);
+    const amountInputRef = useRef<HTMLInputElement>(null);
 
     // ─── Payment / Deposit Modal State ───
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -320,13 +323,24 @@ export default function MemberDashboard() {
     const [isUpdatingBazarStatus, setIsUpdatingBazarStatus] = useState(false);
 
     // ─── Toggle Done Bazaar Handler ───
-    const handleToggleDoneBazaar = async (scheduleId: string, newStatus: "done" | "approved") => {
+    const handleToggleDoneBazaar = async (
+        scheduleId: string, 
+        newStatus: "done" | "approved", 
+        amountVal?: number | string, 
+        noteVal?: string
+    ) => {
         setIsUpdatingBazarStatus(true);
         try {
+            const payload: any = { scheduleId, status: newStatus };
+            if (newStatus === "done" && amountVal && Number(amountVal) > 0) {
+                payload.amount = Number(amountVal);
+                if (noteVal) payload.note = noteVal;
+            }
+
             const res = await fetch("/api/members/bazaar-schedule", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ scheduleId, status: newStatus }),
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
                 setBazarSchedules((prev) =>
@@ -337,15 +351,23 @@ export default function MemberDashboard() {
                 );
                 showToast(
                     newStatus === "done" 
-                        ? "🎉 Bazaar marked as done! Great job!" 
+                        ? "🎉 Bazaar marked as done and expense updated!" 
                         : "Bazaar status updated to approved.", 
                     "success"
                 );
+                setExpenseAmount("");
+                setExpenseDetails("");
+                setIsDoneBazarModalOpen(false);
+                setTargetDoneScheduleId(null);
                 fetchBazarSchedules(activeMonth, activeYear);
                 fetchDashboardData();
             } else {
                 const errData = await res.json();
                 showToast(errData.error || "Failed to update bazaar status", "error");
+                if (newStatus === "done" && (!amountVal || Number(amountVal) <= 0)) {
+                    setTargetDoneScheduleId(scheduleId);
+                    setIsDoneBazarModalOpen(true);
+                }
             }
         } catch (err) {
             showToast("Error updating bazaar status", "error");
@@ -354,36 +376,58 @@ export default function MemberDashboard() {
         }
     };
 
+    // ─── Triggered when clicking "Done Bazar" on cards or banners ───
+    const handleDoneBazaarClick = (scheduleId: string, currentStatus: string) => {
+        if (currentStatus === "done") {
+            handleToggleDoneBazaar(scheduleId, "approved");
+            return;
+        }
+
+        const enteredAmount = parseFloat(expenseAmount);
+        if (enteredAmount && enteredAmount > 0) {
+            handleToggleDoneBazaar(scheduleId, "done", enteredAmount, expenseDetails);
+        } else {
+            // Member must provide the input in Update Bazar Expense!
+            setTargetDoneScheduleId(scheduleId);
+            setIsDoneBazarModalOpen(true);
+            amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(() => {
+                amountInputRef.current?.focus();
+            }, 200);
+            showToast("Please enter today's bazaar expense amount in Update Bazar Expense.", "info");
+        }
+    };
+
     // ─── Submit Bazaar Expense ───
     const handleExpenseSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!expenseAmount) {
+        const parsedAmount = parseFloat(expenseAmount);
+        if (!parsedAmount || parsedAmount <= 0) {
             showToast("Please enter the bazaar amount.", "error");
             return;
         }
 
         setIsSubmittingExpense(true);
         try {
-            const res = await fetch("/api/members/finance", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ type: "expense", amount: expenseAmount, note: expenseDetails }),
-            });
+            // Auto-complete today's bazaar duty if scheduled and not marked done yet
+            if (todayDutySchedule && todayDutySchedule.status !== "done") {
+                await handleToggleDoneBazaar(todayDutySchedule.id, "done", parsedAmount, expenseDetails);
+            } else {
+                const res = await fetch("/api/members/finance", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ type: "expense", amount: expenseAmount, note: expenseDetails }),
+                });
 
-            if (res.ok) {
-                showToast("Bazaar expense submitted successfully to manager!", "success");
-                setExpenseAmount("");
-                setExpenseDetails("");
-
-                // Also auto-complete today's bazaar duty if not marked done yet
-                if (todayDutySchedule && todayDutySchedule.status !== "done") {
-                    await handleToggleDoneBazaar(todayDutySchedule.id, "done");
-                } else {
+                if (res.ok) {
+                    showToast("Bazaar expense submitted successfully to manager!", "success");
+                    setExpenseAmount("");
+                    setExpenseDetails("");
                     fetchBazarSchedules(activeMonth, activeYear);
                     fetchDashboardData();
+                } else {
+                    showToast("Failed to submit expense.", "error");
                 }
-            } else {
-                showToast("Failed to submit expense.", "error");
             }
         } catch (error) {
             showToast("An error occurred while submitting.", "error");
@@ -965,7 +1009,7 @@ export default function MemberDashboard() {
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handleToggleDoneBazaar(s.id, isDone ? "approved" : "done");
+                                                            handleDoneBazaarClick(s.id, s.status);
                                                         }}
                                                         disabled={isUpdatingBazarStatus}
                                                         className={`mt-1.5 w-full py-0.5 px-1 rounded-md text-[8px] font-black transition-all cursor-pointer flex items-center justify-center gap-0.5 shadow-2xs ${
@@ -1041,7 +1085,7 @@ export default function MemberDashboard() {
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => handleToggleDoneBazaar(todayDutySchedule.id, todayDutySchedule.status === "done" ? "approved" : "done")}
+                                            onClick={() => handleDoneBazaarClick(todayDutySchedule.id, todayDutySchedule.status)}
                                             disabled={isUpdatingBazarStatus}
                                             className={`px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer transition-all shrink-0 ${
                                                 todayDutySchedule.status === "done"
@@ -1059,6 +1103,8 @@ export default function MemberDashboard() {
                                         <label className="block text-[11px] font-bold text-slate-700 mb-1">Bazar Amount (Tk)</label>
                                         <div className="relative">
                                             <input 
+                                                ref={amountInputRef}
+                                                id="bazar-expense-amount-input"
                                                 type="number" 
                                                 value={expenseAmount} 
                                                 onChange={(e) => setExpenseAmount(e.target.value)} 
@@ -1092,7 +1138,7 @@ export default function MemberDashboard() {
                                 className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 text-white font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/20 mt-3 cursor-pointer transition-all disabled:opacity-50"
                             >
                                 <IconSend size={15} stroke={2.5} />
-                                <span>{isSubmittingExpense ? "Submitting..." : "Submit to Manager"}</span>
+                                <span>{isSubmittingExpense ? "Submitting..." : (todayDutySchedule && todayDutySchedule.status !== "done" ? "Submit Expense & Mark Done" : "Submit to Manager")}</span>
                             </button>
                         </form>
                     </div>
@@ -1825,6 +1871,140 @@ export default function MemberDashboard() {
                                                     ? `${selectedOverheads.length} Overhead${selectedOverheads.length > 1 ? "s" : ""}` 
                                                     : "No selection"
                                             })`
+                                        }
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Enter Bazaar Expense Modal (Triggered when Done Bazar is pressed) ─── */}
+            {isDoneBazarModalOpen && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setIsDoneBazarModalOpen(false)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-5 sm:p-6 space-y-4 relative z-10 animate-in zoom-in-95 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                                    <IconShoppingCart size={20} stroke={2.2} />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
+                                        Update Bazar Expense
+                                    </h3>
+                                    <p className="text-[11px] text-slate-500 font-medium">
+                                        Enter amount to mark today's bazaar as done
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => setIsDoneBazarModalOpen(false)}
+                                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                            >
+                                <IconX size={18} stroke={2.5} />
+                            </button>
+                        </div>
+
+                        {/* Banner Note */}
+                        <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/70 flex items-start gap-2.5 text-amber-900">
+                            <span className="text-base leading-none mt-0.5">💡</span>
+                            <p className="text-[11px] font-semibold leading-relaxed">
+                                To complete today's bazaar duty, please input your total bazaar expense. It will be recorded and submitted for manager approval.
+                            </p>
+                        </div>
+
+                        {/* Expense Input Form */}
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            const amt = parseFloat(expenseAmount);
+                            if (!amt || amt <= 0) {
+                                showToast("Please enter a valid amount.", "error");
+                                return;
+                            }
+                            const targetId = targetDoneScheduleId || todayDutySchedule?.id;
+                            if (!targetId) {
+                                showToast("No bazaar schedule selected.", "error");
+                                return;
+                            }
+                            handleToggleDoneBazaar(targetId, "done", amt, expenseDetails);
+                        }} className="space-y-3.5">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Bazar Amount (৳) <span className="text-orange-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        step="any"
+                                        value={expenseAmount} 
+                                        onChange={(e) => setExpenseAmount(e.target.value)} 
+                                        placeholder="Enter total amount (e.g. 1250)" 
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-bold shadow-2xs" 
+                                        required 
+                                        autoFocus
+                                    />
+                                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm pointer-events-none">
+                                        ৳
+                                    </span>
+                                </div>
+
+                                {/* Quick Amount Chips */}
+                                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                    {[500, 800, 1000, 1200, 1500, 2000].map((amt) => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => setExpenseAmount(String(amt))}
+                                            className="text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 text-slate-600 transition-colors cursor-pointer"
+                                        >
+                                            +৳{amt.toLocaleString()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Expense Details / Note <span className="text-slate-400 font-normal">(Optional)</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={expenseDetails} 
+                                    onChange={(e) => setExpenseDetails(e.target.value)} 
+                                    placeholder="E.g. Chicken, vegetables, spices, oil etc." 
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-2xs" 
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2.5 pt-2">
+                                <button
+                                    type="button"
+                                    disabled={isUpdatingBazarStatus}
+                                    onClick={() => setIsDoneBazarModalOpen(false)}
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isUpdatingBazarStatus || !expenseAmount || parseFloat(expenseAmount) <= 0}
+                                    className="flex-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 disabled:opacity-50 text-white text-xs font-extrabold shadow-md shadow-orange-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                >
+                                    <IconCheck size={16} stroke={3} />
+                                    <span>
+                                        {isUpdatingBazarStatus 
+                                            ? "Saving..." 
+                                            : `Confirm ৳${expenseAmount ? Number(expenseAmount).toLocaleString() : "0"} & Mark Done`
                                         }
                                     </span>
                                 </button>

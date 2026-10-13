@@ -36,7 +36,7 @@ export default function RegisterPage() {
         setName("");
         setEmail("");
         setPhone("");
-        setPassword("");
+        setPassword("");https://127.0.0.1:50262/static/artifacts/4528a56f-6948-42b6-abbf-44c8e2f3b448/.user_uploaded/media_1791706607390.png?csrf=65b9c87c-3034-4b02-81aa-d616f705aa56
         setConfirmPassword("");
         setError("");
         setSuccess("");

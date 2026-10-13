@@ -161,6 +161,29 @@ export default function BazaarManagementPage() {
 
         setIsSubmitting(true);
         try {
+            // If today has an approved bazaar duty, mark it done along with the expense
+            if (todayScheduleId && todayScheduleStatus !== "done") {
+                const res = await fetch("/api/members/bazaar-schedule", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        scheduleId: todayScheduleId,
+                        status: "done",
+                        amount: Number(amount),
+                        note: description || "Daily Bazaar",
+                    }),
+                });
+                if (res.ok) {
+                    alert("✅ Bazaar expense recorded and bazaar marked as done!");
+                    setAmount("");
+                    setDescription("");
+                    setTodayScheduleStatus("done");
+                    fetchBazaarData();
+                    fetchGlobalStats();
+                    return;
+                }
+            }
+
             const res = await fetch("/api/bazaar", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -207,18 +230,35 @@ export default function BazaarManagementPage() {
 
     const handleToggleDoneBazaar = async (newStatus: "done" | "approved") => {
         if (!todayScheduleId) return;
+
+        const parsedAmount = parseFloat(amount);
+        if (newStatus === "done" && (!parsedAmount || parsedAmount <= 0)) {
+            alert("⚠️ Please enter your bazaar expense amount in the input field before marking Done Bazar!");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
+            const body: any = { scheduleId: todayScheduleId, status: newStatus };
+            if (newStatus === "done" && parsedAmount > 0) {
+                body.amount = parsedAmount;
+                body.note = description || "Daily Bazaar";
+            }
             const res = await fetch("/api/members/bazaar-schedule", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ scheduleId: todayScheduleId, status: newStatus }),
+                body: JSON.stringify(body),
             });
             if (res.ok) {
                 setTodayScheduleStatus(newStatus);
+                setAmount("");
+                setDescription("");
                 fetchBazaarData();
+                fetchGlobalStats();
+                alert(newStatus === "done" ? "🎉 Bazaar marked as done and expense logged!" : "Bazaar schedule updated to approved.");
             } else {
-                alert("Failed to update schedule status");
+                const errData = await res.json();
+                alert(errData.error || "Failed to update schedule status");
             }
         } catch (error) {
             console.error("Error toggling bazaar done:", error);
@@ -526,8 +566,8 @@ export default function BazaarManagementPage() {
                                 <p className="text-xs font-black text-slate-900 truncate">{assignedName}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                            <div className="relative w-28">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="relative w-24 sm:w-28">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">৳</span>
                                 <input 
                                     type="number" 
@@ -540,9 +580,22 @@ export default function BazaarManagementPage() {
                             <button 
                                 onClick={handleSubmitExpense}
                                 disabled={isSubmitting}
-                                className="bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
+                                className="bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold px-2.5 py-1.5 rounded-xl shadow-sm transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
                             >
                                 {isSubmitting ? "..." : "Save"}
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => handleToggleDoneBazaar(todayScheduleStatus === "done" ? "approved" : "done")}
+                                disabled={isSubmitting}
+                                className={`text-xs font-extrabold px-2.5 py-1.5 rounded-xl transition-all cursor-pointer border ${
+                                    todayScheduleStatus === "done"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                        : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs"
+                                }`}
+                                title={todayScheduleStatus === "done" ? "Click to revert" : "Done Bazar"}
+                            >
+                                {todayScheduleStatus === "done" ? "✓ Done" : "Done"}
                             </button>
                         </div>
                     </div>
