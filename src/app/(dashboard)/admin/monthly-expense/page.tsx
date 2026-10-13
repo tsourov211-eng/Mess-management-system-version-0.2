@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
 import { 
     Home, 
     Zap, 
@@ -66,7 +67,9 @@ export default function MonthlyExpenseSetup() {
         mealCharge: 0,
     });
 
-    const [isLoading, setIsLoading] = useState(false);
+    const endpoint = `/api/admin/monthly-expense?month=${encodeURIComponent(month)}`;
+    const { data: responseData, isLoading, mutate } = useSWR<{ data?: any }>(endpoint);
+
     const [isSaving, setIsSaving] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
     const [showResetModal, setShowResetModal] = useState(false);
@@ -80,51 +83,37 @@ export default function MonthlyExpenseSetup() {
         mealCharge: number | string;
     } | null>(null);
 
-    // Fetch existing configuration if available
+    // Sync state with SWR cached data
     useEffect(() => {
-        const fetchConfig = async () => {
-            setIsLoading(true);
-            setLastBeforeReset(null);
-            setMessage(null);
-            try {
-                const res = await fetch(`/api/admin/monthly-expense?month=${encodeURIComponent(month)}`);
-                if (res.ok) {
-                    const { data } = await res.json();
-                    if (data) {
-                        const loaded = {
-                            seatRent: data.seatRent ?? 0,
-                            electricityGas: data.electricityGas ?? 0,
-                            internet: data.internet ?? 0,
-                            maid: data.maid ?? 0,
-                            additional: data.additional ?? 0,
-                            mealCharge: data.mealCharge ?? 0,
-                        };
-                        setSeatRent(loaded.seatRent);
-                        setElectricityGas(loaded.electricityGas);
-                        setInternet(loaded.internet);
-                        setMaid(loaded.maid);
-                        setAdditional(loaded.additional);
-                        setMealCharge(loaded.mealCharge);
-                        setSavedConfig(loaded);
-                    } else {
-                        const empty = { seatRent: 0, electricityGas: 0, internet: 0, maid: 0, additional: 0, mealCharge: 0 };
-                        setSeatRent(0);
-                        setElectricityGas(0);
-                        setInternet(0);
-                        setMaid(0);
-                        setAdditional(0);
-                        setMealCharge(0);
-                        setSavedConfig(empty);
-                    }
-                }
-            } catch (error) {
-                console.error("Error loading monthly expense config:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchConfig();
-    }, [month]);
+        setLastBeforeReset(null);
+        setMessage(null);
+        if (responseData?.data) {
+            const loaded = {
+                seatRent: responseData.data.seatRent ?? 0,
+                electricityGas: responseData.data.electricityGas ?? 0,
+                internet: responseData.data.internet ?? 0,
+                maid: responseData.data.maid ?? 0,
+                additional: responseData.data.additional ?? 0,
+                mealCharge: responseData.data.mealCharge ?? 0,
+            };
+            setSeatRent(loaded.seatRent);
+            setElectricityGas(loaded.electricityGas);
+            setInternet(loaded.internet);
+            setMaid(loaded.maid);
+            setAdditional(loaded.additional);
+            setMealCharge(loaded.mealCharge);
+            setSavedConfig(loaded);
+        } else if (responseData && !responseData.data) {
+            const empty = { seatRent: 0, electricityGas: 0, internet: 0, maid: 0, additional: 0, mealCharge: 0 };
+            setSeatRent(0);
+            setElectricityGas(0);
+            setInternet(0);
+            setMaid(0);
+            setAdditional(0);
+            setMealCharge(0);
+            setSavedConfig(empty);
+        }
+    }, [responseData, month]);
 
     const handleConfirmReset = async () => {
         setIsResetting(true);
@@ -149,6 +138,7 @@ export default function MonthlyExpenseSetup() {
                     type: 'success',
                     text: `Monthly expenses for ${month} have been successfully reset to ৳0 in the system.`
                 });
+                mutate();
             } else {
                 setMessage({
                     type: 'error',
@@ -214,6 +204,7 @@ export default function MonthlyExpenseSetup() {
                 setSavedConfig(updated);
                 setLastBeforeReset(null);
                 setMessage({ type: 'success', text: "Monthly expense successfully saved!" });
+                mutate();
             } else {
                 setMessage({ type: 'error', text: data.error || "Failed to save expense." });
             }

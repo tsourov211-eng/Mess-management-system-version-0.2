@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { 
     IconReportAnalytics, 
     IconWallet, 
@@ -30,7 +31,9 @@ export default function ReportsView() {
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
 
-    const [stats, setStats] = useState({
+    const statsKey = `/api/members/dashboard-data?month=${selectedMonth}&year=${selectedYear}`;
+    const { data: dashboardData, isLoading } = useSWR<{ stats?: any }>(statsKey);
+    const stats = dashboardData?.stats || {
         totalDeposit: 0,
         totalMeals: 0,
         liveMealRate: 0,
@@ -40,15 +43,16 @@ export default function ReportsView() {
         totalCost: 0,
         isPositive: true,
         balanceFormatted: "",
-    });
-    const [isLoading, setIsLoading] = useState(true);
+    };
 
     // Modal & Download states
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-    const [reportDetails, setReportDetails] = useState<any>(null);
-    const [isLoadingReportDetails, setIsLoadingReportDetails] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+    const detailedReportKey = isDownloadModalOpen ? `/api/members/monthly-report?month=${selectedMonth}&year=${selectedYear}` : null;
+    const { data: detailedReportSWR, isLoading: isLoadingReportDetails } = useSWR<any>(detailedReportKey);
+    const reportDetails = detailedReportSWR || null;
 
     const monthOptions = [
         { value: 1, label: "January" },
@@ -70,51 +74,28 @@ export default function ReportsView() {
 
     const selectedMonthName = monthOptions.find((m) => m.value === selectedMonth)?.label || "Month";
 
-    useEffect(() => {
-        fetchReportData(selectedMonth, selectedYear);
-    }, [selectedMonth, selectedYear]);
-
-    const fetchReportData = async (m: number, y: number) => {
-        setIsLoading(true);
-        try {
-            const res = await fetch(`/api/members/dashboard-data?month=${m}&year=${y}`);
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data.stats);
-            }
-        } catch (error) {
-            console.error("Error fetching reports:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const fetchDetailedReport = async (m: number, y: number) => {
-        setIsLoadingReportDetails(true);
+        if (reportDetails && reportDetails.month === m && reportDetails.year === y) {
+            return reportDetails;
+        }
         try {
             const res = await fetch(`/api/members/monthly-report?month=${m}&year=${y}`);
             if (res.ok) {
-                const data = await res.json();
-                setReportDetails(data);
-                return data;
+                return await res.json();
             }
         } catch (error) {
             console.error("Error fetching full report details:", error);
-        } finally {
-            setIsLoadingReportDetails(false);
         }
         return null;
     };
 
-    const openDownloadModal = async () => {
+    const openDownloadModal = () => {
         setIsDownloadModalOpen(true);
-        await fetchDetailedReport(selectedMonth, selectedYear);
     };
 
-    const handleMonthChangeInModal = async (newMonth: number, newYear: number) => {
+    const handleMonthChangeInModal = (newMonth: number, newYear: number) => {
         setSelectedMonth(newMonth);
         setSelectedYear(newYear);
-        await fetchDetailedReport(newMonth, newYear);
     };
 
     // ─── Export to PDF Handler ───

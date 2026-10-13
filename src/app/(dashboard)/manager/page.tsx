@@ -27,6 +27,7 @@ import {
     IconUser
 } from "@tabler/icons-react";
 import { Coins, Search } from "lucide-react";
+import useSWR from "swr";
 import ConfirmModal from "@/components/ConfirmModal";
 import { calculateGuestMealUnits } from "@/lib/calculations";
 
@@ -130,41 +131,51 @@ export default function ManagerDashboard() {
         );
     });
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
+    // ─── Fetch Manager Dashboard & Users with SWR ───
+    const { 
+        data: managerData, 
+        isLoading: isManagerLoading, 
+        mutate: mutateManagerData 
+    } = useSWR("/api/manager/dashboard");
 
-    const fetchDashboardData = async () => {
-        try {
-            const [res, usersRes] = await Promise.all([
-                fetch("/api/manager/dashboard"),
-                fetch("/api/admin/users")
-            ]);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.stats) {
-                    setStats(prev => ({
-                        ...prev,
-                        ...data.stats,
-                    }));
-                }
-                setPendingDeposits(data.pendingDeposits || []);
-                setPendingExpenses(data.pendingExpenses || []);
-                setPendingBazaarSchedules(data.pendingBazaarSchedules || []);
-                setPendingGuestMeals(data.pendingGuestMeals || []);
-                setNotices(data.notices || []);
-                setSelectedSchedules([]);
+    const { 
+        data: usersData, 
+        isLoading: isUsersLoading, 
+        mutate: mutateUsersData 
+    } = useSWR("/api/admin/users");
+
+    useEffect(() => {
+        if (managerData) {
+            if (managerData.stats) {
+                setStats(prev => ({
+                    ...prev,
+                    ...managerData.stats,
+                }));
             }
-            if (usersRes.ok) {
-                const usersData = await usersRes.json();
-                const allUsers = usersData.users || [];
-                setUsers(allUsers.filter((u: any) => u.role !== 'pending'));
-            }
-        } catch (error) {
-            console.error("Error fetching manager dashboard data:", error);
-        } finally {
+            setPendingDeposits(managerData.pendingDeposits || []);
+            setPendingExpenses(managerData.pendingExpenses || []);
+            setPendingBazaarSchedules(managerData.pendingBazaarSchedules || []);
+            setPendingGuestMeals(managerData.pendingGuestMeals || []);
+            setNotices(managerData.notices || []);
+            setSelectedSchedules([]);
+        }
+    }, [managerData]);
+
+    useEffect(() => {
+        if (usersData?.users) {
+            setUsers(usersData.users.filter((u: any) => u.role !== 'pending'));
+        }
+    }, [usersData]);
+
+    useEffect(() => {
+        if (!isManagerLoading && !isUsersLoading) {
             setIsLoading(false);
         }
+    }, [isManagerLoading, isUsersLoading]);
+
+    const fetchDashboardData = () => {
+        mutateManagerData();
+        mutateUsersData();
     };
 
     // Notice Board Handlers

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { 
@@ -23,9 +24,9 @@ export default function MembersListPage() {
     const currentUserRole = (session?.user as { role?: string })?.role?.toLowerCase() || "member";
     const isAdmin = currentUserRole === "admin";
 
-    const [members, setMembers] = useState<any[]>([]);
+    const { data, isLoading, mutate } = useSWR<{ users?: any[] }>("/api/admin/users");
+    const members = data?.users || [];
     const [searchTerm, setSearchTerm] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -37,25 +38,6 @@ export default function MembersListPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingMember, setDeletingMember] = useState<any>(null);
     const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
-
-    useEffect(() => {
-        fetchMembers();
-    }, []);
-
-    const fetchMembers = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch("/api/admin/users");
-            if (res.ok) {
-                const data = await res.json();
-                setMembers(data.users || []);
-            }
-        } catch (error) {
-            console.error("Error fetching members:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const openEditModal = (member: any) => {
         if (!isAdmin) return;
@@ -82,7 +64,7 @@ export default function MembersListPage() {
             if (res.ok) {
                 setIsEditModalOpen(false);
                 setEditingMember(null);
-                await fetchMembers();
+                await mutate();
             } else {
                 const data = await res.json();
                 alert(data.error || "Failed to update member.");
@@ -112,7 +94,7 @@ export default function MembersListPage() {
             if (res.ok) {
                 setIsDeleteModalOpen(false);
                 setDeletingMember(null);
-                await fetchMembers();
+                await mutate();
             } else {
                 const data = await res.json();
                 alert(data.error || "Failed to remove member.");

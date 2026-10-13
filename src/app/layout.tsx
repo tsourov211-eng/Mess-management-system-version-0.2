@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider"; // 👈 Imported with correct path
+import { SWRProvider } from "@/components/SWRProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,9 +28,11 @@ export default function RootLayout({
   return (
     <html lang="bn">
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col antialiased`}>
-        {/* Wrapped entire body with SessionProvider */}
+        {/* Wrapped entire body with SessionProvider and SWRProvider */}
         <AuthSessionProvider>
-          {children}
+          <SWRProvider>
+            {children}
+          </SWRProvider>
         </AuthSessionProvider>
       </body>
     </html>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import useSWR from "swr";
 import { 
     IconToolsKitchen2, 
     IconCalendarEvent, 
@@ -106,8 +107,9 @@ export default function MyMealsView() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; // YYYY-MM
     });
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    const [selectedY, selectedM] = selectedMonthYear.split("-");
+    const { data: mealsData, isLoading, mutate: mutateMeals } = useSWR<any>(`/api/members/my-meals?month=${selectedM}&year=${selectedY}`);
+    const isHistoryLoading = isLoading;
     const [showAllGuestModal, setShowAllGuestModal] = useState(false);
 
     // ─── In-App Toast ───
@@ -161,37 +163,22 @@ export default function MyMealsView() {
         return () => clearInterval(timer);
     }, []);
 
-    // ─── Fetch Data ───
+    // ─── Sync SWR Cached Data with State ───
     useEffect(() => {
-        fetchMealsData();
-    }, [selectedMonthYear]);
-
-    const fetchMealsData = async () => {
-        setIsHistoryLoading(true);
-        try {
-            const [year, month] = selectedMonthYear.split("-");
-            const res = await fetch(`/api/members/my-meals?month=${month}&year=${year}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.todayStatus) setTodayStatus(data.todayStatus);
-                if (data.todayCounts) setTodayCounts(data.todayCounts);
-                if (data.cutoffs) setCutoffs(data.cutoffs);
-                if (data.tomorrowPlan) {
-                    setPlanBreakfast(data.tomorrowPlan.breakfast?.toString() ?? "0.5");
-                    setPlanLunch(data.tomorrowPlan.lunch?.toString() ?? "1");
-                    setPlanDinner(data.tomorrowPlan.dinner?.toString() ?? "1");
-                    setPlanGuest(data.tomorrowPlan.guest?.toString() ?? "0");
-                }
-                if (data.guestRequests) setGuestHistory(data.guestRequests);
-                if (data.monthlyMeals) setMonthlyMeals(data.monthlyMeals);
+        if (mealsData) {
+            if (mealsData.todayStatus) setTodayStatus(mealsData.todayStatus);
+            if (mealsData.todayCounts) setTodayCounts(mealsData.todayCounts);
+            if (mealsData.cutoffs) setCutoffs(mealsData.cutoffs);
+            if (mealsData.tomorrowPlan) {
+                setPlanBreakfast(mealsData.tomorrowPlan.breakfast?.toString() ?? "0.5");
+                setPlanLunch(mealsData.tomorrowPlan.lunch?.toString() ?? "1");
+                setPlanDinner(mealsData.tomorrowPlan.dinner?.toString() ?? "1");
+                setPlanGuest(mealsData.tomorrowPlan.guest?.toString() ?? "0");
             }
-        } catch (error) {
-            console.error("Error fetching meals data:", error);
-        } finally {
-            setIsLoading(false);
-            setIsHistoryLoading(false);
+            if (mealsData.guestRequests) setGuestHistory(mealsData.guestRequests);
+            if (mealsData.monthlyMeals) setMonthlyMeals(mealsData.monthlyMeals);
         }
-    };
+    }, [mealsData]);
 
     // ─── Live Toggle for Today's Meal ───
     const handleToggleTodayMeal = async (meal: "breakfast" | "lunch" | "dinner") => {
@@ -270,18 +257,19 @@ export default function MyMealsView() {
                 }
                 const activeQty = nextVal === "ON" ? (data.todayCounts?.[meal] ?? currentMealCount) : 0;
                 showToast(`Today's ${meal} turned ${nextVal}! (${activeQty} meal)`, "success");
+                mutateMeals();
             } else {
                 // Revert on error
                 setTodayStatus((prev) => ({ ...prev, [meal]: currentVal }));
                 setTodayCounts((prev) => ({ ...prev, [meal]: currentMealCount }));
-                fetchMealsData();
+                mutateMeals();
                 showToast(data.error || `Failed to update ${meal} meal.`, "error");
             }
         } catch (error) {
             // Revert on error
             setTodayStatus((prev) => ({ ...prev, [meal]: currentVal }));
             setTodayCounts((prev) => ({ ...prev, [meal]: currentMealCount }));
-            fetchMealsData();
+            mutateMeals();
             showToast("Network error while toggling meal.", "error");
         } finally {
             setIsTogglingMeal(null);
@@ -317,7 +305,7 @@ export default function MyMealsView() {
             if (res.ok) {
                 showToast("Guest meal requested successfully! Waiting for approval.", "success");
                 setGuestNote("");
-                fetchMealsData();
+                mutateMeals();
             } else {
                 showToast(data.error || "Failed to submit request.", "error");
             }
@@ -350,6 +338,7 @@ export default function MyMealsView() {
             const data = await res.json();
             if (res.ok) {
                 showToast("Tomorrow's meal plan saved successfully!", "success");
+                mutateMeals();
             } else {
                 showToast(data.error || "Failed to save meal plan.", "error");
             }

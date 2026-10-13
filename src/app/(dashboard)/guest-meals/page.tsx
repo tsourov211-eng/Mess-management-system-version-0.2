@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { 
@@ -21,8 +22,8 @@ export default function GuestMealsPage() {
     const userRole = (session?.user as any)?.role;
     const backHref = userRole === "admin" ? "/admin" : "/manager";
 
-    const [guestMeals, setGuestMeals] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { data, isLoading, mutate } = useSWR<{ pendingGuestMeals?: any[] }>("/api/manager/dashboard");
+    const guestMeals = data?.pendingGuestMeals || [];
     const [isProcessing, setIsProcessing] = useState(false);
     const [confirmModalState, setConfirmModalState] = useState<{
         isOpen: boolean;
@@ -32,25 +33,6 @@ export default function GuestMealsPage() {
         confirmText: string;
         onConfirm: () => Promise<void> | void;
     } | null>(null);
-
-    useEffect(() => {
-        fetchGuestMeals();
-    }, []);
-
-    const fetchGuestMeals = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch("/api/manager/dashboard");
-            if (res.ok) {
-                const data = await res.json();
-                setGuestMeals(data.pendingGuestMeals || []);
-            }
-        } catch (error) {
-            console.error("Error fetching guest meals:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const handleAction = (id: string, action: "Approve" | "Reject") => {
         setConfirmModalState({
@@ -70,7 +52,7 @@ export default function GuestMealsPage() {
 
                     if (res.ok) {
                         setConfirmModalState(null);
-                        fetchGuestMeals();
+                        mutate();
                     } else {
                         alert(`Failed to ${action.toLowerCase()} guest meal request.`);
                     }
@@ -106,7 +88,7 @@ export default function GuestMealsPage() {
                     </div>
                 </div>
                 <button 
-                    onClick={fetchGuestMeals} 
+                    onClick={() => mutate()} 
                     className="w-10 h-10 rounded-2xl bg-white/90 border border-gray-100 flex items-center justify-center text-gray-600 hover:text-purple-600 shadow-sm transition-all cursor-pointer"
                     title="Refresh"
                 >

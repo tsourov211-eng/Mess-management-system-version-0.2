@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import { 
     IconReceipt2, 
     IconWallet, 
@@ -69,88 +70,81 @@ export default function BazaarManagementPage() {
     const formattedToday = today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     const currentMonthYear = today.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-    useEffect(() => {
-        fetchBazaarData();
-        fetchGlobalStats();
-    }, []);
+    // ─── SWR Data Fetching ───
+    const { 
+        data: bazaarData, 
+        isLoading: isBazaarLoading, 
+        mutate: mutateBazaarData 
+    } = useSWR("/api/bazaar");
 
-    const fetchBazaarData = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch("/api/bazaar");
-            if (res.ok) {
-                const data = await res.json();
-                setTodayAssigned(data.todayAssigned);
-                setTodayScheduleStatus(data.todayScheduleStatus);
-                setTodayScheduleId(data.todayScheduleId || null);
-                setSchedules(data.schedules || []);
-                setExpenses(data.todayExpenses || []);
-                setTodayTotal(data.todayTotal || 0);
-                setCookingHeadcount(data.cookingHeadcount || null);
-            }
-        } catch (error) {
-            console.error("Error fetching bazaar data:", error);
-        } finally {
+    const { 
+        data: globalStatsData, 
+        mutate: mutateGlobalStats 
+    } = useSWR("/api/admin/users");
+
+    const { 
+        data: fullMonthData, 
+        isLoading: isFullMonthLoading, 
+        mutate: mutateFullMonth 
+    } = useSWR(isModalOpen ? "/api/bazaar/month" : null);
+
+    const { 
+        data: monthlySummaryData, 
+        isLoading: isMonthlySummaryLoading, 
+        mutate: mutateMonthlySummary 
+    } = useSWR(
+        isMonthlyModalOpen ? `/api/bazaar/monthly-summary?month=${selectedMonth}&year=${selectedYear}` : null
+    );
+
+    useEffect(() => {
+        if (bazaarData) {
+            setTodayAssigned(bazaarData.todayAssigned);
+            setTodayScheduleStatus(bazaarData.todayScheduleStatus);
+            setTodayScheduleId(bazaarData.todayScheduleId || null);
+            setSchedules(bazaarData.schedules || []);
+            setExpenses(bazaarData.todayExpenses || []);
+            setTodayTotal(bazaarData.todayTotal || 0);
+            setCookingHeadcount(bazaarData.cookingHeadcount || null);
             setIsLoading(false);
+        } else {
+            setIsLoading(isBazaarLoading);
         }
-    };
-
-    const fetchMonthlySummary = async (month: number, year: number) => {
-        setIsLoadingMonthly(true);
-        try {
-            const res = await fetch(`/api/bazaar/monthly-summary?month=${month}&year=${year}`);
-            if (res.ok) {
-                const data = await res.json();
-                setMonthlySummary(data.data || []);
-            }
-        } catch (error) {
-            console.error("Error fetching monthly summary:", error);
-        } finally {
-            setIsLoadingMonthly(false);
-        }
-    };
+    }, [bazaarData, isBazaarLoading]);
 
     useEffect(() => {
-        if (isMonthlyModalOpen) {
-            fetchMonthlySummary(selectedMonth, selectedYear);
+        if (globalStatsData?.stats) {
+            setStats({
+                totalExpense: globalStatsData.stats.totalFoodCost,
+                availableBalance: globalStatsData.stats.messFund,
+            });
         }
-    }, [isMonthlyModalOpen, selectedMonth, selectedYear]);
+    }, [globalStatsData]);
 
-    const fetchFullMonthSchedules = async () => {
-        setIsLoadingMonth(true);
-        try {
-            const res = await fetch("/api/bazaar/month");
-            if (res.ok) {
-                const data = await res.json();
-                setFullMonthSchedules(data.schedules || []);
-            }
-        } catch (error) {
-            console.error("Error fetching full month schedule:", error);
-        } finally {
+    useEffect(() => {
+        if (fullMonthData?.schedules) {
+            setFullMonthSchedules(fullMonthData.schedules);
             setIsLoadingMonth(false);
+        } else {
+            setIsLoadingMonth(isFullMonthLoading);
         }
-    };
+    }, [fullMonthData, isFullMonthLoading]);
+
+    useEffect(() => {
+        if (monthlySummaryData?.data) {
+            setMonthlySummary(monthlySummaryData.data);
+            setIsLoadingMonthly(false);
+        } else {
+            setIsLoadingMonthly(isMonthlySummaryLoading);
+        }
+    }, [monthlySummaryData, isMonthlySummaryLoading]);
+
+    const fetchBazaarData = () => mutateBazaarData();
+    const fetchGlobalStats = () => mutateGlobalStats();
+    const fetchFullMonthSchedules = () => mutateFullMonth();
+    const fetchMonthlySummary = (_m?: number, _y?: number) => mutateMonthlySummary();
 
     const handleOpenModal = () => {
         setIsModalOpen(true);
-        fetchFullMonthSchedules();
-    };
-
-    const fetchGlobalStats = async () => {
-        try {
-            const res = await fetch("/api/admin/users");
-            if (res.ok) {
-                const data = await res.json();
-                if (data.stats) {
-                    setStats({
-                        totalExpense: data.stats.totalFoodCost,
-                        availableBalance: data.stats.messFund,
-                    });
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching global stats:", error);
-        }
     };
 
     const handleSubmitExpense = async () => {

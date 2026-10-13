@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
 import { 
     IconToolsKitchen2, 
     IconShoppingBag,
@@ -46,9 +47,23 @@ export default function FoodManagementPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+    const { 
+        data: mealsData, 
+        isLoading: isMealsLoading, 
+        mutate: mutateMeals 
+    } = useSWR(`/api/meals?date=${currentDate}`);
+
     useEffect(() => {
-        fetchMeals();
-    }, [currentDate]);
+        if (mealsData) {
+            setMembers(mealsData.members || []);
+            if (mealsData.stats) {
+                setStats(mealsData.stats);
+            }
+            setIsLoading(false);
+        } else {
+            setIsLoading(isMealsLoading);
+        }
+    }, [mealsData, isMealsLoading]);
 
     // Automatically dismiss toast after 3 seconds
     useEffect(() => {
@@ -58,23 +73,7 @@ export default function FoodManagementPage() {
         }
     }, [toast]);
 
-    const fetchMeals = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch(`/api/meals?date=${currentDate}`);
-            if (res.ok) {
-                const data = await res.json();
-                setMembers(data.members || []);
-                if (data.stats) {
-                    setStats(data.stats);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching meals:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const fetchMeals = () => mutateMeals();
 
     const handleMealChange = (index: number, field: "breakfast" | "lunch" | "dinner", val: string) => {
         const updated = [...members];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
 import Image from "next/image";
 import { 
     Pencil, 
@@ -17,9 +18,9 @@ import {
 } from "lucide-react";
 
 export default function ProfileView() {
-    const [profileData, setProfileData] = useState<any>(null);
-    const [stats, setStats] = useState({ totalDeposit: 0, totalMeals: 0 });
-    const [isLoading, setIsLoading] = useState(true);
+    const { data, isLoading, mutate } = useSWR<{ profile: any; stats?: any }>("/api/members/profile");
+    const profileData = data?.profile || null;
+    const stats = data?.stats || { totalDeposit: 0, totalMeals: 0 };
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -41,8 +42,19 @@ export default function ProfileView() {
     });
 
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        if (profileData) {
+            setProfileForm({
+                name: profileData.name || "",
+                phone: profileData.phone || "",
+                address: profileData.address || "",
+            });
+            setMealsForm({
+                breakfast: profileData.defaultBreakfast ?? 0.5,
+                lunch: profileData.defaultLunch ?? 1,
+                dinner: profileData.defaultDinner ?? 1,
+            });
+        }
+    }, [profileData]);
 
     // Auto-dismiss toast
     useEffect(() => {
@@ -51,33 +63,6 @@ export default function ProfileView() {
             return () => clearTimeout(timer);
         }
     }, [toast]);
-
-    const fetchProfile = async () => {
-        try {
-            const res = await fetch("/api/members/profile");
-            if (res.ok) {
-                const data = await res.json();
-                setProfileData(data.profile);
-                if (data.stats) {
-                    setStats(data.stats);
-                }
-                setProfileForm({
-                    name: data.profile.name || "",
-                    phone: data.profile.phone || "",
-                    address: data.profile.address || "",
-                });
-                setMealsForm({
-                    breakfast: data.profile.defaultBreakfast ?? 0.5,
-                    lunch: data.profile.defaultLunch ?? 1,
-                    dinner: data.profile.defaultDinner ?? 1,
-                });
-            }
-        } catch (error) {
-            console.error("Error fetching profile:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const handleSaveProfile = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -92,7 +77,7 @@ export default function ProfileView() {
             if (res.ok) {
                 setToast({ type: "success", message: "Profile details updated successfully!" });
                 setIsEditProfileOpen(false);
-                fetchProfile();
+                await mutate();
             } else {
                 const data = await res.json();
                 setToast({ type: "error", message: data.error || "Failed to update profile." });
@@ -122,7 +107,7 @@ export default function ProfileView() {
             if (res.ok) {
                 setToast({ type: "success", message: "Default meals updated successfully!" });
                 setIsEditMealsOpen(false);
-                fetchProfile();
+                await mutate();
             } else {
                 const data = await res.json();
                 setToast({ type: "error", message: data.error || "Failed to update default meals." });

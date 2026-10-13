@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { 
@@ -20,8 +21,8 @@ export default function PaymentsPage() {
     const userRole = (session?.user as any)?.role;
     const backHref = userRole === "admin" ? "/admin" : "/manager";
 
-    const [deposits, setDeposits] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { data, isLoading, mutate } = useSWR<{ pendingDeposits?: any[] }>("/api/manager/dashboard");
+    const deposits = data?.pendingDeposits || [];
     const [isProcessing, setIsProcessing] = useState(false);
     const [confirmModalState, setConfirmModalState] = useState<{
         isOpen: boolean;
@@ -31,25 +32,6 @@ export default function PaymentsPage() {
         confirmText: string;
         onConfirm: () => Promise<void> | void;
     } | null>(null);
-
-    useEffect(() => {
-        fetchDeposits();
-    }, []);
-
-    const fetchDeposits = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch("/api/manager/dashboard");
-            if (res.ok) {
-                const data = await res.json();
-                setDeposits(data.pendingDeposits || []);
-            }
-        } catch (error) {
-            console.error("Error fetching payments:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const handleAction = (id: string, action: "Approve" | "Reject") => {
         setConfirmModalState({
@@ -69,7 +51,7 @@ export default function PaymentsPage() {
 
                     if (res.ok) {
                         setConfirmModalState(null);
-                        fetchDeposits();
+                        mutate();
                     } else {
                         alert(`Failed to ${action.toLowerCase()} payment.`);
                     }
@@ -105,7 +87,7 @@ export default function PaymentsPage() {
                     </div>
                 </div>
                 <button 
-                    onClick={fetchDeposits} 
+                    onClick={() => mutate()} 
                     className="w-10 h-10 rounded-2xl bg-white/90 border border-gray-100 flex items-center justify-center text-gray-600 hover:text-blue-600 shadow-sm transition-all cursor-pointer"
                     title="Refresh"
                 >

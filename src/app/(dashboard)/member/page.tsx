@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import Link from "next/link";
 import { 
     IconWallet, 
@@ -98,61 +99,56 @@ export default function MemberDashboard() {
         "July", "August", "September", "October", "November", "December"
     ];
 
-    // ─── Fetch Member Dashboard Data ───
-    const fetchDashboardData = async () => {
-        try {
-            const res = await fetch("/api/members/dashboard-data");
-            if (res.ok) {
-                const data = await res.json();
-                setTotalDeposit(data.stats.totalDeposit || 0);
-                setUserMealDeposit(data.stats.userMealDeposit || 0);
-                setUserOverheadDeposit(data.stats.userOverheadDeposit || 0);
-                setMealFund(data.stats.mealFund ?? 0);
-                setMessFund(data.stats.messFund ?? 0);
-                setMonthlyOverheadConfig(data.monthlyOverheadConfig || null);
-                setTotalMeals(data.stats.totalMeals || 0);
-                setCurrentBalance(data.stats.currentBalance ?? 0);
-                setFixedCost(data.stats.fixedCost || 0);
-                setTotalCost(data.stats.totalCost || 0);
-                setLiveMealRate(data.stats.liveMealRate || 0);
-                setRecentMeals(data.recentMeals || []);
-                setNotices(data.notices || []);
-            }
-        } catch (error) {
-            console.error("Error fetching dashboard data:", error);
-        } finally {
+    // ─── Fetch Member Dashboard Data & Bazaar Schedules with SWR ───
+    const { 
+        data: dashboardData, 
+        isLoading: isSwrLoadingDashboard,
+        mutate: mutateDashboard 
+    } = useSWR(
+        status === "authenticated" ? "/api/members/dashboard-data" : null
+    );
+
+    const { 
+        data: bazaarData, 
+        isLoading: isSwrLoadingBazar, 
+        mutate: mutateBazar 
+    } = useSWR(
+        status === "authenticated" ? `/api/members/bazaar-schedule?month=${activeMonth + 1}&year=${activeYear}` : null
+    );
+
+    useEffect(() => {
+        if (dashboardData?.stats) {
+            setTotalDeposit(dashboardData.stats.totalDeposit || 0);
+            setUserMealDeposit(dashboardData.stats.userMealDeposit || 0);
+            setUserOverheadDeposit(dashboardData.stats.userOverheadDeposit || 0);
+            setMealFund(dashboardData.stats.mealFund ?? 0);
+            setMessFund(dashboardData.stats.messFund ?? 0);
+            setMonthlyOverheadConfig(dashboardData.monthlyOverheadConfig || null);
+            setTotalMeals(dashboardData.stats.totalMeals || 0);
+            setCurrentBalance(dashboardData.stats.currentBalance ?? 0);
+            setFixedCost(dashboardData.stats.fixedCost || 0);
+            setTotalCost(dashboardData.stats.totalCost || 0);
+            setLiveMealRate(dashboardData.stats.liveMealRate || 0);
+            setRecentMeals(dashboardData.recentMeals || []);
+            setNotices(dashboardData.notices || []);
+            setIsLoadingData(false);
+        } else if (!isSwrLoadingDashboard) {
             setIsLoadingData(false);
         }
-    };
+    }, [dashboardData, isSwrLoadingDashboard]);
 
     useEffect(() => {
-        if (status === "authenticated") {
-            fetchDashboardData();
-        }
-    }, [status]);
-
-    // ─── Fetch Bazaar Schedules ───
-    const fetchBazarSchedules = async (m: number, y: number) => {
-        setIsLoadingBazar(true);
-        try {
-            const res = await fetch(`/api/members/bazaar-schedule?month=${m + 1}&year=${y}`);
-            if (res.ok) {
-                const data = await res.json();
-                setBazarSchedules(data.mySchedules || []);
-                setMessSchedules(data.allSchedules || []);
-            }
-        } catch (error) {
-            console.error("Error fetching bazaar schedules:", error);
-        } finally {
+        if (bazaarData) {
+            setBazarSchedules(bazaarData.mySchedules || []);
+            setMessSchedules(bazaarData.allSchedules || []);
             setIsLoadingBazar(false);
+        } else {
+            setIsLoadingBazar(isSwrLoadingBazar);
         }
-    };
+    }, [bazaarData, isSwrLoadingBazar]);
 
-    useEffect(() => {
-        if (status === "authenticated") {
-            fetchBazarSchedules(activeMonth, activeYear);
-        }
-    }, [status, activeMonth, activeYear]);
+    const fetchDashboardData = () => mutateDashboard();
+    const fetchBazarSchedules = (_m?: number, _y?: number) => mutateBazar();
 
     // ─── Active Month Navigation ───
     const handlePrevActiveMonth = () => {

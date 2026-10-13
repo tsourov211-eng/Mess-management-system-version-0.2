@@ -57,6 +57,7 @@ import {
     Calendar
 } from "lucide-react";
 import Link from "next/link";
+import useSWR from "swr";
 import ConfirmModal from "@/components/ConfirmModal";
 
 export default function AdminDashboardPage() {
@@ -174,28 +175,62 @@ export default function AdminDashboardPage() {
     const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
     const currentMonth = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-    useEffect(() => {
-        fetchUsers();
-        fetchMobileDashboardData();
-        fetchDashboardData();
-    }, []);
+    // ─── SWR Data Fetching ───
+    const { 
+        data: managerDashboardData, 
+        mutate: mutateManagerDashboard 
+    } = useSWR("/api/manager/dashboard");
 
-    const fetchDashboardData = async () => {
-        try {
-            const res = await fetch("/api/manager/dashboard");
-            if (res.ok) {
-                const data = await res.json();
-                setPendingDeposits(data.pendingDeposits || []);
-                setPendingExpenses(data.pendingExpenses || []);
-                setPendingBazaarSchedules(data.pendingBazaarSchedules || []);
-                setPendingGuestMeals(data.pendingGuestMeals || []);
-                setNotices(data.notices || []);
-                setSelectedSchedules([]);
-            }
-        } catch (error) {
-            console.error("Error fetching manager dashboard data for admin:", error);
+    const { 
+        data: bazaarData, 
+        mutate: mutateBazaarData 
+    } = useSWR("/api/bazaar");
+
+    const { 
+        data: adminUsersData, 
+        isLoading: isUsersLoading, 
+        mutate: mutateAdminUsers 
+    } = useSWR("/api/admin/users");
+
+    useEffect(() => {
+        if (managerDashboardData) {
+            setPendingDeposits(managerDashboardData.pendingDeposits || []);
+            setPendingExpenses(managerDashboardData.pendingExpenses || []);
+            setPendingBazaarSchedules(managerDashboardData.pendingBazaarSchedules || []);
+            setPendingGuestMeals(managerDashboardData.pendingGuestMeals || []);
+            setNotices(managerDashboardData.notices || []);
+            setSelectedSchedules([]);
         }
-    };
+    }, [managerDashboardData]);
+
+    useEffect(() => {
+        if (bazaarData) {
+            setBazaarSchedules(bazaarData.schedules?.slice(0, 4) || []);
+            setTodayExpenses(bazaarData.expenses || []);
+            setTodayBazaarTotal(bazaarData.todayTotal || 0);
+        }
+    }, [bazaarData]);
+
+    useEffect(() => {
+        if (adminUsersData) {
+            const allUsers = adminUsersData.users || [];
+            setUsers(allUsers.filter((u: any) => u.role !== 'pending'));
+            setPendingMembers(allUsers.filter((u: any) => u.role === 'pending'));
+            if (adminUsersData.stats) {
+                setStats(adminUsersData.stats);
+                if (adminUsersData.stats.totalBazaarToday !== undefined) {
+                    setTodayBazaarTotal(adminUsersData.stats.totalBazaarToday);
+                }
+            }
+            setIsLoading(false);
+        } else if (!isUsersLoading) {
+            setIsLoading(false);
+        }
+    }, [adminUsersData, isUsersLoading]);
+
+    const fetchDashboardData = () => mutateManagerDashboard();
+    const fetchMobileDashboardData = () => mutateBazaarData();
+    const fetchUsers = () => mutateAdminUsers();
 
     // Notice Board Handlers
     const handleClearAllNotices = async () => {
@@ -341,42 +376,6 @@ export default function AdminDashboardPage() {
                 }
             }
         });
-    };
-
-    const fetchMobileDashboardData = async () => {
-        try {
-            const res = await fetch("/api/bazaar");
-            if (res.ok) {
-                const data = await res.json();
-                setBazaarSchedules(data.schedules?.slice(0, 4) || []);
-                setTodayExpenses(data.expenses || []);
-                setTodayBazaarTotal(data.todayTotal || 0);
-            }
-        } catch (e) {
-            console.error("Error fetching mobile dashboard data:", e);
-        }
-    };
-
-    const fetchUsers = async () => {
-        try {
-            const res = await fetch("/api/admin/users");
-            if (res.ok) {
-                const data = await res.json();
-                const allUsers = data.users || [];
-                setUsers(allUsers.filter((u: any) => u.role !== 'pending'));
-                setPendingMembers(allUsers.filter((u: any) => u.role === 'pending'));
-                if (data.stats) {
-                    setStats(data.stats);
-                    if (data.stats.totalBazaarToday !== undefined) {
-                        setTodayBazaarTotal(data.stats.totalBazaarToday);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching users:", error);
-        } finally {
-            setIsLoading(false);
-        }
     };
 
     // Function to update user role

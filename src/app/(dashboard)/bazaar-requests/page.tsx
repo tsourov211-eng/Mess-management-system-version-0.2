@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import { 
     IconArrowLeft, 
     IconCalendarUser, 
@@ -20,9 +21,7 @@ export default function BazaarRequestsPage() {
     const userRole = (session?.user as any)?.role;
     const backHref = userRole === "admin" ? "/admin" : "/manager";
 
-    const [requests, setRequests] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [confirmModalState, setConfirmModalState] = useState<{
         isOpen: boolean;
@@ -33,24 +32,17 @@ export default function BazaarRequestsPage() {
         onConfirm: () => Promise<void> | void;
     } | null>(null);
 
-    useEffect(() => {
-        fetchRequests();
-    }, []);
+    const { 
+        data: dashboardData, 
+        isLoading, 
+        mutate: mutateRequests 
+    } = useSWR<{ pendingBazaarSchedules?: any[] }>("/api/manager/dashboard");
 
-    const fetchRequests = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch("/api/manager/dashboard");
-            if (res.ok) {
-                const data = await res.json();
-                setRequests(data.pendingBazaarSchedules || []);
-                setSelectedIds([]);
-            }
-        } catch (error) {
-            console.error("Error fetching bazaar requests:", error);
-        } finally {
-            setIsLoading(false);
-        }
+    const requests: any[] = dashboardData?.pendingBazaarSchedules || [];
+
+    const fetchRequests = () => {
+        setSelectedIds([]);
+        return mutateRequests();
     };
 
     const handleAction = (id: string, action: "Approve" | "Reject") => {
@@ -87,7 +79,7 @@ export default function BazaarRequestsPage() {
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedIds(requests.map(r => r.id));
+            setSelectedIds(requests.map((r: any) => r.id));
         } else {
             setSelectedIds([]);
         }
@@ -202,7 +194,7 @@ export default function BazaarRequestsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                    {requests.map((item, idx) => {
+                    {requests.map((item: any, idx: number) => {
                         const isSelected = selectedIds.includes(item.id);
                         return (
                             <div 

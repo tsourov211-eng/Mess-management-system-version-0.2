@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import useSWR from "swr";
 import { useSession, signOut } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -68,7 +69,7 @@ function SettingsContent() {
         inAppAlerts: false,
     });
 
-    const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+    const { data: profileData, isLoading: isLoadingProfile, mutate } = useSWR<{ profile?: any }>("/api/members/profile");
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -91,49 +92,28 @@ function SettingsContent() {
         }
     }, []);
 
-    // Fetch user profile once on mount
+    // Sync profile state when SWR data is loaded/revalidated
     useEffect(() => {
-        let isMounted = true;
-
-        const fetchProfile = async () => {
-            try {
-                const res = await fetch("/api/members/profile");
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.profile && isMounted) {
-                        setFullName(data.profile.name || "");
-                        setEmail(data.profile.email || "");
-                        setPhone(data.profile.phone || "");
-                        setAddress(data.profile.address || "");
-                        if (data.profile.role) setRole(data.profile.role);
-                        if (data.profile.messName) setMessName(data.profile.messName);
-                        if (data.profile.image) setAvatarImage(data.profile.image);
-                        if (data.profile.defaultBreakfast !== undefined) {
-                            setDefaultBreakfast(data.profile.defaultBreakfast);
-                        }
-                        if (data.profile.defaultLunch !== undefined) {
-                            setDefaultLunch(data.profile.defaultLunch);
-                        }
-                        if (data.profile.defaultDinner !== undefined) {
-                            setDefaultDinner(data.profile.defaultDinner);
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error("Error fetching settings profile:", error);
-            } finally {
-                if (isMounted) {
-                    setIsLoadingProfile(false);
-                }
+        if (profileData?.profile) {
+            const prof = profileData.profile;
+            setFullName(prof.name || "");
+            setEmail(prof.email || "");
+            setPhone(prof.phone || "");
+            setAddress(prof.address || "");
+            if (prof.role) setRole(prof.role);
+            if (prof.messName) setMessName(prof.messName);
+            if (prof.image) setAvatarImage(prof.image);
+            if (prof.defaultBreakfast !== undefined) {
+                setDefaultBreakfast(prof.defaultBreakfast);
             }
-        };
-
-        fetchProfile();
-
-        return () => {
-            isMounted = false;
-        };
-    }, []);
+            if (prof.defaultLunch !== undefined) {
+                setDefaultLunch(prof.defaultLunch);
+            }
+            if (prof.defaultDinner !== undefined) {
+                setDefaultDinner(prof.defaultDinner);
+            }
+        }
+    }, [profileData]);
 
     const showToast = (message: string, type: "success" | "error") => {
         setToast({ message, type });
@@ -203,6 +183,7 @@ function SettingsContent() {
 
                 if (res.ok) {
                     showToast("Mess configuration saved successfully!", "success");
+                    mutate();
                     if (update) await update({ name: fullName });
                 } else {
                     const data = await res.json();
@@ -232,6 +213,7 @@ function SettingsContent() {
 
                 if (res.ok) {
                     showToast("Profile details updated successfully!", "success");
+                    mutate();
                     if (update) await update({ name: fullName });
                 } else {
                     const data = await res.json();

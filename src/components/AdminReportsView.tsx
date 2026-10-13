@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { 
     IconFileReport, 
     IconWallet, 
@@ -31,10 +32,11 @@ export default function AdminReportsView() {
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [searchTerm, setSearchTerm] = useState("");
-    
-    const [isLoading, setIsLoading] = useState(true);
     const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-    const [stats, setStats] = useState({
+
+    const reportsKey = `/api/admin/reports?month=${selectedMonth}&year=${selectedYear}`;
+    const { data: reportsData, isLoading } = useSWR<{ stats?: any; memberReports?: any[] }>(reportsKey);
+    const stats = reportsData?.stats || {
         totalMembers: 0,
         totalBazaarCost: 0,
         totalDeposit: 0,
@@ -42,56 +44,35 @@ export default function AdminReportsView() {
         currentBalance: 0,
         liveMealRate: 0,
         fixedCostPerMember: 0,
-    });
-    const [members, setMembers] = useState<any[]>([]);
+    };
+    const members = reportsData?.memberReports || [];
 
     // Full Report Export and Modal States
     const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isFullReportModalOpen, setIsFullReportModalOpen] = useState(false);
-    const [fullReportData, setFullReportData] = useState<any>(null);
-    const [isLoadingFullReport, setIsLoadingFullReport] = useState(false);
 
-    useEffect(() => {
-        fetchReports();
-    }, [selectedMonth, selectedYear]);
-
-    const fetchReports = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch(`/api/admin/reports?month=${selectedMonth}&year=${selectedYear}`);
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data.stats);
-                setMembers(data.memberReports || []);
-            }
-        } catch (error) {
-            console.error("Error fetching reports:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const fullReportKey = isFullReportModalOpen ? `/api/admin/monthly-full-report?month=${selectedMonth}&year=${selectedYear}` : null;
+    const { data: fullReportDataSWR, isLoading: isLoadingFullReport } = useSWR<any>(fullReportKey);
+    const fullReportData = fullReportDataSWR || null;
 
     const fetchFullReportData = async (m: number, y: number) => {
-        setIsLoadingFullReport(true);
+        if (fullReportData && fullReportData.month === m && fullReportData.year === y) {
+            return fullReportData;
+        }
         try {
             const res = await fetch(`/api/admin/monthly-full-report?month=${m}&year=${y}`);
             if (res.ok) {
-                const data = await res.json();
-                setFullReportData(data);
-                return data;
+                return await res.json();
             }
         } catch (error) {
             console.error("Error fetching full report data:", error);
-        } finally {
-            setIsLoadingFullReport(false);
         }
         return null;
     };
 
-    const openFullReportModal = async () => {
+    const openFullReportModal = () => {
         setIsFullReportModalOpen(true);
-        await fetchFullReportData(selectedMonth, selectedYear);
     };
 
     // Filter members for the table in real-time

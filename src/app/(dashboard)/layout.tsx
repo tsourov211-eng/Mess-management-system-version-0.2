@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react"; 
+import useSWR from "swr";
 import { 
     IconHome, 
     IconUsers, 
@@ -49,31 +50,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const pathname = usePathname();
     const { data: session, status } = useSession(); 
 
+    const { data: dashboardData, mutate: mutateDashboardData } = useSWR(
+        status === "authenticated" ? "/api/members/dashboard-data" : null
+    );
+
     useEffect(() => {
-        const fetchNotices = async () => {
+        if (dashboardData?.notices) {
+            let storedRead: string[] = [];
             try {
-                const res = await fetch("/api/members/dashboard-data");
-                if (res.ok) {
-                    const data = await res.json();
-                    let storedRead: string[] = [];
-                    try {
-                        storedRead = JSON.parse(localStorage.getItem('mess_read_notices') || '[]');
-                    } catch (e) {}
+                storedRead = JSON.parse(localStorage.getItem('mess_read_notices') || '[]');
+            } catch (e) {}
 
-                    const formattedNotices: NoticeItem[] = (data.notices || []).map((n: any) => ({
-                        ...n,
-                        isRead: storedRead.includes(n.id)
-                    }));
-                    setNotices(formattedNotices);
-                }
-            } catch (error) {
-                console.error("Error fetching notices in layout:", error);
-            }
-        };
+            const formattedNotices: NoticeItem[] = (dashboardData.notices || []).map((n: any) => ({
+                ...n,
+                isRead: storedRead.includes(n.id)
+            }));
+            setNotices(formattedNotices);
+        }
+    }, [dashboardData]);
 
-        if (status === "authenticated") {
-            fetchNotices();
-        } else if (status === "unauthenticated") {
+    useEffect(() => {
+        if (status === "unauthenticated") {
             signOut({ callbackUrl: "/login" });
         }
     }, [status]);
@@ -111,6 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setSelectedNotice(null);
         try {
             await fetch("/api/members/clear-notices", { method: "POST" });
+            mutateDashboardData();
         } catch (error) {
             console.error("Failed to clear notices:", error);
         }
@@ -125,6 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ noticeId }),
             });
+            mutateDashboardData();
         } catch (error) {
             console.error("Failed to dismiss notice:", error);
         }
